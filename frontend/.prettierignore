@@ -1,0 +1,11 @@
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+.vscode-test/
+out/
+dist/
+test-fixtures/
+node_modules/
+*.svg
+*.tsbuildinfo
+src/app/api/gen/
