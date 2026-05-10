@@ -30,46 +30,39 @@ func configCMD() *cli.Command {
 		Commands: []*cli.Command{
 			{
 				Name:  "genenvs",
-				Usage: "generate config yaml template",
+				Usage: "generate config yaml template and ENVS.md",
 				Action: func(_ context.Context, cl *cli.Command) error {
 					conf := &config.Config{}
 
-					_, err := xconfig.Load(conf, xconfig.WithEnvPrefix(envPrefix))
-					if err != nil {
-						return fmt.Errorf("failed to generate markdown: %w", err)
+					if _, err := xconfig.Load(conf, xconfig.WithEnvPrefix(envPrefix)); err != nil {
+						return fmt.Errorf("failed to load defaults: %w", err)
 					}
 
 					buf := bytes.NewBuffer(nil)
 					enc := yaml.NewEncoder(buf, yaml.Indent(2))
-					if err := enc.Close(); err != nil {
-						return fmt.Errorf("failed to close encoder: %w", err)
-					}
-
 					if err := enc.Encode(conf); err != nil {
 						return fmt.Errorf("failed to encode yaml: %w", err)
+					}
+					if err := enc.Close(); err != nil {
+						return fmt.Errorf("failed to close encoder: %w", err)
 					}
 
 					if err := os.WriteFile("config.template.yaml", buf.Bytes(), 0o600); err != nil {
 						return fmt.Errorf("failed to write file: %w", err)
 					}
 
-					// generate ENVS.md
-					vaultMarkdown, err := xconfig.GenerateMarkdown(
-						new(config.VaultConfig),
-					)
+					vaultMarkdown, err := xconfig.GenerateMarkdown(new(config.VaultConfig))
 					if err != nil {
-						return fmt.Errorf("failed to generate markdown: %w", err)
+						return fmt.Errorf("failed to generate vault markdown: %w", err)
 					}
 
 					envMarkdown, err := xconfig.GenerateMarkdown(
 						conf,
 						xconfig.WithEnvPrefix(envPrefix),
-						xconfig.WithPlugins(
-							env.New(envPrefix),
-						),
+						xconfig.WithPlugins(env.New(envPrefix)),
 					)
 					if err != nil {
-						return fmt.Errorf("failed to generate markdown: %w", err)
+						return fmt.Errorf("failed to generate env markdown: %w", err)
 					}
 
 					output := new(bytes.Buffer)

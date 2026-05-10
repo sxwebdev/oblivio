@@ -3,14 +3,12 @@ package main
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"strings"
 	"text/template"
 
 	"github.com/sxwebdev/oblivio/templates"
 	"github.com/urfave/cli/v3"
-	"golang.org/x/crypto/bcrypt"
 )
 
 func utilsCMD() *cli.Command {
@@ -19,33 +17,6 @@ func utilsCMD() *cli.Command {
 		Usage: "custom cli utils",
 		Commands: []*cli.Command{
 			genReadmeCMD(),
-			genAdminPasswordCMD(),
-		},
-	}
-}
-
-func genAdminPasswordCMD() *cli.Command {
-	return &cli.Command{
-		Name:  "utils",
-		Usage: "utility commands",
-		Commands: []*cli.Command{
-			{
-				Name:      "hashpw",
-				Usage:     "generate a bcrypt hash (cost 14) for the given password",
-				ArgsUsage: "<password>",
-				Action: func(_ context.Context, cl *cli.Command) error {
-					pw := cl.Args().First()
-					if pw == "" {
-						return fmt.Errorf("password argument is required")
-					}
-					hash, err := bcrypt.GenerateFromPassword([]byte(pw), 14)
-					if err != nil {
-						return fmt.Errorf("failed to hash password: %w", err)
-					}
-					fmt.Println(string(hash))
-					return nil
-				},
-			},
 		},
 	}
 }

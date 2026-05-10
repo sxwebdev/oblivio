@@ -4,86 +4,66 @@ package models
 import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/shopspring/decimal"
+	"net/netip"
 )
 
-type DelegationResourceType string
-
-const (
-	DelegationResourceTypeEnergy    DelegationResourceType = "energy"
-	DelegationResourceTypeBandwidth DelegationResourceType = "bandwidth"
-)
-
-func (e DelegationResourceType) Valid() bool {
-	switch e {
-	case DelegationResourceTypeEnergy,
-		DelegationResourceTypeBandwidth:
-		return true
-	}
-	return false
+type AuthSession struct {
+	ID               uuid.UUID          `db:"id" json:"id"`
+	UserID           uuid.UUID          `db:"user_id" json:"user_id"`
+	DeviceID         string             `db:"device_id" json:"device_id"`
+	DeviceType       string             `db:"device_type" json:"device_type"`
+	DeviceName       pgtype.Text        `db:"device_name" json:"device_name"`
+	Ip               *netip.Addr        `db:"ip" json:"ip"`
+	Country          pgtype.Text        `db:"country" json:"country"`
+	AccessTokenHash  []byte             `db:"access_token_hash" json:"access_token_hash"`
+	RefreshTokenHash []byte             `db:"refresh_token_hash" json:"refresh_token_hash"`
+	AccessExpiresAt  pgtype.Timestamptz `db:"access_expires_at" json:"access_expires_at"`
+	RefreshExpiresAt pgtype.Timestamptz `db:"refresh_expires_at" json:"refresh_expires_at"`
+	RevokedAt        pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	LastSeenAt       pgtype.Timestamptz `db:"last_seen_at" json:"last_seen_at"`
 }
 
-type DelegationStatus string
-
-const (
-	DelegationStatusPending    DelegationStatus = "pending"
-	DelegationStatusProcessing DelegationStatus = "processing"
-	DelegationStatusCompleted  DelegationStatus = "completed"
-	DelegationStatusFailed     DelegationStatus = "failed"
-)
-
-func (e DelegationStatus) Valid() bool {
-	switch e {
-	case DelegationStatusPending,
-		DelegationStatusProcessing,
-		DelegationStatusCompleted,
-		DelegationStatusFailed:
-		return true
-	}
-	return false
+type User struct {
+	ID              uuid.UUID          `db:"id" json:"id"`
+	Email           string             `db:"email" json:"email"`
+	EmailVerifiedAt pgtype.Timestamptz `db:"email_verified_at" json:"email_verified_at"`
+	IsActive        bool               `db:"is_active" json:"is_active"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type DelegationOrder struct {
-	ID              uuid.UUID              `db:"id" json:"id"`
-	WalletID        uuid.NullUUID          `db:"wallet_id" json:"wallet_id"`
-	TargetAddress   string                 `db:"target_address" json:"target_address"`
-	ResourceType    DelegationResourceType `db:"resource_type" json:"resource_type"`
-	Amount          int64                  `db:"amount" json:"amount"`
-	Period          string                 `db:"period" json:"period"`
-	Status          DelegationStatus       `db:"status" json:"status"`
-	Provider        string                 `db:"provider" json:"provider"`
-	ProviderOrderID pgtype.Text            `db:"provider_order_id" json:"provider_order_id"`
-	ErrorMessage    pgtype.Text            `db:"error_message" json:"error_message"`
-	IsManual        bool                   `db:"is_manual" json:"is_manual"`
-	CreatedAt       pgtype.Timestamptz     `db:"created_at" json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz     `db:"updated_at" json:"updated_at"`
-	CostTrx         decimal.NullDecimal    `db:"cost_trx" json:"cost_trx"`
-	TxHash          pgtype.Text            `db:"tx_hash" json:"tx_hash"`
-	DeliveredAmount pgtype.Int8            `db:"delivered_amount" json:"delivered_amount"`
+type UserAuth struct {
+	UserID         uuid.UUID          `db:"user_id" json:"user_id"`
+	AuthKeyHash    string             `db:"auth_key_hash" json:"auth_key_hash"`
+	FailedAttempts int32              `db:"failed_attempts" json:"failed_attempts"`
+	LockedUntil    pgtype.Timestamptz `db:"locked_until" json:"locked_until"`
 }
 
-type Setting struct {
-	Key       string             `db:"key" json:"key"`
-	Value     []byte             `db:"value" json:"value"`
-	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+type UserKdfParam struct {
+	UserID     uuid.UUID `db:"user_id" json:"user_id"`
+	SaltUser   []byte    `db:"salt_user" json:"salt_user"`
+	Argon2T    int32     `db:"argon2_t" json:"argon2_t"`
+	Argon2MKib int32     `db:"argon2_m_kib" json:"argon2_m_kib"`
+	Argon2P    int32     `db:"argon2_p" json:"argon2_p"`
+	Algo       string    `db:"algo" json:"algo"`
 }
 
-type Wallet struct {
-	ID                      uuid.UUID          `db:"id" json:"id"`
-	Name                    string             `db:"name" json:"name"`
-	Address                 string             `db:"address" json:"address"`
-	Blockchain              string             `db:"blockchain" json:"blockchain"`
-	EnergyThreshold         int64              `db:"energy_threshold" json:"energy_threshold"`
-	BandwidthThreshold      int64              `db:"bandwidth_threshold" json:"bandwidth_threshold"`
-	EnergyDelegateAmount    int64              `db:"energy_delegate_amount" json:"energy_delegate_amount"`
-	BandwidthDelegateAmount int64              `db:"bandwidth_delegate_amount" json:"bandwidth_delegate_amount"`
-	EnergyPeriod            string             `db:"energy_period" json:"energy_period"`
-	BandwidthPeriod         string             `db:"bandwidth_period" json:"bandwidth_period"`
-	IsActive                bool               `db:"is_active" json:"is_active"`
-	CurrentEnergy           int64              `db:"current_energy" json:"current_energy"`
-	CurrentBandwidth        int64              `db:"current_bandwidth" json:"current_bandwidth"`
-	CurrentBalance          string             `db:"current_balance" json:"current_balance"`
-	LastCheckedAt           pgtype.Timestamptz `db:"last_checked_at" json:"last_checked_at"`
-	CreatedAt               pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt               pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+type UserLoginTotp struct {
+	UserID          uuid.UUID          `db:"user_id" json:"user_id"`
+	EncryptedSecret []byte             `db:"encrypted_secret" json:"encrypted_secret"`
+	Nonce           []byte             `db:"nonce" json:"nonce"`
+	Enabled         bool               `db:"enabled" json:"enabled"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type UserVault struct {
+	UserID                  uuid.UUID          `db:"user_id" json:"user_id"`
+	Verifier                []byte             `db:"verifier" json:"verifier"`
+	WrappedVaultKey         []byte             `db:"wrapped_vault_key" json:"wrapped_vault_key"`
+	VaultKeyVersion         int32              `db:"vault_key_version" json:"vault_key_version"`
+	RecoverySalt            []byte             `db:"recovery_salt" json:"recovery_salt"`
+	RecoveryWrappedVaultKey []byte             `db:"recovery_wrapped_vault_key" json:"recovery_wrapped_vault_key"`
+	RecoveryProofHash       string             `db:"recovery_proof_hash" json:"recovery_proof_hash"`
+	RecoveryUsedAt          pgtype.Timestamptz `db:"recovery_used_at" json:"recovery_used_at"`
 }

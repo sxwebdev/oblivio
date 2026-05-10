@@ -4,11 +4,11 @@ services:
     ports:
       - 5432:5432
     environment:
-      POSTGRES_DB: delegator
+      POSTGRES_DB: oblivio
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     restart: unless-stopped
     healthcheck:
       test: pg_isready -U postgres

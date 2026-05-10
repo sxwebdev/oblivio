@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package oblivio.v1;
+
+option go_package = "github.com/sxwebdev/oblivio/internal/api/pb/oblivio/v1;oblivio_v1";
+
+// VaultService exposes per-user metadata such as TOTP/WebAuthn status and
+// destructive operations like account deletion (crypto-shred).
+service VaultService {
+  rpc GetMe(GetMeRequest) returns (GetMeResponse);
+  rpc DeleteMe(DeleteMeRequest) returns (DeleteMeResponse);
+}
+
+message GetMeRequest {}
+message GetMeResponse {
+  string user_id = 1;
+  string email = 2;
+  bool email_verified = 3;
+  bool totp_enabled = 4;
+  uint32 webauthn_credentials_count = 5;
+}
+
+message DeleteMeRequest {
+  string reason = 1;
+}
+
+message DeleteMeResponse {}

@@ -11,6 +11,8 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/riverqueue/river/rivermigrate"
+	"github.com/sxwebdev/oblivio/internal/api"
+	"github.com/sxwebdev/oblivio/internal/auth"
 	"github.com/sxwebdev/oblivio/internal/config"
 	"github.com/sxwebdev/oblivio/internal/jobs"
 	"github.com/sxwebdev/oblivio/internal/metrics"
@@ -58,10 +60,37 @@ func startCMD() *cli.Command {
 				return fmt.Errorf("river migrations failed: %w", err)
 			}
 
+			// Open the Postgres pool synchronously so pool-dependent services can be
+			// constructed before the launcher takes over lifecycle management.
+			// pg is managed outside the launcher so it stays alive while other
+			// services tear down via LIFO and is closed only after launcher.Run returns.
 			pg := postgres.New(l, conf.Postgres.DSN())
+			if err := pg.Start(ctx); err != nil {
+				return fmt.Errorf("postgres start: %w", err)
+			}
+			defer func() {
+				if err := pg.Stop(context.Background()); err != nil {
+					l.Errorw("postgres stop failed", "error", err)
+				}
+			}()
 
-			// Assemble launcher (LIFO stop order).
-			// pp and pg start sequentially; all others are registered in the AfterSequential hook.
+			st := store.New(pg)
+
+			secrets, err := auth.LoadSecrets("data/secrets", conf.Auth.AccessTokenSecretKey, conf.Auth.RefreshTokenSecretKey)
+			if err != nil {
+				return fmt.Errorf("load auth secrets: %w", err)
+			}
+			defer secrets.Close()
+
+			authManager := auth.NewManager(secrets, st, conf.Auth.AccessTokenTTL, conf.Auth.RefreshTokenTTL)
+
+			jobService, err := jobs.NewService(l, conf.Jobs, pg.Pool(), st)
+			if err != nil {
+				return fmt.Errorf("failed to create job service: %w", err)
+			}
+
+			apiServer := api.New(l, conf.Server, conf.Auth, authManager, st)
+
 			lnc := launcher.New(
 				launcher.WithName(appName),
 				launcher.WithVersion(version),
@@ -73,74 +102,9 @@ func startCMD() *cli.Command {
 			)
 
 			lnc.ServicesRunner().Register(
-				launcher.NewService(launcher.WithService(pg), launcher.WithStartupPriority(1)),
-			)
-
-			// below not working now
-			// // Derive K_root from admin secret (env for MVP) and TPM stub
-			// admin := []byte(os.Getenv("OBLIVIO_ADMIN_SECRET"))
-			// nv := tpm.NewNV()
-			// _ = nv
-			// sk, err := keys.DeriveStoreKeys(admin, []byte("tpm_stub"))
-			// if err != nil {
-			// 	log.Fatalf("keys: %v", err)
-			// }
-
-			// // Open DB
-			// db, err := storage.Open(cfg.DBPath, sk.KStoreMAC)
-			// if err != nil {
-			// 	log.Fatalf("db open: %v", err)
-			// }
-			// defer db.Close()
-
-			// // Startup checks
-			// if err := db.VerifyAllMACs(); err != nil {
-			// 	log.Fatalf("anti-tamper mac: %v", err)
-			// }
-			// root, err := db.ComputeRoot()
-			// if err != nil {
-			// 	log.Fatalf("compute root: %v", err)
-			// }
-			// // Read seal and compare
-			// if seal, err := db.ReadSeal(sk.KSeal); err == nil {
-			// 	if seal.RootGlobal != root {
-			// 		log.Fatalf("seal root mismatch")
-			// 	}
-			// }
-			// // Write fresh seal
-			// s := db.NewSeal(0, root)
-			// if err := db.WriteSeal(sk.KSeal, s); err != nil {
-			// 	log.Fatalf("write seal: %v", err)
-			// }
-			// _ = icrypto.ErrMACMismatch
-
-			// // HTTP Server
-			// srv := server.New(cfg, db)
-			// if err := srv.Listen(cfg.ListenAddr); err != nil {
-			// 	log.Fatal(err)
-			// }
-
-			// After pp and pg start (pool is valid), construct all pool-dependent services.
-			st := store.New(pg)
-			// tokenStore := tokenmanager.NewMemoryTokenStore()
-			// authManager := auth.NewManager(
-			// 	conf.Auth.AccessTokenSecretKey,
-			// 	conf.Auth.RefreshTokenSecretKey,
-			// 	20*time.Minute,
-			// 	30*24*time.Hour,
-			// 	tokenStore,
-			// )
-			// apiServer := api.New(l, conf, authManager, st, jobService.RiverClient(), pm, tronClient)
-
-			jobService, err := jobs.NewService(l, conf.Jobs, pg.Pool(), st)
-			if err != nil {
-				return fmt.Errorf("failed to create job service: %w", err)
-			}
-
-			lnc.ServicesRunner().Register(
-				launcher.NewService(launcher.WithService(pingpong.New(l, pingpong.WithTimeout(15*time.Minute)))),
-				launcher.NewService(launcher.WithService(jobService)),
-				// launcher.NewService(launcher.WithService(apiServer)),
+				launcher.NewService(launcher.WithService(pingpong.New(l, pingpong.WithTimeout(15*time.Minute))), launcher.WithStartupPriority(1)),
+				launcher.NewService(launcher.WithService(jobService), launcher.WithStartupPriority(2)),
+				launcher.NewService(launcher.WithService(apiServer), launcher.WithStartupPriority(3)),
 			)
 
 			return lnc.Run()

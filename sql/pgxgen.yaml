@@ -32,70 +32,21 @@ schemas:
           - db_type: uuid
             nullable: true
             go_type: github.com/google/uuid.NullUUID
-          - db_type: numeric
-            go_type: github.com/shopspring/decimal.Decimal
-          - db_type: numeric
-            nullable: true
-            go_type: github.com/shopspring/decimal.NullDecimal
 
     defaults:
       queries_dir_prefix: queries
       output_dir_prefix: ../internal/store/repos
-      crud:
-        auto_clean: true
-        exclude_table_name: true
-        methods:
-          create:
-            skip_columns: [id, updated_at]
-            returning: "*"
-            column_values: { created_at: "now()" }
-      constants:
-        include_column_names: true
 
     tables:
-      wallets:
+      users:
         primary_column: id
-        crud:
-          methods:
-            create:
-              skip_columns: [id, updated_at]
-              returning: "*"
-              column_values: { created_at: "now()" }
-            update:
-              skip_columns: [id, created_at]
-              returning: "*"
-              column_values: { updated_at: "now()" }
-            delete: {}
-            get:
-              name: GetByID
-            find:
-              order: { by: created_at, direction: DESC }
-              limit: true
-            total: {}
-
-      delegation_orders:
+      user_kdf_params:
+        primary_column: user_id
+      user_auth:
+        primary_column: user_id
+      user_vault:
+        primary_column: user_id
+      user_login_totp:
+        primary_column: user_id
+      auth_sessions:
         primary_column: id
-        crud:
-          methods:
-            create:
-              skip_columns: [id, updated_at]
-              returning: "*"
-              column_values: { created_at: "now()" }
-            update:
-              skip_columns: [id, created_at]
-              returning: "*"
-              column_values: { updated_at: "now()" }
-            get:
-              name: GetByID
-            find:
-              order: { by: created_at, direction: DESC }
-              limit: true
-            total: {}
-
-      settings:
-        primary_column: key
-        crud:
-          methods:
-            get:
-              name: GetByKey
-            find: {}

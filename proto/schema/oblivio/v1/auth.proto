@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package oblivio.v1;
+
+import "oblivio/v1/common.proto";
+
+option go_package = "github.com/sxwebdev/oblivio/internal/api/pb/oblivio/v1;oblivio_v1";
+
+// AuthService handles registration, login, refresh and recovery for the
+// zero-knowledge oblivio vault. The server never sees master_password,
+// master_key, vault_key or item_key — only their derived auth_key, the
+// per-user KDF parameters and ciphertext blobs.
+service AuthService {
+  // Anonymous endpoints.
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc GetKDFParams(GetKDFParamsRequest) returns (GetKDFParamsResponse);
+  rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+
+  // Authenticated endpoints.
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc GetMyKeys(GetMyKeysRequest) returns (GetMyKeysResponse);
+}
+
+message RegisterRequest {
+  string email = 1;
+  // Argon2id parameters chosen by the client (typically t=3,m=128MiB,p=4).
+  bytes salt_user = 2;
+  Argon2Params kdf_params = 3;
+  // auth_key = HKDF-SHA256(master_key, info="oblivio/auth/v1", salt=email).
+  // The server hashes auth_key with Argon2id once more before storing.
+  bytes auth_key = 4;
+  // AES-GCM(master_key, "oblivio-verify"); 32+ bytes (nonce || ct || tag).
+  bytes verifier = 5;
+  // AES-GCM(master_key, vault_key); vault_key is generated client-side.
+  bytes wrapped_vault_key = 6;
+  // Recovery artefacts derived from recovery_code shown to the user once.
+  bytes recovery_salt = 7;
+  bytes recovery_wrapped_vault_key = 8;
+  // Argon2id(HKDF(recovery_key,"oblivio/auth/v1")) — server stores hashed proof.
+  bytes recovery_proof = 9;
+  DeviceInfo device_info = 10;
+}
+
+message RegisterResponse {
+  string user_id = 1;
+  AuthPayload auth_payload = 2;
+}
+
+message GetKDFParamsRequest {
+  string email = 1;
+}
+
+message GetKDFParamsResponse {
+  bytes salt_user = 1;
+  Argon2Params kdf_params = 2;
+}
+
+message AuthorizeRequest {
+  string email = 1;
+  bytes auth_key = 2;
+  // Optional second-factor code for login-TOTP (5.3) when enabled.
+  string totp_code = 3;
+  DeviceInfo device_info = 4;
+}
+
+message AuthorizeResponse {
+  AuthPayload auth_payload = 1;
+  // When set, the client must complete an additional MFA step before tokens
+  // are issued. Reserved for Sprint 3.
+  string mfa_challenge_id = 2;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+  DeviceInfo device_info = 2;
+}
+
+message RefreshTokenResponse {
+  AuthPayload auth_payload = 1;
+}
+
+message LogoutRequest {}
+message LogoutResponse {}
+
+message GetMyKeysRequest {}
+message GetMyKeysResponse {
+  bytes verifier = 1;
+  bytes wrapped_vault_key = 2;
+  uint32 vault_key_version = 3;
+}

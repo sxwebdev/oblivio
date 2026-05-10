@@ -22,6 +22,11 @@ type Service struct {
 	st          *store.Store
 	log         logger.ExtendedLogger
 	riverClient *river.Client[pgxtx]
+	// hasWorkers is true when at least one worker is registered. River refuses to
+	// Start a client without both Queues and Workers configured, so when no
+	// workers exist the service runs in insert-only mode and Start is a no-op
+	// that blocks until context cancellation.
+	hasWorkers bool
 }
 
 // NewService creates a new River job service and initialises the River client.
@@ -34,79 +39,18 @@ func NewService(
 ) (*Service, error) {
 	driver := riverpgxv5.New(pool)
 
-	// cronParser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
-	// balanceSchedule, err := cronParser.Parse(cfg.CheckProviderBalanceCron)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("parse check_provider_balance_cron %q: %w", cfg.CheckProviderBalanceCron, err)
-	// }
-
-	// // Build workers first; the shared walletChecker gets its riverClient pointer wired below.
-	// checker := &walletChecker{
-	// 	store:      st,
-	// 	tronClient: tronClient,
-	// 	log:        log,
-	// }
-	// checkAllWorker := &CheckWalletsWorker{
-	// 	store:   st,
-	// 	checker: checker,
-	// 	log:     log,
-	// }
-	// checkOneWorker := &CheckWalletWorker{
-	// 	store:   st,
-	// 	checker: checker,
-	// 	log:     log,
-	// }
-
 	workers := river.NewWorkers()
-	// river.AddWorker(workers, checkAllWorker)
-	// river.AddWorker(workers, checkOneWorker)
-	// river.AddWorker(workers, &DelegateResourceWorker{
-	// 	store:           st,
-	// 	providerManager: pm,
-	// 	log:             log,
-	// })
-	// river.AddWorker(workers, &PollPendingOrdersWorker{
-	// 	store:           st,
-	// 	providerManager: pm,
-	// 	timeout:         cfg.PollPendingOrdersTimeout,
-	// 	log:             log,
-	// })
-	// river.AddWorker(workers, &CheckProviderBalanceWorker{
-	// 	providerManager: pm,
-	// 	log:             log,
-	// })
+	// Workers are registered as new background jobs are introduced.
+	hasWorkers := false
 
-	// periodicJobs := []*river.PeriodicJob{
-	// 	river.NewPeriodicJob(
-	// 		river.PeriodicInterval(cfg.CheckWalletsInterval),
-	// 		func() (river.JobArgs, *river.InsertOpts) {
-	// 			return CheckWalletsArgs{}, nil
-	// 		},
-	// 		&river.PeriodicJobOpts{RunOnStart: true},
-	// 	),
-	// 	river.NewPeriodicJob(
-	// 		river.PeriodicInterval(cfg.PollPendingOrdersInterval),
-	// 		func() (river.JobArgs, *river.InsertOpts) {
-	// 			return PollPendingOrdersArgs{}, nil
-	// 		},
-	// 		&river.PeriodicJobOpts{RunOnStart: false},
-	// 	),
-	// 	river.NewPeriodicJob(
-	// 		balanceSchedule,
-	// 		func() (river.JobArgs, *river.InsertOpts) {
-	// 			return CheckProviderBalanceArgs{}, nil
-	// 		},
-	// 		&river.PeriodicJobOpts{RunOnStart: true},
-	// 	),
-	// }
-
-	riverClient, err := river.NewClient(driver, &river.Config{
-		Queues: map[string]river.QueueConfig{
+	rcfg := &river.Config{Workers: workers}
+	if hasWorkers {
+		rcfg.Queues = map[string]river.QueueConfig{
 			river.QueueDefault: {MaxWorkers: 10},
-		},
-		Workers: workers,
-		// PeriodicJobs: periodicJobs,
-	})
+		}
+	}
+
+	riverClient, err := river.NewClient(driver, rcfg)
 	if err != nil {
 		return nil, fmt.Errorf("create river client: %w", err)
 	}
@@ -116,6 +60,7 @@ func NewService(
 		st:          st,
 		log:         log,
 		riverClient: riverClient,
+		hasWorkers:  hasWorkers,
 	}, nil
 }
 
@@ -123,9 +68,13 @@ func NewService(
 func (s *Service) Name() string { return "river-jobs" }
 
 // Start runs the River client and blocks until ctx is cancelled.
+// When no workers are registered the client is not started (River would reject
+// it); the service simply waits for shutdown so it slots into the launcher.
 func (s *Service) Start(ctx context.Context) error {
-	if err := s.riverClient.Start(ctx); err != nil {
-		return fmt.Errorf("start river client: %w", err)
+	if s.hasWorkers {
+		if err := s.riverClient.Start(ctx); err != nil {
+			return fmt.Errorf("start river client: %w", err)
+		}
 	}
 	<-ctx.Done()
 	return nil
@@ -133,6 +82,9 @@ func (s *Service) Start(ctx context.Context) error {
 
 // Stop gracefully shuts down the River client.
 func (s *Service) Stop(ctx context.Context) error {
+	if !s.hasWorkers {
+		return nil
+	}
 	return s.riverClient.Stop(ctx)
 }
 
