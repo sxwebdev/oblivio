@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -31,10 +32,12 @@ type IssuedTokens struct {
 // token type) plus a thin layer that mirrors session state into auth_sessions
 // so it survives across restarts and is visible in the UI.
 type Manager struct {
-	access  *tokenmanager.Manager[SessionData]
-	refresh *tokenmanager.Manager[SessionData]
-	secrets *Secrets
-	st      *store.Store
+	access       *tokenmanager.Manager[SessionData]
+	refresh      *tokenmanager.Manager[SessionData]
+	accessStore  *tokenmanager.MemoryTokenStore
+	refreshStore *tokenmanager.MemoryTokenStore
+	secrets      *Secrets
+	st           *store.Store
 
 	accessTTL  time.Duration
 	refreshTTL time.Duration
@@ -47,12 +50,14 @@ func NewManager(secrets *Secrets, st *store.Store, accessTTL, refreshTTL time.Du
 	accessStore := tokenmanager.NewMemoryTokenStore()
 	refreshStore := tokenmanager.NewMemoryTokenStore()
 	return &Manager{
-		access:     tokenmanager.New[SessionData](accessStore, secrets.AccessSecret(), accessTTL),
-		refresh:    tokenmanager.New[SessionData](refreshStore, secrets.RefreshSecret(), refreshTTL),
-		secrets:    secrets,
-		st:         st,
-		accessTTL:  accessTTL,
-		refreshTTL: refreshTTL,
+		access:       tokenmanager.New[SessionData](accessStore, secrets.AccessSecret(), accessTTL),
+		refresh:      tokenmanager.New[SessionData](refreshStore, secrets.RefreshSecret(), refreshTTL),
+		accessStore:  accessStore,
+		refreshStore: refreshStore,
+		secrets:      secrets,
+		st:           st,
+		accessTTL:    accessTTL,
+		refreshTTL:   refreshTTL,
 	}
 }
 
@@ -138,6 +143,23 @@ func (m *Manager) Refresh(ctx context.Context, refreshToken, deviceType, deviceN
 	return m.Issue(ctx, userID, data.AdditionalData.DeviceID, dt, deviceName)
 }
 
+// RevokeAllUserTokens deletes every access/refresh token still held by the
+// in-memory tokenmanager store for the given user. Used by RecoveryComplete
+// and "terminate all sessions" so a leaked password+code combination cannot
+// resurrect itself through still-valid signatures.
+//
+// The store is scanned linearly; for the expected fleet size (single-digit
+// devices per user, low single-digit QPS for auth) this is fine.
+func (m *Manager) RevokeAllUserTokens(ctx context.Context, userID uuid.UUID) error {
+	if err := revokeAllInStore(ctx, m.accessStore, userID); err != nil {
+		return fmt.Errorf("revoke access tokens: %w", err)
+	}
+	if err := revokeAllInStore(ctx, m.refreshStore, userID); err != nil {
+		return fmt.Errorf("revoke refresh tokens: %w", err)
+	}
+	return nil
+}
+
 // Logout revokes the access token (and any cached state in tokenmanager) and
 // marks the associated auth_sessions row revoked.
 func (m *Manager) Logout(ctx context.Context, accessToken string) error {
@@ -158,4 +180,29 @@ func textOrNull(s string) pgtype.Text {
 		return pgtype.Text{}
 	}
 	return pgtype.Text{String: s, Valid: true}
+}
+
+// revokeAllInStore iterates the in-memory token store and deletes any entry
+// whose embedded user_id matches `userID`. The store keys tokens by a hex
+// payload — there is no per-user index — so this is O(N) over live tokens.
+// For the expected fleet size that cost is negligible.
+func revokeAllInStore(ctx context.Context, store *tokenmanager.MemoryTokenStore, userID uuid.UUID) error {
+	entries, err := store.KeysAndValues(ctx, nil)
+	if err != nil {
+		return err
+	}
+	want := userID.String()
+	for k, v := range entries {
+		var td tokenmanager.Data[SessionData]
+		if err := json.Unmarshal(v, &td); err != nil {
+			continue // skip unparseable entries; expired sweep will remove them
+		}
+		if td.UserID != want {
+			continue
+		}
+		if err := store.Delete(ctx, []byte(k)); err != nil {
+			return err
+		}
+	}
+	return nil
 }

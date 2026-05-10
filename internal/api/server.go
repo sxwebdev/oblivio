@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	wa "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/tkcrm/mx/launcher/ops"
 	"github.com/tkcrm/mx/logger"
 
@@ -18,9 +19,11 @@ import (
 	apiauth "github.com/sxwebdev/oblivio/internal/api/auth"
 	apientries "github.com/sxwebdev/oblivio/internal/api/entries"
 	"github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1/obliviov1connect"
+	apilogintotp "github.com/sxwebdev/oblivio/internal/api/login_totp"
 	"github.com/sxwebdev/oblivio/internal/api/middleware"
 	apiprojects "github.com/sxwebdev/oblivio/internal/api/projects"
 	apivault "github.com/sxwebdev/oblivio/internal/api/vault"
+	apiwebauthn "github.com/sxwebdev/oblivio/internal/api/webauthn"
 	"github.com/sxwebdev/oblivio/internal/audit"
 	"github.com/sxwebdev/oblivio/internal/auth"
 	"github.com/sxwebdev/oblivio/internal/config"
@@ -29,24 +32,44 @@ import (
 
 // Server hosts the ConnectRPC API and the embedded WebUI on a single port.
 type Server struct {
-	log   logger.ExtendedLogger
-	cfg   config.ServerConfig
-	auth  config.AuthConfig
-	store *store.Store
-	am    *auth.Manager
-	srv   *http.Server
-	errCh chan error
+	log      logger.ExtendedLogger
+	cfg      config.ServerConfig
+	auth     config.AuthConfig
+	store    *store.Store
+	am       *auth.Manager
+	wa       *wa.WebAuthn
+	mfaStore *auth.MFAStore
+	recovery *auth.RecoveryStore
+	srv      *http.Server
+	errCh    chan error
+}
+
+// Deps groups the constructor arguments. mfaStore and recovery may be nil —
+// in that case the server starts the 2FA / recovery features in a degraded
+// state (Authorize will still work for users without 2FA).
+type Deps struct {
+	Log           logger.ExtendedLogger
+	Cfg           config.ServerConfig
+	Auth          config.AuthConfig
+	Store         *store.Store
+	AuthManager   *auth.Manager
+	WebAuthn      *wa.WebAuthn
+	MFAStore      *auth.MFAStore
+	RecoveryStore *auth.RecoveryStore
 }
 
 // New constructs the API server. It does not start listening — call Start.
-func New(log logger.ExtendedLogger, cfg config.ServerConfig, authCfg config.AuthConfig, am *auth.Manager, st *store.Store) *Server {
+func New(d Deps) *Server {
 	return &Server{
-		log:   log,
-		cfg:   cfg,
-		auth:  authCfg,
-		store: st,
-		am:    am,
-		errCh: make(chan error, 1),
+		log:      d.Log,
+		cfg:      d.Cfg,
+		auth:     d.Auth,
+		store:    d.Store,
+		am:       d.AuthManager,
+		wa:       d.WebAuthn,
+		mfaStore: d.MFAStore,
+		recovery: d.RecoveryStore,
+		errCh:    make(chan error, 1),
 	}
 }
 
@@ -75,7 +98,15 @@ func (s *Server) Start(ctx context.Context) error {
 
 	rpcMux := http.NewServeMux()
 
-	authSvc := apiauth.NewService(s.store, s.am, s.auth, auditWriter)
+	authSvc := apiauth.NewService(apiauth.Deps{
+		Store:         s.store,
+		AuthManager:   s.am,
+		Cfg:           s.auth,
+		AuditWriter:   auditWriter,
+		WebAuthn:      s.wa,
+		MFAStore:      s.mfaStore,
+		RecoveryStore: s.recovery,
+	})
 	rpcMux.Handle(obliviov1connect.NewAuthServiceHandler(authSvc))
 
 	projectsSvc := apiprojects.NewService()
@@ -90,20 +121,23 @@ func (s *Server) Start(ctx context.Context) error {
 	vaultSvc := apivault.NewService()
 	rpcMux.Handle(obliviov1connect.NewVaultServiceHandler(vaultSvc, interceptors))
 
+	loginTOTPSvc := apilogintotp.NewService()
+	rpcMux.Handle(obliviov1connect.NewLoginTOTPServiceHandler(loginTOTPSvc, interceptors))
+
+	if s.wa != nil {
+		webauthnSvc := apiwebauthn.NewService(s.wa, s.mfaStore, auditWriter)
+		rpcMux.Handle(obliviov1connect.NewWebAuthnServiceHandler(webauthnSvc, interceptors))
+	} else {
+		s.log.Warnf("webauthn relying party not configured; passkeys disabled")
+	}
+
 	authMW := middleware.NewAuthMiddleware(s.am)
 	idempotencyMW := middleware.NewIdempotencyMiddleware(s.store, middleware.IdempotencyConfig{
 		Procedures: idempotentProcedures,
 	})
 
-	// Outer-to-inner: authn → idempotency → rpcMux. authn populates the
-	// user_id; idempotency reads it; the connect handlers run last with the
-	// RLS interceptor opening a tx per call.
 	wrappedRPC := authMW.Wrap(idempotencyMW.Wrap(rpcMux))
 
-	// All ConnectRPC procedures are served under the `/api` prefix so the
-	// Vite dev proxy (`/api` → :8080) and the embedded prod UI share a
-	// single same-origin contract. StripPrefix keeps the inner mux and
-	// middleware procedure keys as the canonical `/oblivio.v1.*` paths.
 	apiHandler := http.StripPrefix("/api", wrappedRPC)
 	root := http.NewServeMux()
 	root.Handle("/api/oblivio.v1.AuthService/", apiHandler)
@@ -111,6 +145,8 @@ func (s *Server) Start(ctx context.Context) error {
 	root.Handle("/api/oblivio.v1.EntriesService/", apiHandler)
 	root.Handle("/api/oblivio.v1.AuditService/", apiHandler)
 	root.Handle("/api/oblivio.v1.VaultService/", apiHandler)
+	root.Handle("/api/oblivio.v1.LoginTOTPService/", apiHandler)
+	root.Handle("/api/oblivio.v1.WebAuthnService/", apiHandler)
 	root.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)

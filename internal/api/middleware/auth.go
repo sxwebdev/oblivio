@@ -47,10 +47,14 @@ func MustFromContext(ctx context.Context) *UserContext {
 // The list is intentionally small and explicit — a missing entry fails
 // closed (returns UNAUTHENTICATED).
 var AnonymousProcedures = map[string]struct{}{
-	"/oblivio.v1.AuthService/Register":     {},
-	"/oblivio.v1.AuthService/GetKDFParams": {},
-	"/oblivio.v1.AuthService/Authorize":    {},
-	"/oblivio.v1.AuthService/RefreshToken": {},
+	"/oblivio.v1.AuthService/Register":          {},
+	"/oblivio.v1.AuthService/GetKDFParams":      {},
+	"/oblivio.v1.AuthService/Authorize":         {},
+	"/oblivio.v1.AuthService/CompleteMFA":       {},
+	"/oblivio.v1.AuthService/RefreshToken":      {},
+	"/oblivio.v1.AuthService/GetRecoveryParams": {},
+	"/oblivio.v1.AuthService/RecoveryStart":     {},
+	"/oblivio.v1.AuthService/RecoveryComplete":  {},
 }
 
 // NewAuthMiddleware returns a connectrpc/authn middleware that:

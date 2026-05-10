@@ -51,6 +51,8 @@ schemas:
         primary_column: user_id
       user_login_totp:
         primary_column: user_id
+      user_webauthn_credentials:
+        primary_column: id
       auth_sessions:
         primary_column: id
       projects:

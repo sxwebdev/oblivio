@@ -29,6 +29,7 @@ import { EntryKind } from "@/api/gen/oblivio/v1/entries_pb"
 import { entryKindMeta } from "@/lib/entry-kinds"
 import { copySecret } from "@/lib/clipboard"
 import { openEntry, vaultIdScope } from "@/lib/vault-crypto"
+import { TotpDisplay } from "@/components/vault/TotpDisplay"
 import { useAuthStore } from "@/stores/auth"
 import { useVaultStore } from "@/stores/vault"
 
@@ -129,7 +130,19 @@ export default function EntryDetailPage({ entryId }: { entryId: string }) {
             <FieldRow label="Password" value={plaintext.password} secret />
             <FieldRow label="URL" value={plaintext.url} link />
             {plaintext.totpSecret && (
-              <FieldRow label="TOTP secret" value={plaintext.totpSecret} secret />
+              <>
+                <div className="rounded-md border bg-muted/40 px-3 py-2">
+                  <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+                    One-time code
+                  </div>
+                  <TotpDisplay
+                    secret={plaintext.totpSecret}
+                    period={plaintext.totpPeriod}
+                    digits={plaintext.totpDigits}
+                  />
+                </div>
+                <FieldRow label="TOTP secret" value={plaintext.totpSecret} secret />
+              </>
             )}
           </CardContent>
         </Card>
@@ -140,10 +153,21 @@ export default function EntryDetailPage({ entryId }: { entryId: string }) {
           <CardHeader>
             <CardTitle>Authenticator</CardTitle>
             <CardDescription>
-              Codes will be generated client-side in Sprint 3.
+              Code refreshes every {plaintext.totpPeriod ?? 30} seconds.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {plaintext.totpSecret ? (
+              <TotpDisplay
+                secret={plaintext.totpSecret}
+                period={plaintext.totpPeriod}
+                digits={plaintext.totpDigits}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No TOTP secret stored on this entry.
+              </p>
+            )}
             <FieldRow label="Secret (base32)" value={plaintext.totpSecret} secret />
           </CardContent>
         </Card>

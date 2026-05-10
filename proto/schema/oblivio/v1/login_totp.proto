@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package oblivio.v1;
+
+option go_package = "github.com/sxwebdev/oblivio/internal/api/pb/oblivio/v1;oblivio_v1";
+
+// LoginTOTPService manages the server-side login TOTP factor.
+//
+// Per plan §5.3 the TOTP secret is encrypted client-side under
+// K_login_totp = HKDF(auth_key, "oblivio/login-totp/v1"). The server
+// stores the resulting ciphertext but never the secret itself; it
+// re-derives K_login_totp at each Authorize call (where auth_key is
+// supplied) and wipes the derived key right after the TOTP check.
+service LoginTOTPService {
+  rpc Setup(LoginTOTPServiceSetupRequest) returns (LoginTOTPServiceSetupResponse);
+  rpc Enable(LoginTOTPServiceEnableRequest) returns (LoginTOTPServiceEnableResponse);
+  rpc Disable(LoginTOTPServiceDisableRequest) returns (LoginTOTPServiceDisableResponse);
+  rpc Status(LoginTOTPServiceStatusRequest) returns (LoginTOTPServiceStatusResponse);
+}
+
+message LoginTOTPServiceSetupRequest {
+  // AES-GCM(K_login_totp, normalized_base32_secret) — envelope is
+  // `nonce(12) || ct+tag`. AAD is the fixed string "oblivio/login-totp/v1".
+  bytes encrypted_secret = 1;
+  // Echoed back for convenience; the server stores it in its own column so a
+  // future migration can move to a different envelope layout without re-encrypting.
+  bytes nonce = 2;
+  // auth_key is required so the server can derive K_login_totp itself and
+  // validate the round-trip before storing — guards against client bugs.
+  bytes auth_key = 3;
+  // The first valid TOTP code, proving the client can read the secret.
+  string totp_code = 4;
+}
+message LoginTOTPServiceSetupResponse {}
+
+message LoginTOTPServiceEnableRequest {
+  bytes auth_key = 1;
+  string totp_code = 2;
+}
+message LoginTOTPServiceEnableResponse {}
+
+message LoginTOTPServiceDisableRequest {
+  bytes auth_key = 1;
+  string totp_code = 2;
+}
+message LoginTOTPServiceDisableResponse {}
+
+message LoginTOTPServiceStatusRequest {}
+message LoginTOTPServiceStatusResponse {
+  bool configured = 1;
+  bool enabled = 2;
+}

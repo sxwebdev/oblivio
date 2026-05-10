@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PublicUnlockRouteImport } from './routes/_public.unlock'
 import { Route as PublicRegisterRouteImport } from './routes/_public.register'
+import { Route as PublicRecoverRouteImport } from './routes/_public.recover'
 import { Route as PublicLoginRouteImport } from './routes/_public.login'
 import { Route as AuthAppRouteImport } from './routes/_auth.app'
 import { Route as AuthAppIndexRouteImport } from './routes/_auth.app.index'
@@ -22,6 +23,7 @@ import { Route as AuthAppProjectsIndexRouteImport } from './routes/_auth.app.pro
 import { Route as AuthAppNotesIndexRouteImport } from './routes/_auth.app.notes.index'
 import { Route as AuthAppEntriesIndexRouteImport } from './routes/_auth.app.entries.index'
 import { Route as AuthAppAuditIndexRouteImport } from './routes/_auth.app.audit.index'
+import { Route as AuthAppSettingsTwoFactorRouteImport } from './routes/_auth.app.settings.two-factor'
 import { Route as AuthAppProjectsNewRouteImport } from './routes/_auth.app.projects.new'
 import { Route as AuthAppNotesNewRouteImport } from './routes/_auth.app.notes.new'
 import { Route as AuthAppEntriesNewRouteImport } from './routes/_auth.app.entries.new'
@@ -50,6 +52,11 @@ const PublicUnlockRoute = PublicUnlockRouteImport.update({
 const PublicRegisterRoute = PublicRegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicRecoverRoute = PublicRecoverRouteImport.update({
+  id: '/recover',
+  path: '/recover',
   getParentRoute: () => PublicRoute,
 } as any)
 const PublicLoginRoute = PublicLoginRouteImport.update({
@@ -92,6 +99,12 @@ const AuthAppAuditIndexRoute = AuthAppAuditIndexRouteImport.update({
   path: '/audit/',
   getParentRoute: () => AuthAppRoute,
 } as any)
+const AuthAppSettingsTwoFactorRoute =
+  AuthAppSettingsTwoFactorRouteImport.update({
+    id: '/settings/two-factor',
+    path: '/settings/two-factor',
+    getParentRoute: () => AuthAppRoute,
+  } as any)
 const AuthAppProjectsNewRoute = AuthAppProjectsNewRouteImport.update({
   id: '/projects/new',
   path: '/projects/new',
@@ -130,12 +143,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AuthAppRouteWithChildren
   '/login': typeof PublicLoginRoute
+  '/recover': typeof PublicRecoverRoute
   '/register': typeof PublicRegisterRoute
   '/unlock': typeof PublicUnlockRoute
   '/app/': typeof AuthAppIndexRoute
   '/app/entries/new': typeof AuthAppEntriesNewRoute
   '/app/notes/new': typeof AuthAppNotesNewRoute
   '/app/projects/new': typeof AuthAppProjectsNewRoute
+  '/app/settings/two-factor': typeof AuthAppSettingsTwoFactorRoute
   '/app/audit/': typeof AuthAppAuditIndexRoute
   '/app/entries/': typeof AuthAppEntriesIndexRoute
   '/app/notes/': typeof AuthAppNotesIndexRoute
@@ -148,12 +163,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof PublicLoginRoute
+  '/recover': typeof PublicRecoverRoute
   '/register': typeof PublicRegisterRoute
   '/unlock': typeof PublicUnlockRoute
   '/app': typeof AuthAppIndexRoute
   '/app/entries/new': typeof AuthAppEntriesNewRoute
   '/app/notes/new': typeof AuthAppNotesNewRoute
   '/app/projects/new': typeof AuthAppProjectsNewRoute
+  '/app/settings/two-factor': typeof AuthAppSettingsTwoFactorRoute
   '/app/audit': typeof AuthAppAuditIndexRoute
   '/app/entries': typeof AuthAppEntriesIndexRoute
   '/app/notes': typeof AuthAppNotesIndexRoute
@@ -170,12 +187,14 @@ export interface FileRoutesById {
   '/_public': typeof PublicRouteWithChildren
   '/_auth/app': typeof AuthAppRouteWithChildren
   '/_public/login': typeof PublicLoginRoute
+  '/_public/recover': typeof PublicRecoverRoute
   '/_public/register': typeof PublicRegisterRoute
   '/_public/unlock': typeof PublicUnlockRoute
   '/_auth/app/': typeof AuthAppIndexRoute
   '/_auth/app/entries/new': typeof AuthAppEntriesNewRoute
   '/_auth/app/notes/new': typeof AuthAppNotesNewRoute
   '/_auth/app/projects/new': typeof AuthAppProjectsNewRoute
+  '/_auth/app/settings/two-factor': typeof AuthAppSettingsTwoFactorRoute
   '/_auth/app/audit/': typeof AuthAppAuditIndexRoute
   '/_auth/app/entries/': typeof AuthAppEntriesIndexRoute
   '/_auth/app/notes/': typeof AuthAppNotesIndexRoute
@@ -191,12 +210,14 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/login'
+    | '/recover'
     | '/register'
     | '/unlock'
     | '/app/'
     | '/app/entries/new'
     | '/app/notes/new'
     | '/app/projects/new'
+    | '/app/settings/two-factor'
     | '/app/audit/'
     | '/app/entries/'
     | '/app/notes/'
@@ -209,12 +230,14 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/recover'
     | '/register'
     | '/unlock'
     | '/app'
     | '/app/entries/new'
     | '/app/notes/new'
     | '/app/projects/new'
+    | '/app/settings/two-factor'
     | '/app/audit'
     | '/app/entries'
     | '/app/notes'
@@ -230,12 +253,14 @@ export interface FileRouteTypes {
     | '/_public'
     | '/_auth/app'
     | '/_public/login'
+    | '/_public/recover'
     | '/_public/register'
     | '/_public/unlock'
     | '/_auth/app/'
     | '/_auth/app/entries/new'
     | '/_auth/app/notes/new'
     | '/_auth/app/projects/new'
+    | '/_auth/app/settings/two-factor'
     | '/_auth/app/audit/'
     | '/_auth/app/entries/'
     | '/_auth/app/notes/'
@@ -287,6 +312,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof PublicRegisterRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/recover': {
+      id: '/_public/recover'
+      path: '/recover'
+      fullPath: '/recover'
+      preLoaderRoute: typeof PublicRecoverRouteImport
       parentRoute: typeof PublicRoute
     }
     '/_public/login': {
@@ -345,6 +377,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthAppAuditIndexRouteImport
       parentRoute: typeof AuthAppRoute
     }
+    '/_auth/app/settings/two-factor': {
+      id: '/_auth/app/settings/two-factor'
+      path: '/settings/two-factor'
+      fullPath: '/app/settings/two-factor'
+      preLoaderRoute: typeof AuthAppSettingsTwoFactorRouteImport
+      parentRoute: typeof AuthAppRoute
+    }
     '/_auth/app/projects/new': {
       id: '/_auth/app/projects/new'
       path: '/projects/new'
@@ -395,6 +434,7 @@ interface AuthAppRouteChildren {
   AuthAppEntriesNewRoute: typeof AuthAppEntriesNewRoute
   AuthAppNotesNewRoute: typeof AuthAppNotesNewRoute
   AuthAppProjectsNewRoute: typeof AuthAppProjectsNewRoute
+  AuthAppSettingsTwoFactorRoute: typeof AuthAppSettingsTwoFactorRoute
   AuthAppAuditIndexRoute: typeof AuthAppAuditIndexRoute
   AuthAppEntriesIndexRoute: typeof AuthAppEntriesIndexRoute
   AuthAppNotesIndexRoute: typeof AuthAppNotesIndexRoute
@@ -410,6 +450,7 @@ const AuthAppRouteChildren: AuthAppRouteChildren = {
   AuthAppEntriesNewRoute: AuthAppEntriesNewRoute,
   AuthAppNotesNewRoute: AuthAppNotesNewRoute,
   AuthAppProjectsNewRoute: AuthAppProjectsNewRoute,
+  AuthAppSettingsTwoFactorRoute: AuthAppSettingsTwoFactorRoute,
   AuthAppAuditIndexRoute: AuthAppAuditIndexRoute,
   AuthAppEntriesIndexRoute: AuthAppEntriesIndexRoute,
   AuthAppNotesIndexRoute: AuthAppNotesIndexRoute,
@@ -435,12 +476,14 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface PublicRouteChildren {
   PublicLoginRoute: typeof PublicLoginRoute
+  PublicRecoverRoute: typeof PublicRecoverRoute
   PublicRegisterRoute: typeof PublicRegisterRoute
   PublicUnlockRoute: typeof PublicUnlockRoute
 }
 
 const PublicRouteChildren: PublicRouteChildren = {
   PublicLoginRoute: PublicLoginRoute,
+  PublicRecoverRoute: PublicRecoverRoute,
   PublicRegisterRoute: PublicRegisterRoute,
   PublicUnlockRoute: PublicUnlockRoute,
 }

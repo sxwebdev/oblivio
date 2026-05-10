@@ -14,6 +14,7 @@ import (
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_kdf_params"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_login_totp"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_vault"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_webauthn_credentials"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_users"
 )
 
@@ -24,6 +25,7 @@ type Repos struct {
 	userAuthRepo         *repo_user_auth.Queries
 	userVaultRepo        *repo_user_vault.Queries
 	userLoginTOTPRepo    *repo_user_login_totp.Queries
+	userWebAuthnRepo     *repo_user_webauthn_credentials.Queries
 	authSessionsRepo     *repo_auth_sessions.Queries
 	projectsRepo         *repo_projects.Queries
 	entriesRepo          *repo_entries.Queries
@@ -41,6 +43,7 @@ func New(pool *pgxpool.Pool) *Repos {
 		userAuthRepo:         repo_user_auth.New(pool),
 		userVaultRepo:        repo_user_vault.New(pool),
 		userLoginTOTPRepo:    repo_user_login_totp.New(pool),
+		userWebAuthnRepo:     repo_user_webauthn_credentials.New(pool),
 		authSessionsRepo:     repo_auth_sessions.New(pool),
 		projectsRepo:         repo_projects.New(pool),
 		entriesRepo:          repo_entries.New(pool),
@@ -94,6 +97,15 @@ func (r *Repos) UserLoginTOTP(opts ...Option) *repo_user_login_totp.Queries {
 		return r.userLoginTOTPRepo.WithTx(options.Tx)
 	}
 	return r.userLoginTOTPRepo
+}
+
+// UserWebAuthn returns the user_webauthn_credentials repository.
+func (r *Repos) UserWebAuthn(opts ...Option) *repo_user_webauthn_credentials.Queries {
+	options := parseOptions(opts...)
+	if options.Tx != nil {
+		return r.userWebAuthnRepo.WithTx(options.Tx)
+	}
+	return r.userWebAuthnRepo
 }
 
 // AuthSessions returns the auth_sessions repository.

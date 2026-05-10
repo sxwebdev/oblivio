@@ -15,7 +15,13 @@ service AuthService {
   rpc Register(RegisterRequest) returns (RegisterResponse);
   rpc GetKDFParams(GetKDFParamsRequest) returns (GetKDFParamsResponse);
   rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse);
+  rpc CompleteMFA(CompleteMFARequest) returns (CompleteMFAResponse);
   rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+
+  // Recovery (anonymous).
+  rpc GetRecoveryParams(GetRecoveryParamsRequest) returns (GetRecoveryParamsResponse);
+  rpc RecoveryStart(RecoveryStartRequest) returns (RecoveryStartResponse);
+  rpc RecoveryComplete(RecoveryCompleteRequest) returns (RecoveryCompleteResponse);
 
   // Authenticated endpoints.
   rpc Logout(LogoutRequest) returns (LogoutResponse);
@@ -59,16 +65,38 @@ message GetKDFParamsResponse {
 message AuthorizeRequest {
   string email = 1;
   bytes auth_key = 2;
-  // Optional second-factor code for login-TOTP (5.3) when enabled.
-  string totp_code = 3;
-  DeviceInfo device_info = 4;
+  DeviceInfo device_info = 3;
 }
 
 message AuthorizeResponse {
+  // Exactly one of these is set. When auth_payload is present the user is
+  // signed in; when mfa_challenge is present the client must complete the
+  // requested factor and call CompleteMFA.
   AuthPayload auth_payload = 1;
-  // When set, the client must complete an additional MFA step before tokens
-  // are issued. Reserved for Sprint 3.
-  string mfa_challenge_id = 2;
+  MFAChallenge mfa_challenge = 2;
+}
+
+// MFAChallenge tells the client which factors are required. Both flags can
+// be set when the user has both TOTP and WebAuthn enrolled — the client may
+// pick any one to satisfy the challenge.
+message MFAChallenge {
+  string session_id = 1;
+  bool totp_required = 2;
+  bool webauthn_required = 3;
+  // CredentialRequestOptions JSON (subset). Empty when webauthn_required=false.
+  bytes webauthn_options_json = 4;
+}
+
+message CompleteMFARequest {
+  string session_id = 1;
+  // Provide ONE of these.
+  string totp_code = 2;
+  bytes webauthn_assertion_json = 3;
+  DeviceInfo device_info = 4;
+}
+
+message CompleteMFAResponse {
+  AuthPayload auth_payload = 1;
 }
 
 message RefreshTokenRequest {
@@ -89,3 +117,40 @@ message GetMyKeysResponse {
   bytes wrapped_vault_key = 2;
   uint32 vault_key_version = 3;
 }
+
+// --- Recovery flow (plan §5.5) -----------------------------------------
+
+message GetRecoveryParamsRequest {
+  string email = 1;
+}
+message GetRecoveryParamsResponse {
+  // Recovery KDF params currently mirror the master_key params; we keep them
+  // in a separate field so they can diverge later if we move to a faster KDF
+  // for recovery codes specifically.
+  bytes recovery_salt = 1;
+  Argon2Params kdf_params = 2;
+}
+
+message RecoveryStartRequest {
+  string email = 1;
+  // recovery_proof = HKDF(recovery_key, "oblivio/auth/v1").
+  bytes recovery_proof = 2;
+}
+message RecoveryStartResponse {
+  // recovery_session_id is a short-lived (15min) handle the client must
+  // present to RecoveryComplete. It also gates the rate-limit window so an
+  // attacker cannot brute-force recovery codes by hammering RecoveryStart.
+  string recovery_session_id = 1;
+  bytes recovery_wrapped_vault_key = 2;
+}
+
+message RecoveryCompleteRequest {
+  string recovery_session_id = 1;
+  // New auth artefacts derived from the freshly-chosen master_password.
+  bytes salt_user = 2;
+  Argon2Params kdf_params = 3;
+  bytes auth_key = 4;
+  bytes verifier = 5;
+  bytes wrapped_vault_key = 6;
+}
+message RecoveryCompleteResponse {}

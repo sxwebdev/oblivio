@@ -29,6 +29,9 @@ migratecreate:
 genenvs:
 	go run $(APP_PATH) config genenvs
 
+genreadme:
+	go run $(APP_PATH) utils readme
+
 gensql:
 	pgxgen -config sql/pgxgen.yaml generate
 

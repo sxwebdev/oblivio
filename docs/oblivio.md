@@ -1279,12 +1279,10 @@ volume для `secrets/`. Production-Dockerfile — distroless, multi-stage,
 
 ### Sprint 5 — Polish, тесты, деплой (2–3 дня)
 
-1. Vitest + Go test coverage > 70% для криптослоев.
+1. Vitest + Go test coverage > 80% для криптослоев.
 2. Round-trip тесты Go ↔ TS (общий test-vector файл).
 3. govulncheck, gosec, golangci-lint, npm audit, lockfile-lint в CI.
 4. SBOM (cyclonedx-gomod).
-5. Distroless Dockerfile, docker-compose с Vault.
-6. README + ENV docs (генерируются `xconfig.GenerateMarkdown`).
 
 ---
 

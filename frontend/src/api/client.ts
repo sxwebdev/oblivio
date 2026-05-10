@@ -11,6 +11,8 @@ import { VaultService } from "./gen/oblivio/v1/vault_pb";
 import { ProjectsService } from "./gen/oblivio/v1/projects_pb";
 import { EntriesService } from "./gen/oblivio/v1/entries_pb";
 import { AuditService } from "./gen/oblivio/v1/audit_pb";
+import { LoginTOTPService } from "./gen/oblivio/v1/login_totp_pb";
+import { WebAuthnService } from "./gen/oblivio/v1/webauthn_pb";
 
 import { useAuthStore } from "@/stores/auth";
 
@@ -37,6 +39,8 @@ export const vaultClient = createClient(VaultService, transport);
 export const projectsClient = createClient(ProjectsService, transport);
 export const entriesClient = createClient(EntriesService, transport);
 export const auditClient = createClient(AuditService, transport);
+export const loginTotpClient = createClient(LoginTOTPService, transport);
+export const webauthnClient = createClient(WebAuthnService, transport);
 
 // idempotencyHeaders returns a one-shot Idempotency-Key header dictionary.
 // Pass it through to a mutating RPC via { headers: idempotencyHeaders() }.

@@ -12,6 +12,30 @@ import (
 	"github.com/sxwebdev/oblivio/internal/models"
 )
 
+const completeRecovery = `-- name: CompleteRecovery :exec
+UPDATE user_vault
+SET verifier          = $2,
+    wrapped_vault_key = $3,
+    vault_key_version = vault_key_version + 1,
+    recovery_used_at  = now()
+WHERE user_id = $1
+`
+
+type CompleteRecoveryParams struct {
+	UserID          uuid.UUID `db:"user_id" json:"user_id"`
+	Verifier        []byte    `db:"verifier" json:"verifier"`
+	WrappedVaultKey []byte    `db:"wrapped_vault_key" json:"wrapped_vault_key"`
+}
+
+// Recovery: rotate verifier/wrapped_vault_key and stamp recovery_used_at.
+// The recovery-related material (salt + wrapped) stays put so the same
+// recovery code can still be used (the client should generate a new one
+// after a successful recovery, but that is a UX nicety — not enforced).
+func (q *Queries) CompleteRecovery(ctx context.Context, arg CompleteRecoveryParams) error {
+	_, err := q.db.Exec(ctx, completeRecovery, arg.UserID, arg.Verifier, arg.WrappedVaultKey)
+	return err
+}
+
 const createUserVault = `-- name: CreateUserVault :exec
 INSERT INTO user_vault (
     user_id, verifier, wrapped_vault_key,

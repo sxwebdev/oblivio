@@ -40,9 +40,20 @@ const (
 	AuthServiceGetKDFParamsProcedure = "/oblivio.v1.AuthService/GetKDFParams"
 	// AuthServiceAuthorizeProcedure is the fully-qualified name of the AuthService's Authorize RPC.
 	AuthServiceAuthorizeProcedure = "/oblivio.v1.AuthService/Authorize"
+	// AuthServiceCompleteMFAProcedure is the fully-qualified name of the AuthService's CompleteMFA RPC.
+	AuthServiceCompleteMFAProcedure = "/oblivio.v1.AuthService/CompleteMFA"
 	// AuthServiceRefreshTokenProcedure is the fully-qualified name of the AuthService's RefreshToken
 	// RPC.
 	AuthServiceRefreshTokenProcedure = "/oblivio.v1.AuthService/RefreshToken"
+	// AuthServiceGetRecoveryParamsProcedure is the fully-qualified name of the AuthService's
+	// GetRecoveryParams RPC.
+	AuthServiceGetRecoveryParamsProcedure = "/oblivio.v1.AuthService/GetRecoveryParams"
+	// AuthServiceRecoveryStartProcedure is the fully-qualified name of the AuthService's RecoveryStart
+	// RPC.
+	AuthServiceRecoveryStartProcedure = "/oblivio.v1.AuthService/RecoveryStart"
+	// AuthServiceRecoveryCompleteProcedure is the fully-qualified name of the AuthService's
+	// RecoveryComplete RPC.
+	AuthServiceRecoveryCompleteProcedure = "/oblivio.v1.AuthService/RecoveryComplete"
 	// AuthServiceLogoutProcedure is the fully-qualified name of the AuthService's Logout RPC.
 	AuthServiceLogoutProcedure = "/oblivio.v1.AuthService/Logout"
 	// AuthServiceGetMyKeysProcedure is the fully-qualified name of the AuthService's GetMyKeys RPC.
@@ -55,7 +66,12 @@ type AuthServiceClient interface {
 	Register(context.Context, *connect.Request[v1.RegisterRequest]) (*connect.Response[v1.RegisterResponse], error)
 	GetKDFParams(context.Context, *connect.Request[v1.GetKDFParamsRequest]) (*connect.Response[v1.GetKDFParamsResponse], error)
 	Authorize(context.Context, *connect.Request[v1.AuthorizeRequest]) (*connect.Response[v1.AuthorizeResponse], error)
+	CompleteMFA(context.Context, *connect.Request[v1.CompleteMFARequest]) (*connect.Response[v1.CompleteMFAResponse], error)
 	RefreshToken(context.Context, *connect.Request[v1.RefreshTokenRequest]) (*connect.Response[v1.RefreshTokenResponse], error)
+	// Recovery (anonymous).
+	GetRecoveryParams(context.Context, *connect.Request[v1.GetRecoveryParamsRequest]) (*connect.Response[v1.GetRecoveryParamsResponse], error)
+	RecoveryStart(context.Context, *connect.Request[v1.RecoveryStartRequest]) (*connect.Response[v1.RecoveryStartResponse], error)
+	RecoveryComplete(context.Context, *connect.Request[v1.RecoveryCompleteRequest]) (*connect.Response[v1.RecoveryCompleteResponse], error)
 	// Authenticated endpoints.
 	Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error)
 	GetMyKeys(context.Context, *connect.Request[v1.GetMyKeysRequest]) (*connect.Response[v1.GetMyKeysResponse], error)
@@ -90,10 +106,34 @@ func NewAuthServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(authServiceMethods.ByName("Authorize")),
 			connect.WithClientOptions(opts...),
 		),
+		completeMFA: connect.NewClient[v1.CompleteMFARequest, v1.CompleteMFAResponse](
+			httpClient,
+			baseURL+AuthServiceCompleteMFAProcedure,
+			connect.WithSchema(authServiceMethods.ByName("CompleteMFA")),
+			connect.WithClientOptions(opts...),
+		),
 		refreshToken: connect.NewClient[v1.RefreshTokenRequest, v1.RefreshTokenResponse](
 			httpClient,
 			baseURL+AuthServiceRefreshTokenProcedure,
 			connect.WithSchema(authServiceMethods.ByName("RefreshToken")),
+			connect.WithClientOptions(opts...),
+		),
+		getRecoveryParams: connect.NewClient[v1.GetRecoveryParamsRequest, v1.GetRecoveryParamsResponse](
+			httpClient,
+			baseURL+AuthServiceGetRecoveryParamsProcedure,
+			connect.WithSchema(authServiceMethods.ByName("GetRecoveryParams")),
+			connect.WithClientOptions(opts...),
+		),
+		recoveryStart: connect.NewClient[v1.RecoveryStartRequest, v1.RecoveryStartResponse](
+			httpClient,
+			baseURL+AuthServiceRecoveryStartProcedure,
+			connect.WithSchema(authServiceMethods.ByName("RecoveryStart")),
+			connect.WithClientOptions(opts...),
+		),
+		recoveryComplete: connect.NewClient[v1.RecoveryCompleteRequest, v1.RecoveryCompleteResponse](
+			httpClient,
+			baseURL+AuthServiceRecoveryCompleteProcedure,
+			connect.WithSchema(authServiceMethods.ByName("RecoveryComplete")),
 			connect.WithClientOptions(opts...),
 		),
 		logout: connect.NewClient[v1.LogoutRequest, v1.LogoutResponse](
@@ -113,12 +153,16 @@ func NewAuthServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 
 // authServiceClient implements AuthServiceClient.
 type authServiceClient struct {
-	register     *connect.Client[v1.RegisterRequest, v1.RegisterResponse]
-	getKDFParams *connect.Client[v1.GetKDFParamsRequest, v1.GetKDFParamsResponse]
-	authorize    *connect.Client[v1.AuthorizeRequest, v1.AuthorizeResponse]
-	refreshToken *connect.Client[v1.RefreshTokenRequest, v1.RefreshTokenResponse]
-	logout       *connect.Client[v1.LogoutRequest, v1.LogoutResponse]
-	getMyKeys    *connect.Client[v1.GetMyKeysRequest, v1.GetMyKeysResponse]
+	register          *connect.Client[v1.RegisterRequest, v1.RegisterResponse]
+	getKDFParams      *connect.Client[v1.GetKDFParamsRequest, v1.GetKDFParamsResponse]
+	authorize         *connect.Client[v1.AuthorizeRequest, v1.AuthorizeResponse]
+	completeMFA       *connect.Client[v1.CompleteMFARequest, v1.CompleteMFAResponse]
+	refreshToken      *connect.Client[v1.RefreshTokenRequest, v1.RefreshTokenResponse]
+	getRecoveryParams *connect.Client[v1.GetRecoveryParamsRequest, v1.GetRecoveryParamsResponse]
+	recoveryStart     *connect.Client[v1.RecoveryStartRequest, v1.RecoveryStartResponse]
+	recoveryComplete  *connect.Client[v1.RecoveryCompleteRequest, v1.RecoveryCompleteResponse]
+	logout            *connect.Client[v1.LogoutRequest, v1.LogoutResponse]
+	getMyKeys         *connect.Client[v1.GetMyKeysRequest, v1.GetMyKeysResponse]
 }
 
 // Register calls oblivio.v1.AuthService.Register.
@@ -136,9 +180,29 @@ func (c *authServiceClient) Authorize(ctx context.Context, req *connect.Request[
 	return c.authorize.CallUnary(ctx, req)
 }
 
+// CompleteMFA calls oblivio.v1.AuthService.CompleteMFA.
+func (c *authServiceClient) CompleteMFA(ctx context.Context, req *connect.Request[v1.CompleteMFARequest]) (*connect.Response[v1.CompleteMFAResponse], error) {
+	return c.completeMFA.CallUnary(ctx, req)
+}
+
 // RefreshToken calls oblivio.v1.AuthService.RefreshToken.
 func (c *authServiceClient) RefreshToken(ctx context.Context, req *connect.Request[v1.RefreshTokenRequest]) (*connect.Response[v1.RefreshTokenResponse], error) {
 	return c.refreshToken.CallUnary(ctx, req)
+}
+
+// GetRecoveryParams calls oblivio.v1.AuthService.GetRecoveryParams.
+func (c *authServiceClient) GetRecoveryParams(ctx context.Context, req *connect.Request[v1.GetRecoveryParamsRequest]) (*connect.Response[v1.GetRecoveryParamsResponse], error) {
+	return c.getRecoveryParams.CallUnary(ctx, req)
+}
+
+// RecoveryStart calls oblivio.v1.AuthService.RecoveryStart.
+func (c *authServiceClient) RecoveryStart(ctx context.Context, req *connect.Request[v1.RecoveryStartRequest]) (*connect.Response[v1.RecoveryStartResponse], error) {
+	return c.recoveryStart.CallUnary(ctx, req)
+}
+
+// RecoveryComplete calls oblivio.v1.AuthService.RecoveryComplete.
+func (c *authServiceClient) RecoveryComplete(ctx context.Context, req *connect.Request[v1.RecoveryCompleteRequest]) (*connect.Response[v1.RecoveryCompleteResponse], error) {
+	return c.recoveryComplete.CallUnary(ctx, req)
 }
 
 // Logout calls oblivio.v1.AuthService.Logout.
@@ -157,7 +221,12 @@ type AuthServiceHandler interface {
 	Register(context.Context, *connect.Request[v1.RegisterRequest]) (*connect.Response[v1.RegisterResponse], error)
 	GetKDFParams(context.Context, *connect.Request[v1.GetKDFParamsRequest]) (*connect.Response[v1.GetKDFParamsResponse], error)
 	Authorize(context.Context, *connect.Request[v1.AuthorizeRequest]) (*connect.Response[v1.AuthorizeResponse], error)
+	CompleteMFA(context.Context, *connect.Request[v1.CompleteMFARequest]) (*connect.Response[v1.CompleteMFAResponse], error)
 	RefreshToken(context.Context, *connect.Request[v1.RefreshTokenRequest]) (*connect.Response[v1.RefreshTokenResponse], error)
+	// Recovery (anonymous).
+	GetRecoveryParams(context.Context, *connect.Request[v1.GetRecoveryParamsRequest]) (*connect.Response[v1.GetRecoveryParamsResponse], error)
+	RecoveryStart(context.Context, *connect.Request[v1.RecoveryStartRequest]) (*connect.Response[v1.RecoveryStartResponse], error)
+	RecoveryComplete(context.Context, *connect.Request[v1.RecoveryCompleteRequest]) (*connect.Response[v1.RecoveryCompleteResponse], error)
 	// Authenticated endpoints.
 	Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error)
 	GetMyKeys(context.Context, *connect.Request[v1.GetMyKeysRequest]) (*connect.Response[v1.GetMyKeysResponse], error)
@@ -188,10 +257,34 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(authServiceMethods.ByName("Authorize")),
 		connect.WithHandlerOptions(opts...),
 	)
+	authServiceCompleteMFAHandler := connect.NewUnaryHandler(
+		AuthServiceCompleteMFAProcedure,
+		svc.CompleteMFA,
+		connect.WithSchema(authServiceMethods.ByName("CompleteMFA")),
+		connect.WithHandlerOptions(opts...),
+	)
 	authServiceRefreshTokenHandler := connect.NewUnaryHandler(
 		AuthServiceRefreshTokenProcedure,
 		svc.RefreshToken,
 		connect.WithSchema(authServiceMethods.ByName("RefreshToken")),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceGetRecoveryParamsHandler := connect.NewUnaryHandler(
+		AuthServiceGetRecoveryParamsProcedure,
+		svc.GetRecoveryParams,
+		connect.WithSchema(authServiceMethods.ByName("GetRecoveryParams")),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceRecoveryStartHandler := connect.NewUnaryHandler(
+		AuthServiceRecoveryStartProcedure,
+		svc.RecoveryStart,
+		connect.WithSchema(authServiceMethods.ByName("RecoveryStart")),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceRecoveryCompleteHandler := connect.NewUnaryHandler(
+		AuthServiceRecoveryCompleteProcedure,
+		svc.RecoveryComplete,
+		connect.WithSchema(authServiceMethods.ByName("RecoveryComplete")),
 		connect.WithHandlerOptions(opts...),
 	)
 	authServiceLogoutHandler := connect.NewUnaryHandler(
@@ -214,8 +307,16 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 			authServiceGetKDFParamsHandler.ServeHTTP(w, r)
 		case AuthServiceAuthorizeProcedure:
 			authServiceAuthorizeHandler.ServeHTTP(w, r)
+		case AuthServiceCompleteMFAProcedure:
+			authServiceCompleteMFAHandler.ServeHTTP(w, r)
 		case AuthServiceRefreshTokenProcedure:
 			authServiceRefreshTokenHandler.ServeHTTP(w, r)
+		case AuthServiceGetRecoveryParamsProcedure:
+			authServiceGetRecoveryParamsHandler.ServeHTTP(w, r)
+		case AuthServiceRecoveryStartProcedure:
+			authServiceRecoveryStartHandler.ServeHTTP(w, r)
+		case AuthServiceRecoveryCompleteProcedure:
+			authServiceRecoveryCompleteHandler.ServeHTTP(w, r)
 		case AuthServiceLogoutProcedure:
 			authServiceLogoutHandler.ServeHTTP(w, r)
 		case AuthServiceGetMyKeysProcedure:
@@ -241,8 +342,24 @@ func (UnimplementedAuthServiceHandler) Authorize(context.Context, *connect.Reque
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.AuthService.Authorize is not implemented"))
 }
 
+func (UnimplementedAuthServiceHandler) CompleteMFA(context.Context, *connect.Request[v1.CompleteMFARequest]) (*connect.Response[v1.CompleteMFAResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.AuthService.CompleteMFA is not implemented"))
+}
+
 func (UnimplementedAuthServiceHandler) RefreshToken(context.Context, *connect.Request[v1.RefreshTokenRequest]) (*connect.Response[v1.RefreshTokenResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.AuthService.RefreshToken is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) GetRecoveryParams(context.Context, *connect.Request[v1.GetRecoveryParamsRequest]) (*connect.Response[v1.GetRecoveryParamsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.AuthService.GetRecoveryParams is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) RecoveryStart(context.Context, *connect.Request[v1.RecoveryStartRequest]) (*connect.Response[v1.RecoveryStartResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.AuthService.RecoveryStart is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) RecoveryComplete(context.Context, *connect.Request[v1.RecoveryCompleteRequest]) (*connect.Response[v1.RecoveryCompleteResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.AuthService.RecoveryComplete is not implemented"))
 }
 
 func (UnimplementedAuthServiceHandler) Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error) {

@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file oblivio/v1/auth.proto.
  */
 export const file_oblivio_v1_auth: GenFile = /*@__PURE__*/
-  fileDesc("ChVvYmxpdmlvL3YxL2F1dGgucHJvdG8SCm9ibGl2aW8udjEioAIKD1JlZ2lzdGVyUmVxdWVzdBINCgVlbWFpbBgBIAEoCRIRCglzYWx0X3VzZXIYAiABKAwSLAoKa2RmX3BhcmFtcxgDIAEoCzIYLm9ibGl2aW8udjEuQXJnb24yUGFyYW1zEhAKCGF1dGhfa2V5GAQgASgMEhAKCHZlcmlmaWVyGAUgASgMEhkKEXdyYXBwZWRfdmF1bHRfa2V5GAYgASgMEhUKDXJlY292ZXJ5X3NhbHQYByABKAwSIgoacmVjb3Zlcnlfd3JhcHBlZF92YXVsdF9rZXkYCCABKAwSFgoOcmVjb3ZlcnlfcHJvb2YYCSABKAwSKwoLZGV2aWNlX2luZm8YCiABKAsyFi5vYmxpdmlvLnYxLkRldmljZUluZm8iUgoQUmVnaXN0ZXJSZXNwb25zZRIPCgd1c2VyX2lkGAEgASgJEi0KDGF1dGhfcGF5bG9hZBgCIAEoCzIXLm9ibGl2aW8udjEuQXV0aFBheWxvYWQiJAoTR2V0S0RGUGFyYW1zUmVxdWVzdBINCgVlbWFpbBgBIAEoCSJXChRHZXRLREZQYXJhbXNSZXNwb25zZRIRCglzYWx0X3VzZXIYASABKAwSLAoKa2RmX3BhcmFtcxgCIAEoCzIYLm9ibGl2aW8udjEuQXJnb24yUGFyYW1zInMKEEF1dGhvcml6ZVJlcXVlc3QSDQoFZW1haWwYASABKAkSEAoIYXV0aF9rZXkYAiABKAwSEQoJdG90cF9jb2RlGAMgASgJEisKC2RldmljZV9pbmZvGAQgASgLMhYub2JsaXZpby52MS5EZXZpY2VJbmZvIlwKEUF1dGhvcml6ZVJlc3BvbnNlEi0KDGF1dGhfcGF5bG9hZBgBIAEoCzIXLm9ibGl2aW8udjEuQXV0aFBheWxvYWQSGAoQbWZhX2NoYWxsZW5nZV9pZBgCIAEoCSJZChNSZWZyZXNoVG9rZW5SZXF1ZXN0EhUKDXJlZnJlc2hfdG9rZW4YASABKAkSKwoLZGV2aWNlX2luZm8YAiABKAsyFi5vYmxpdmlvLnYxLkRldmljZUluZm8iRQoUUmVmcmVzaFRva2VuUmVzcG9uc2USLQoMYXV0aF9wYXlsb2FkGAEgASgLMhcub2JsaXZpby52MS5BdXRoUGF5bG9hZCIPCg1Mb2dvdXRSZXF1ZXN0IhAKDkxvZ291dFJlc3BvbnNlIhIKEEdldE15S2V5c1JlcXVlc3QiWwoRR2V0TXlLZXlzUmVzcG9uc2USEAoIdmVyaWZpZXIYASABKAwSGQoRd3JhcHBlZF92YXVsdF9rZXkYAiABKAwSGQoRdmF1bHRfa2V5X3ZlcnNpb24YAyABKA0yzwMKC0F1dGhTZXJ2aWNlEkUKCFJlZ2lzdGVyEhsub2JsaXZpby52MS5SZWdpc3RlclJlcXVlc3QaHC5vYmxpdmlvLnYxLlJlZ2lzdGVyUmVzcG9uc2USUQoMR2V0S0RGUGFyYW1zEh8ub2JsaXZpby52MS5HZXRLREZQYXJhbXNSZXF1ZXN0GiAub2JsaXZpby52MS5HZXRLREZQYXJhbXNSZXNwb25zZRJICglBdXRob3JpemUSHC5vYmxpdmlvLnYxLkF1dGhvcml6ZVJlcXVlc3QaHS5vYmxpdmlvLnYxLkF1dGhvcml6ZVJlc3BvbnNlElEKDFJlZnJlc2hUb2tlbhIfLm9ibGl2aW8udjEuUmVmcmVzaFRva2VuUmVxdWVzdBogLm9ibGl2aW8udjEuUmVmcmVzaFRva2VuUmVzcG9uc2USPwoGTG9nb3V0Ehkub2JsaXZpby52MS5Mb2dvdXRSZXF1ZXN0Ghoub2JsaXZpby52MS5Mb2dvdXRSZXNwb25zZRJICglHZXRNeUtleXMSHC5vYmxpdmlvLnYxLkdldE15S2V5c1JlcXVlc3QaHS5vYmxpdmlvLnYxLkdldE15S2V5c1Jlc3BvbnNlQqoBCg5jb20ub2JsaXZpby52MUIJQXV0aFByb3RvUAFaRGdpdGh1Yi5jb20vc3h3ZWJkZXYvb2JsaXZpby9pbnRlcm5hbC9hcGkvZ2VuL2dvL29ibGl2aW8vdjE7b2JsaXZpb3YxogIDT1hYqgIKT2JsaXZpby5WMcoCCk9ibGl2aW9cVjHiAhZPYmxpdmlvXFYxXEdQQk1ldGFkYXRh6gILT2JsaXZpbzo6VjFiBnByb3RvMw", [file_oblivio_v1_common]);
+  fileDesc("ChVvYmxpdmlvL3YxL2F1dGgucHJvdG8SCm9ibGl2aW8udjEioAIKD1JlZ2lzdGVyUmVxdWVzdBINCgVlbWFpbBgBIAEoCRIRCglzYWx0X3VzZXIYAiABKAwSLAoKa2RmX3BhcmFtcxgDIAEoCzIYLm9ibGl2aW8udjEuQXJnb24yUGFyYW1zEhAKCGF1dGhfa2V5GAQgASgMEhAKCHZlcmlmaWVyGAUgASgMEhkKEXdyYXBwZWRfdmF1bHRfa2V5GAYgASgMEhUKDXJlY292ZXJ5X3NhbHQYByABKAwSIgoacmVjb3Zlcnlfd3JhcHBlZF92YXVsdF9rZXkYCCABKAwSFgoOcmVjb3ZlcnlfcHJvb2YYCSABKAwSKwoLZGV2aWNlX2luZm8YCiABKAsyFi5vYmxpdmlvLnYxLkRldmljZUluZm8iUgoQUmVnaXN0ZXJSZXNwb25zZRIPCgd1c2VyX2lkGAEgASgJEi0KDGF1dGhfcGF5bG9hZBgCIAEoCzIXLm9ibGl2aW8udjEuQXV0aFBheWxvYWQiJAoTR2V0S0RGUGFyYW1zUmVxdWVzdBINCgVlbWFpbBgBIAEoCSJXChRHZXRLREZQYXJhbXNSZXNwb25zZRIRCglzYWx0X3VzZXIYASABKAwSLAoKa2RmX3BhcmFtcxgCIAEoCzIYLm9ibGl2aW8udjEuQXJnb24yUGFyYW1zImAKEEF1dGhvcml6ZVJlcXVlc3QSDQoFZW1haWwYASABKAkSEAoIYXV0aF9rZXkYAiABKAwSKwoLZGV2aWNlX2luZm8YAyABKAsyFi5vYmxpdmlvLnYxLkRldmljZUluZm8icwoRQXV0aG9yaXplUmVzcG9uc2USLQoMYXV0aF9wYXlsb2FkGAEgASgLMhcub2JsaXZpby52MS5BdXRoUGF5bG9hZBIvCg1tZmFfY2hhbGxlbmdlGAIgASgLMhgub2JsaXZpby52MS5NRkFDaGFsbGVuZ2UicwoMTUZBQ2hhbGxlbmdlEhIKCnNlc3Npb25faWQYASABKAkSFQoNdG90cF9yZXF1aXJlZBgCIAEoCBIZChF3ZWJhdXRobl9yZXF1aXJlZBgDIAEoCBIdChV3ZWJhdXRobl9vcHRpb25zX2pzb24YBCABKAwiiQEKEkNvbXBsZXRlTUZBUmVxdWVzdBISCgpzZXNzaW9uX2lkGAEgASgJEhEKCXRvdHBfY29kZRgCIAEoCRIfChd3ZWJhdXRobl9hc3NlcnRpb25fanNvbhgDIAEoDBIrCgtkZXZpY2VfaW5mbxgEIAEoCzIWLm9ibGl2aW8udjEuRGV2aWNlSW5mbyJEChNDb21wbGV0ZU1GQVJlc3BvbnNlEi0KDGF1dGhfcGF5bG9hZBgBIAEoCzIXLm9ibGl2aW8udjEuQXV0aFBheWxvYWQiWQoTUmVmcmVzaFRva2VuUmVxdWVzdBIVCg1yZWZyZXNoX3Rva2VuGAEgASgJEisKC2RldmljZV9pbmZvGAIgASgLMhYub2JsaXZpby52MS5EZXZpY2VJbmZvIkUKFFJlZnJlc2hUb2tlblJlc3BvbnNlEi0KDGF1dGhfcGF5bG9hZBgBIAEoCzIXLm9ibGl2aW8udjEuQXV0aFBheWxvYWQiDwoNTG9nb3V0UmVxdWVzdCIQCg5Mb2dvdXRSZXNwb25zZSISChBHZXRNeUtleXNSZXF1ZXN0IlsKEUdldE15S2V5c1Jlc3BvbnNlEhAKCHZlcmlmaWVyGAEgASgMEhkKEXdyYXBwZWRfdmF1bHRfa2V5GAIgASgMEhkKEXZhdWx0X2tleV92ZXJzaW9uGAMgASgNIikKGEdldFJlY292ZXJ5UGFyYW1zUmVxdWVzdBINCgVlbWFpbBgBIAEoCSJgChlHZXRSZWNvdmVyeVBhcmFtc1Jlc3BvbnNlEhUKDXJlY292ZXJ5X3NhbHQYASABKAwSLAoKa2RmX3BhcmFtcxgCIAEoCzIYLm9ibGl2aW8udjEuQXJnb24yUGFyYW1zIj0KFFJlY292ZXJ5U3RhcnRSZXF1ZXN0Eg0KBWVtYWlsGAEgASgJEhYKDnJlY292ZXJ5X3Byb29mGAIgASgMIlgKFVJlY292ZXJ5U3RhcnRSZXNwb25zZRIbChNyZWNvdmVyeV9zZXNzaW9uX2lkGAEgASgJEiIKGnJlY292ZXJ5X3dyYXBwZWRfdmF1bHRfa2V5GAIgASgMIrYBChdSZWNvdmVyeUNvbXBsZXRlUmVxdWVzdBIbChNyZWNvdmVyeV9zZXNzaW9uX2lkGAEgASgJEhEKCXNhbHRfdXNlchgCIAEoDBIsCgprZGZfcGFyYW1zGAMgASgLMhgub2JsaXZpby52MS5BcmdvbjJQYXJhbXMSEAoIYXV0aF9rZXkYBCABKAwSEAoIdmVyaWZpZXIYBSABKAwSGQoRd3JhcHBlZF92YXVsdF9rZXkYBiABKAwiGgoYUmVjb3ZlcnlDb21wbGV0ZVJlc3BvbnNlMrYGCgtBdXRoU2VydmljZRJFCghSZWdpc3RlchIbLm9ibGl2aW8udjEuUmVnaXN0ZXJSZXF1ZXN0Ghwub2JsaXZpby52MS5SZWdpc3RlclJlc3BvbnNlElEKDEdldEtERlBhcmFtcxIfLm9ibGl2aW8udjEuR2V0S0RGUGFyYW1zUmVxdWVzdBogLm9ibGl2aW8udjEuR2V0S0RGUGFyYW1zUmVzcG9uc2USSAoJQXV0aG9yaXplEhwub2JsaXZpby52MS5BdXRob3JpemVSZXF1ZXN0Gh0ub2JsaXZpby52MS5BdXRob3JpemVSZXNwb25zZRJOCgtDb21wbGV0ZU1GQRIeLm9ibGl2aW8udjEuQ29tcGxldGVNRkFSZXF1ZXN0Gh8ub2JsaXZpby52MS5Db21wbGV0ZU1GQVJlc3BvbnNlElEKDFJlZnJlc2hUb2tlbhIfLm9ibGl2aW8udjEuUmVmcmVzaFRva2VuUmVxdWVzdBogLm9ibGl2aW8udjEuUmVmcmVzaFRva2VuUmVzcG9uc2USYAoRR2V0UmVjb3ZlcnlQYXJhbXMSJC5vYmxpdmlvLnYxLkdldFJlY292ZXJ5UGFyYW1zUmVxdWVzdBolLm9ibGl2aW8udjEuR2V0UmVjb3ZlcnlQYXJhbXNSZXNwb25zZRJUCg1SZWNvdmVyeVN0YXJ0EiAub2JsaXZpby52MS5SZWNvdmVyeVN0YXJ0UmVxdWVzdBohLm9ibGl2aW8udjEuUmVjb3ZlcnlTdGFydFJlc3BvbnNlEl0KEFJlY292ZXJ5Q29tcGxldGUSIy5vYmxpdmlvLnYxLlJlY292ZXJ5Q29tcGxldGVSZXF1ZXN0GiQub2JsaXZpby52MS5SZWNvdmVyeUNvbXBsZXRlUmVzcG9uc2USPwoGTG9nb3V0Ehkub2JsaXZpby52MS5Mb2dvdXRSZXF1ZXN0Ghoub2JsaXZpby52MS5Mb2dvdXRSZXNwb25zZRJICglHZXRNeUtleXMSHC5vYmxpdmlvLnYxLkdldE15S2V5c1JlcXVlc3QaHS5vYmxpdmlvLnYxLkdldE15S2V5c1Jlc3BvbnNlQqoBCg5jb20ub2JsaXZpby52MUIJQXV0aFByb3RvUAFaRGdpdGh1Yi5jb20vc3h3ZWJkZXYvb2JsaXZpby9pbnRlcm5hbC9hcGkvZ2VuL2dvL29ibGl2aW8vdjE7b2JsaXZpb3YxogIDT1hYqgIKT2JsaXZpby5WMcoCCk9ibGl2aW9cVjHiAhZPYmxpdmlvXFYxXEdQQk1ldGFkYXRh6gILT2JsaXZpbzo6VjFiBnByb3RvMw", [file_oblivio_v1_common]);
 
 /**
  * @generated from message oblivio.v1.RegisterRequest
@@ -165,14 +165,7 @@ export type AuthorizeRequest = Message<"oblivio.v1.AuthorizeRequest"> & {
   authKey: Uint8Array;
 
   /**
-   * Optional second-factor code for login-TOTP (5.3) when enabled.
-   *
-   * @generated from field: string totp_code = 3;
-   */
-  totpCode: string;
-
-  /**
-   * @generated from field: oblivio.v1.DeviceInfo device_info = 4;
+   * @generated from field: oblivio.v1.DeviceInfo device_info = 3;
    */
   deviceInfo?: DeviceInfo | undefined;
 };
@@ -189,17 +182,18 @@ export const AuthorizeRequestSchema: GenMessage<AuthorizeRequest> = /*@__PURE__*
  */
 export type AuthorizeResponse = Message<"oblivio.v1.AuthorizeResponse"> & {
   /**
+   * Exactly one of these is set. When auth_payload is present the user is
+   * signed in; when mfa_challenge is present the client must complete the
+   * requested factor and call CompleteMFA.
+   *
    * @generated from field: oblivio.v1.AuthPayload auth_payload = 1;
    */
   authPayload?: AuthPayload | undefined;
 
   /**
-   * When set, the client must complete an additional MFA step before tokens
-   * are issued. Reserved for Sprint 3.
-   *
-   * @generated from field: string mfa_challenge_id = 2;
+   * @generated from field: oblivio.v1.MFAChallenge mfa_challenge = 2;
    */
-  mfaChallengeId: string;
+  mfaChallenge?: MFAChallenge | undefined;
 };
 
 /**
@@ -208,6 +202,95 @@ export type AuthorizeResponse = Message<"oblivio.v1.AuthorizeResponse"> & {
  */
 export const AuthorizeResponseSchema: GenMessage<AuthorizeResponse> = /*@__PURE__*/
   messageDesc(file_oblivio_v1_auth, 5);
+
+/**
+ * MFAChallenge tells the client which factors are required. Both flags can
+ * be set when the user has both TOTP and WebAuthn enrolled — the client may
+ * pick any one to satisfy the challenge.
+ *
+ * @generated from message oblivio.v1.MFAChallenge
+ */
+export type MFAChallenge = Message<"oblivio.v1.MFAChallenge"> & {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId: string;
+
+  /**
+   * @generated from field: bool totp_required = 2;
+   */
+  totpRequired: boolean;
+
+  /**
+   * @generated from field: bool webauthn_required = 3;
+   */
+  webauthnRequired: boolean;
+
+  /**
+   * CredentialRequestOptions JSON (subset). Empty when webauthn_required=false.
+   *
+   * @generated from field: bytes webauthn_options_json = 4;
+   */
+  webauthnOptionsJson: Uint8Array;
+};
+
+/**
+ * Describes the message oblivio.v1.MFAChallenge.
+ * Use `create(MFAChallengeSchema)` to create a new message.
+ */
+export const MFAChallengeSchema: GenMessage<MFAChallenge> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 6);
+
+/**
+ * @generated from message oblivio.v1.CompleteMFARequest
+ */
+export type CompleteMFARequest = Message<"oblivio.v1.CompleteMFARequest"> & {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId: string;
+
+  /**
+   * Provide ONE of these.
+   *
+   * @generated from field: string totp_code = 2;
+   */
+  totpCode: string;
+
+  /**
+   * @generated from field: bytes webauthn_assertion_json = 3;
+   */
+  webauthnAssertionJson: Uint8Array;
+
+  /**
+   * @generated from field: oblivio.v1.DeviceInfo device_info = 4;
+   */
+  deviceInfo?: DeviceInfo | undefined;
+};
+
+/**
+ * Describes the message oblivio.v1.CompleteMFARequest.
+ * Use `create(CompleteMFARequestSchema)` to create a new message.
+ */
+export const CompleteMFARequestSchema: GenMessage<CompleteMFARequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 7);
+
+/**
+ * @generated from message oblivio.v1.CompleteMFAResponse
+ */
+export type CompleteMFAResponse = Message<"oblivio.v1.CompleteMFAResponse"> & {
+  /**
+   * @generated from field: oblivio.v1.AuthPayload auth_payload = 1;
+   */
+  authPayload?: AuthPayload | undefined;
+};
+
+/**
+ * Describes the message oblivio.v1.CompleteMFAResponse.
+ * Use `create(CompleteMFAResponseSchema)` to create a new message.
+ */
+export const CompleteMFAResponseSchema: GenMessage<CompleteMFAResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 8);
 
 /**
  * @generated from message oblivio.v1.RefreshTokenRequest
@@ -229,7 +312,7 @@ export type RefreshTokenRequest = Message<"oblivio.v1.RefreshTokenRequest"> & {
  * Use `create(RefreshTokenRequestSchema)` to create a new message.
  */
 export const RefreshTokenRequestSchema: GenMessage<RefreshTokenRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 6);
+  messageDesc(file_oblivio_v1_auth, 9);
 
 /**
  * @generated from message oblivio.v1.RefreshTokenResponse
@@ -246,7 +329,7 @@ export type RefreshTokenResponse = Message<"oblivio.v1.RefreshTokenResponse"> & 
  * Use `create(RefreshTokenResponseSchema)` to create a new message.
  */
 export const RefreshTokenResponseSchema: GenMessage<RefreshTokenResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 7);
+  messageDesc(file_oblivio_v1_auth, 10);
 
 /**
  * @generated from message oblivio.v1.LogoutRequest
@@ -259,7 +342,7 @@ export type LogoutRequest = Message<"oblivio.v1.LogoutRequest"> & {
  * Use `create(LogoutRequestSchema)` to create a new message.
  */
 export const LogoutRequestSchema: GenMessage<LogoutRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 8);
+  messageDesc(file_oblivio_v1_auth, 11);
 
 /**
  * @generated from message oblivio.v1.LogoutResponse
@@ -272,7 +355,7 @@ export type LogoutResponse = Message<"oblivio.v1.LogoutResponse"> & {
  * Use `create(LogoutResponseSchema)` to create a new message.
  */
 export const LogoutResponseSchema: GenMessage<LogoutResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 9);
+  messageDesc(file_oblivio_v1_auth, 12);
 
 /**
  * @generated from message oblivio.v1.GetMyKeysRequest
@@ -285,7 +368,7 @@ export type GetMyKeysRequest = Message<"oblivio.v1.GetMyKeysRequest"> & {
  * Use `create(GetMyKeysRequestSchema)` to create a new message.
  */
 export const GetMyKeysRequestSchema: GenMessage<GetMyKeysRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 10);
+  messageDesc(file_oblivio_v1_auth, 13);
 
 /**
  * @generated from message oblivio.v1.GetMyKeysResponse
@@ -312,7 +395,157 @@ export type GetMyKeysResponse = Message<"oblivio.v1.GetMyKeysResponse"> & {
  * Use `create(GetMyKeysResponseSchema)` to create a new message.
  */
 export const GetMyKeysResponseSchema: GenMessage<GetMyKeysResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 11);
+  messageDesc(file_oblivio_v1_auth, 14);
+
+/**
+ * @generated from message oblivio.v1.GetRecoveryParamsRequest
+ */
+export type GetRecoveryParamsRequest = Message<"oblivio.v1.GetRecoveryParamsRequest"> & {
+  /**
+   * @generated from field: string email = 1;
+   */
+  email: string;
+};
+
+/**
+ * Describes the message oblivio.v1.GetRecoveryParamsRequest.
+ * Use `create(GetRecoveryParamsRequestSchema)` to create a new message.
+ */
+export const GetRecoveryParamsRequestSchema: GenMessage<GetRecoveryParamsRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 15);
+
+/**
+ * @generated from message oblivio.v1.GetRecoveryParamsResponse
+ */
+export type GetRecoveryParamsResponse = Message<"oblivio.v1.GetRecoveryParamsResponse"> & {
+  /**
+   * Recovery KDF params currently mirror the master_key params; we keep them
+   * in a separate field so they can diverge later if we move to a faster KDF
+   * for recovery codes specifically.
+   *
+   * @generated from field: bytes recovery_salt = 1;
+   */
+  recoverySalt: Uint8Array;
+
+  /**
+   * @generated from field: oblivio.v1.Argon2Params kdf_params = 2;
+   */
+  kdfParams?: Argon2Params | undefined;
+};
+
+/**
+ * Describes the message oblivio.v1.GetRecoveryParamsResponse.
+ * Use `create(GetRecoveryParamsResponseSchema)` to create a new message.
+ */
+export const GetRecoveryParamsResponseSchema: GenMessage<GetRecoveryParamsResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 16);
+
+/**
+ * @generated from message oblivio.v1.RecoveryStartRequest
+ */
+export type RecoveryStartRequest = Message<"oblivio.v1.RecoveryStartRequest"> & {
+  /**
+   * @generated from field: string email = 1;
+   */
+  email: string;
+
+  /**
+   * recovery_proof = HKDF(recovery_key, "oblivio/auth/v1").
+   *
+   * @generated from field: bytes recovery_proof = 2;
+   */
+  recoveryProof: Uint8Array;
+};
+
+/**
+ * Describes the message oblivio.v1.RecoveryStartRequest.
+ * Use `create(RecoveryStartRequestSchema)` to create a new message.
+ */
+export const RecoveryStartRequestSchema: GenMessage<RecoveryStartRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 17);
+
+/**
+ * @generated from message oblivio.v1.RecoveryStartResponse
+ */
+export type RecoveryStartResponse = Message<"oblivio.v1.RecoveryStartResponse"> & {
+  /**
+   * recovery_session_id is a short-lived (15min) handle the client must
+   * present to RecoveryComplete. It also gates the rate-limit window so an
+   * attacker cannot brute-force recovery codes by hammering RecoveryStart.
+   *
+   * @generated from field: string recovery_session_id = 1;
+   */
+  recoverySessionId: string;
+
+  /**
+   * @generated from field: bytes recovery_wrapped_vault_key = 2;
+   */
+  recoveryWrappedVaultKey: Uint8Array;
+};
+
+/**
+ * Describes the message oblivio.v1.RecoveryStartResponse.
+ * Use `create(RecoveryStartResponseSchema)` to create a new message.
+ */
+export const RecoveryStartResponseSchema: GenMessage<RecoveryStartResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 18);
+
+/**
+ * @generated from message oblivio.v1.RecoveryCompleteRequest
+ */
+export type RecoveryCompleteRequest = Message<"oblivio.v1.RecoveryCompleteRequest"> & {
+  /**
+   * @generated from field: string recovery_session_id = 1;
+   */
+  recoverySessionId: string;
+
+  /**
+   * New auth artefacts derived from the freshly-chosen master_password.
+   *
+   * @generated from field: bytes salt_user = 2;
+   */
+  saltUser: Uint8Array;
+
+  /**
+   * @generated from field: oblivio.v1.Argon2Params kdf_params = 3;
+   */
+  kdfParams?: Argon2Params | undefined;
+
+  /**
+   * @generated from field: bytes auth_key = 4;
+   */
+  authKey: Uint8Array;
+
+  /**
+   * @generated from field: bytes verifier = 5;
+   */
+  verifier: Uint8Array;
+
+  /**
+   * @generated from field: bytes wrapped_vault_key = 6;
+   */
+  wrappedVaultKey: Uint8Array;
+};
+
+/**
+ * Describes the message oblivio.v1.RecoveryCompleteRequest.
+ * Use `create(RecoveryCompleteRequestSchema)` to create a new message.
+ */
+export const RecoveryCompleteRequestSchema: GenMessage<RecoveryCompleteRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 19);
+
+/**
+ * @generated from message oblivio.v1.RecoveryCompleteResponse
+ */
+export type RecoveryCompleteResponse = Message<"oblivio.v1.RecoveryCompleteResponse"> & {
+};
+
+/**
+ * Describes the message oblivio.v1.RecoveryCompleteResponse.
+ * Use `create(RecoveryCompleteResponseSchema)` to create a new message.
+ */
+export const RecoveryCompleteResponseSchema: GenMessage<RecoveryCompleteResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 20);
 
 /**
  * AuthService handles registration, login, refresh and recovery for the
@@ -350,12 +583,46 @@ export const AuthService: GenService<{
     output: typeof AuthorizeResponseSchema;
   },
   /**
+   * @generated from rpc oblivio.v1.AuthService.CompleteMFA
+   */
+  completeMFA: {
+    methodKind: "unary";
+    input: typeof CompleteMFARequestSchema;
+    output: typeof CompleteMFAResponseSchema;
+  },
+  /**
    * @generated from rpc oblivio.v1.AuthService.RefreshToken
    */
   refreshToken: {
     methodKind: "unary";
     input: typeof RefreshTokenRequestSchema;
     output: typeof RefreshTokenResponseSchema;
+  },
+  /**
+   * Recovery (anonymous).
+   *
+   * @generated from rpc oblivio.v1.AuthService.GetRecoveryParams
+   */
+  getRecoveryParams: {
+    methodKind: "unary";
+    input: typeof GetRecoveryParamsRequestSchema;
+    output: typeof GetRecoveryParamsResponseSchema;
+  },
+  /**
+   * @generated from rpc oblivio.v1.AuthService.RecoveryStart
+   */
+  recoveryStart: {
+    methodKind: "unary";
+    input: typeof RecoveryStartRequestSchema;
+    output: typeof RecoveryStartResponseSchema;
+  },
+  /**
+   * @generated from rpc oblivio.v1.AuthService.RecoveryComplete
+   */
+  recoveryComplete: {
+    methodKind: "unary";
+    input: typeof RecoveryCompleteRequestSchema;
+    output: typeof RecoveryCompleteResponseSchema;
   },
   /**
    * Authenticated endpoints.

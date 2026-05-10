@@ -16,6 +16,7 @@ import (
 	"github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1/obliviov1connect"
 	"github.com/sxwebdev/oblivio/internal/api/middleware"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_login_totp"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_webauthn_credentials"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_users"
 )
 
@@ -49,12 +50,16 @@ func (s *Service) GetMe(ctx context.Context, _ *connect.Request[pb.GetMeRequest]
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// WebAuthn credentials land in Sprint 3; report zero for now.
+	credCount, err := repo_user_webauthn_credentials.New(tx).CountWebAuthnCredentials(ctx, uc.UserID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	return connect.NewResponse(&pb.GetMeResponse{
 		UserId:                   u.ID.String(),
 		Email:                    u.Email,
 		EmailVerified:            u.EmailVerifiedAt.Valid,
 		TotpEnabled:              totpEnabled,
-		WebauthnCredentialsCount: 0,
+		WebauthnCredentialsCount: uint32(credCount), //nolint:gosec
 	}), nil
 }

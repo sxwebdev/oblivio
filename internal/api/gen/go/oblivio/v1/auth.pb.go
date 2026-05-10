@@ -293,12 +293,10 @@ func (x *GetKDFParamsResponse) GetKdfParams() *Argon2Params {
 }
 
 type AuthorizeRequest struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Email   string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
-	AuthKey []byte                 `protobuf:"bytes,2,opt,name=auth_key,json=authKey,proto3" json:"auth_key,omitempty"`
-	// Optional second-factor code for login-TOTP (5.3) when enabled.
-	TotpCode      string      `protobuf:"bytes,3,opt,name=totp_code,json=totpCode,proto3" json:"totp_code,omitempty"`
-	DeviceInfo    *DeviceInfo `protobuf:"bytes,4,opt,name=device_info,json=deviceInfo,proto3" json:"device_info,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	AuthKey       []byte                 `protobuf:"bytes,2,opt,name=auth_key,json=authKey,proto3" json:"auth_key,omitempty"`
+	DeviceInfo    *DeviceInfo            `protobuf:"bytes,3,opt,name=device_info,json=deviceInfo,proto3" json:"device_info,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -347,13 +345,6 @@ func (x *AuthorizeRequest) GetAuthKey() []byte {
 	return nil
 }
 
-func (x *AuthorizeRequest) GetTotpCode() string {
-	if x != nil {
-		return x.TotpCode
-	}
-	return ""
-}
-
 func (x *AuthorizeRequest) GetDeviceInfo() *DeviceInfo {
 	if x != nil {
 		return x.DeviceInfo
@@ -362,13 +353,14 @@ func (x *AuthorizeRequest) GetDeviceInfo() *DeviceInfo {
 }
 
 type AuthorizeResponse struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	AuthPayload *AuthPayload           `protobuf:"bytes,1,opt,name=auth_payload,json=authPayload,proto3" json:"auth_payload,omitempty"`
-	// When set, the client must complete an additional MFA step before tokens
-	// are issued. Reserved for Sprint 3.
-	MfaChallengeId string `protobuf:"bytes,2,opt,name=mfa_challenge_id,json=mfaChallengeId,proto3" json:"mfa_challenge_id,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Exactly one of these is set. When auth_payload is present the user is
+	// signed in; when mfa_challenge is present the client must complete the
+	// requested factor and call CompleteMFA.
+	AuthPayload   *AuthPayload  `protobuf:"bytes,1,opt,name=auth_payload,json=authPayload,proto3" json:"auth_payload,omitempty"`
+	MfaChallenge  *MFAChallenge `protobuf:"bytes,2,opt,name=mfa_challenge,json=mfaChallenge,proto3" json:"mfa_challenge,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AuthorizeResponse) Reset() {
@@ -408,11 +400,196 @@ func (x *AuthorizeResponse) GetAuthPayload() *AuthPayload {
 	return nil
 }
 
-func (x *AuthorizeResponse) GetMfaChallengeId() string {
+func (x *AuthorizeResponse) GetMfaChallenge() *MFAChallenge {
 	if x != nil {
-		return x.MfaChallengeId
+		return x.MfaChallenge
+	}
+	return nil
+}
+
+// MFAChallenge tells the client which factors are required. Both flags can
+// be set when the user has both TOTP and WebAuthn enrolled — the client may
+// pick any one to satisfy the challenge.
+type MFAChallenge struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	SessionId        string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	TotpRequired     bool                   `protobuf:"varint,2,opt,name=totp_required,json=totpRequired,proto3" json:"totp_required,omitempty"`
+	WebauthnRequired bool                   `protobuf:"varint,3,opt,name=webauthn_required,json=webauthnRequired,proto3" json:"webauthn_required,omitempty"`
+	// CredentialRequestOptions JSON (subset). Empty when webauthn_required=false.
+	WebauthnOptionsJson []byte `protobuf:"bytes,4,opt,name=webauthn_options_json,json=webauthnOptionsJson,proto3" json:"webauthn_options_json,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *MFAChallenge) Reset() {
+	*x = MFAChallenge{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MFAChallenge) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MFAChallenge) ProtoMessage() {}
+
+func (x *MFAChallenge) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MFAChallenge.ProtoReflect.Descriptor instead.
+func (*MFAChallenge) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *MFAChallenge) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
 	}
 	return ""
+}
+
+func (x *MFAChallenge) GetTotpRequired() bool {
+	if x != nil {
+		return x.TotpRequired
+	}
+	return false
+}
+
+func (x *MFAChallenge) GetWebauthnRequired() bool {
+	if x != nil {
+		return x.WebauthnRequired
+	}
+	return false
+}
+
+func (x *MFAChallenge) GetWebauthnOptionsJson() []byte {
+	if x != nil {
+		return x.WebauthnOptionsJson
+	}
+	return nil
+}
+
+type CompleteMFARequest struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	SessionId string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// Provide ONE of these.
+	TotpCode              string      `protobuf:"bytes,2,opt,name=totp_code,json=totpCode,proto3" json:"totp_code,omitempty"`
+	WebauthnAssertionJson []byte      `protobuf:"bytes,3,opt,name=webauthn_assertion_json,json=webauthnAssertionJson,proto3" json:"webauthn_assertion_json,omitempty"`
+	DeviceInfo            *DeviceInfo `protobuf:"bytes,4,opt,name=device_info,json=deviceInfo,proto3" json:"device_info,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *CompleteMFARequest) Reset() {
+	*x = CompleteMFARequest{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompleteMFARequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompleteMFARequest) ProtoMessage() {}
+
+func (x *CompleteMFARequest) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompleteMFARequest.ProtoReflect.Descriptor instead.
+func (*CompleteMFARequest) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *CompleteMFARequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *CompleteMFARequest) GetTotpCode() string {
+	if x != nil {
+		return x.TotpCode
+	}
+	return ""
+}
+
+func (x *CompleteMFARequest) GetWebauthnAssertionJson() []byte {
+	if x != nil {
+		return x.WebauthnAssertionJson
+	}
+	return nil
+}
+
+func (x *CompleteMFARequest) GetDeviceInfo() *DeviceInfo {
+	if x != nil {
+		return x.DeviceInfo
+	}
+	return nil
+}
+
+type CompleteMFAResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AuthPayload   *AuthPayload           `protobuf:"bytes,1,opt,name=auth_payload,json=authPayload,proto3" json:"auth_payload,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompleteMFAResponse) Reset() {
+	*x = CompleteMFAResponse{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompleteMFAResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompleteMFAResponse) ProtoMessage() {}
+
+func (x *CompleteMFAResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompleteMFAResponse.ProtoReflect.Descriptor instead.
+func (*CompleteMFAResponse) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *CompleteMFAResponse) GetAuthPayload() *AuthPayload {
+	if x != nil {
+		return x.AuthPayload
+	}
+	return nil
 }
 
 type RefreshTokenRequest struct {
@@ -425,7 +602,7 @@ type RefreshTokenRequest struct {
 
 func (x *RefreshTokenRequest) Reset() {
 	*x = RefreshTokenRequest{}
-	mi := &file_oblivio_v1_auth_proto_msgTypes[6]
+	mi := &file_oblivio_v1_auth_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -437,7 +614,7 @@ func (x *RefreshTokenRequest) String() string {
 func (*RefreshTokenRequest) ProtoMessage() {}
 
 func (x *RefreshTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_oblivio_v1_auth_proto_msgTypes[6]
+	mi := &file_oblivio_v1_auth_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -450,7 +627,7 @@ func (x *RefreshTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshTokenRequest.ProtoReflect.Descriptor instead.
 func (*RefreshTokenRequest) Descriptor() ([]byte, []int) {
-	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{6}
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *RefreshTokenRequest) GetRefreshToken() string {
@@ -476,7 +653,7 @@ type RefreshTokenResponse struct {
 
 func (x *RefreshTokenResponse) Reset() {
 	*x = RefreshTokenResponse{}
-	mi := &file_oblivio_v1_auth_proto_msgTypes[7]
+	mi := &file_oblivio_v1_auth_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -488,7 +665,7 @@ func (x *RefreshTokenResponse) String() string {
 func (*RefreshTokenResponse) ProtoMessage() {}
 
 func (x *RefreshTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_oblivio_v1_auth_proto_msgTypes[7]
+	mi := &file_oblivio_v1_auth_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -501,7 +678,7 @@ func (x *RefreshTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshTokenResponse.ProtoReflect.Descriptor instead.
 func (*RefreshTokenResponse) Descriptor() ([]byte, []int) {
-	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{7}
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *RefreshTokenResponse) GetAuthPayload() *AuthPayload {
@@ -519,7 +696,7 @@ type LogoutRequest struct {
 
 func (x *LogoutRequest) Reset() {
 	*x = LogoutRequest{}
-	mi := &file_oblivio_v1_auth_proto_msgTypes[8]
+	mi := &file_oblivio_v1_auth_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -531,7 +708,7 @@ func (x *LogoutRequest) String() string {
 func (*LogoutRequest) ProtoMessage() {}
 
 func (x *LogoutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_oblivio_v1_auth_proto_msgTypes[8]
+	mi := &file_oblivio_v1_auth_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -544,7 +721,7 @@ func (x *LogoutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogoutRequest.ProtoReflect.Descriptor instead.
 func (*LogoutRequest) Descriptor() ([]byte, []int) {
-	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{8}
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{11}
 }
 
 type LogoutResponse struct {
@@ -555,7 +732,7 @@ type LogoutResponse struct {
 
 func (x *LogoutResponse) Reset() {
 	*x = LogoutResponse{}
-	mi := &file_oblivio_v1_auth_proto_msgTypes[9]
+	mi := &file_oblivio_v1_auth_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -567,7 +744,7 @@ func (x *LogoutResponse) String() string {
 func (*LogoutResponse) ProtoMessage() {}
 
 func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_oblivio_v1_auth_proto_msgTypes[9]
+	mi := &file_oblivio_v1_auth_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -580,7 +757,7 @@ func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogoutResponse.ProtoReflect.Descriptor instead.
 func (*LogoutResponse) Descriptor() ([]byte, []int) {
-	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{9}
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{12}
 }
 
 type GetMyKeysRequest struct {
@@ -591,7 +768,7 @@ type GetMyKeysRequest struct {
 
 func (x *GetMyKeysRequest) Reset() {
 	*x = GetMyKeysRequest{}
-	mi := &file_oblivio_v1_auth_proto_msgTypes[10]
+	mi := &file_oblivio_v1_auth_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -603,7 +780,7 @@ func (x *GetMyKeysRequest) String() string {
 func (*GetMyKeysRequest) ProtoMessage() {}
 
 func (x *GetMyKeysRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_oblivio_v1_auth_proto_msgTypes[10]
+	mi := &file_oblivio_v1_auth_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -616,7 +793,7 @@ func (x *GetMyKeysRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyKeysRequest.ProtoReflect.Descriptor instead.
 func (*GetMyKeysRequest) Descriptor() ([]byte, []int) {
-	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{10}
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{13}
 }
 
 type GetMyKeysResponse struct {
@@ -630,7 +807,7 @@ type GetMyKeysResponse struct {
 
 func (x *GetMyKeysResponse) Reset() {
 	*x = GetMyKeysResponse{}
-	mi := &file_oblivio_v1_auth_proto_msgTypes[11]
+	mi := &file_oblivio_v1_auth_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -642,7 +819,7 @@ func (x *GetMyKeysResponse) String() string {
 func (*GetMyKeysResponse) ProtoMessage() {}
 
 func (x *GetMyKeysResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_oblivio_v1_auth_proto_msgTypes[11]
+	mi := &file_oblivio_v1_auth_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -655,7 +832,7 @@ func (x *GetMyKeysResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyKeysResponse.ProtoReflect.Descriptor instead.
 func (*GetMyKeysResponse) Descriptor() ([]byte, []int) {
-	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{11}
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetMyKeysResponse) GetVerifier() []byte {
@@ -677,6 +854,334 @@ func (x *GetMyKeysResponse) GetVaultKeyVersion() uint32 {
 		return x.VaultKeyVersion
 	}
 	return 0
+}
+
+type GetRecoveryParamsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRecoveryParamsRequest) Reset() {
+	*x = GetRecoveryParamsRequest{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRecoveryParamsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRecoveryParamsRequest) ProtoMessage() {}
+
+func (x *GetRecoveryParamsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRecoveryParamsRequest.ProtoReflect.Descriptor instead.
+func (*GetRecoveryParamsRequest) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *GetRecoveryParamsRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+type GetRecoveryParamsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Recovery KDF params currently mirror the master_key params; we keep them
+	// in a separate field so they can diverge later if we move to a faster KDF
+	// for recovery codes specifically.
+	RecoverySalt  []byte        `protobuf:"bytes,1,opt,name=recovery_salt,json=recoverySalt,proto3" json:"recovery_salt,omitempty"`
+	KdfParams     *Argon2Params `protobuf:"bytes,2,opt,name=kdf_params,json=kdfParams,proto3" json:"kdf_params,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRecoveryParamsResponse) Reset() {
+	*x = GetRecoveryParamsResponse{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRecoveryParamsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRecoveryParamsResponse) ProtoMessage() {}
+
+func (x *GetRecoveryParamsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRecoveryParamsResponse.ProtoReflect.Descriptor instead.
+func (*GetRecoveryParamsResponse) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *GetRecoveryParamsResponse) GetRecoverySalt() []byte {
+	if x != nil {
+		return x.RecoverySalt
+	}
+	return nil
+}
+
+func (x *GetRecoveryParamsResponse) GetKdfParams() *Argon2Params {
+	if x != nil {
+		return x.KdfParams
+	}
+	return nil
+}
+
+type RecoveryStartRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Email string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	// recovery_proof = HKDF(recovery_key, "oblivio/auth/v1").
+	RecoveryProof []byte `protobuf:"bytes,2,opt,name=recovery_proof,json=recoveryProof,proto3" json:"recovery_proof,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecoveryStartRequest) Reset() {
+	*x = RecoveryStartRequest{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecoveryStartRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecoveryStartRequest) ProtoMessage() {}
+
+func (x *RecoveryStartRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecoveryStartRequest.ProtoReflect.Descriptor instead.
+func (*RecoveryStartRequest) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *RecoveryStartRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *RecoveryStartRequest) GetRecoveryProof() []byte {
+	if x != nil {
+		return x.RecoveryProof
+	}
+	return nil
+}
+
+type RecoveryStartResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// recovery_session_id is a short-lived (15min) handle the client must
+	// present to RecoveryComplete. It also gates the rate-limit window so an
+	// attacker cannot brute-force recovery codes by hammering RecoveryStart.
+	RecoverySessionId       string `protobuf:"bytes,1,opt,name=recovery_session_id,json=recoverySessionId,proto3" json:"recovery_session_id,omitempty"`
+	RecoveryWrappedVaultKey []byte `protobuf:"bytes,2,opt,name=recovery_wrapped_vault_key,json=recoveryWrappedVaultKey,proto3" json:"recovery_wrapped_vault_key,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *RecoveryStartResponse) Reset() {
+	*x = RecoveryStartResponse{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecoveryStartResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecoveryStartResponse) ProtoMessage() {}
+
+func (x *RecoveryStartResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecoveryStartResponse.ProtoReflect.Descriptor instead.
+func (*RecoveryStartResponse) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *RecoveryStartResponse) GetRecoverySessionId() string {
+	if x != nil {
+		return x.RecoverySessionId
+	}
+	return ""
+}
+
+func (x *RecoveryStartResponse) GetRecoveryWrappedVaultKey() []byte {
+	if x != nil {
+		return x.RecoveryWrappedVaultKey
+	}
+	return nil
+}
+
+type RecoveryCompleteRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	RecoverySessionId string                 `protobuf:"bytes,1,opt,name=recovery_session_id,json=recoverySessionId,proto3" json:"recovery_session_id,omitempty"`
+	// New auth artefacts derived from the freshly-chosen master_password.
+	SaltUser        []byte        `protobuf:"bytes,2,opt,name=salt_user,json=saltUser,proto3" json:"salt_user,omitempty"`
+	KdfParams       *Argon2Params `protobuf:"bytes,3,opt,name=kdf_params,json=kdfParams,proto3" json:"kdf_params,omitempty"`
+	AuthKey         []byte        `protobuf:"bytes,4,opt,name=auth_key,json=authKey,proto3" json:"auth_key,omitempty"`
+	Verifier        []byte        `protobuf:"bytes,5,opt,name=verifier,proto3" json:"verifier,omitempty"`
+	WrappedVaultKey []byte        `protobuf:"bytes,6,opt,name=wrapped_vault_key,json=wrappedVaultKey,proto3" json:"wrapped_vault_key,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *RecoveryCompleteRequest) Reset() {
+	*x = RecoveryCompleteRequest{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecoveryCompleteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecoveryCompleteRequest) ProtoMessage() {}
+
+func (x *RecoveryCompleteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecoveryCompleteRequest.ProtoReflect.Descriptor instead.
+func (*RecoveryCompleteRequest) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *RecoveryCompleteRequest) GetRecoverySessionId() string {
+	if x != nil {
+		return x.RecoverySessionId
+	}
+	return ""
+}
+
+func (x *RecoveryCompleteRequest) GetSaltUser() []byte {
+	if x != nil {
+		return x.SaltUser
+	}
+	return nil
+}
+
+func (x *RecoveryCompleteRequest) GetKdfParams() *Argon2Params {
+	if x != nil {
+		return x.KdfParams
+	}
+	return nil
+}
+
+func (x *RecoveryCompleteRequest) GetAuthKey() []byte {
+	if x != nil {
+		return x.AuthKey
+	}
+	return nil
+}
+
+func (x *RecoveryCompleteRequest) GetVerifier() []byte {
+	if x != nil {
+		return x.Verifier
+	}
+	return nil
+}
+
+func (x *RecoveryCompleteRequest) GetWrappedVaultKey() []byte {
+	if x != nil {
+		return x.WrappedVaultKey
+	}
+	return nil
+}
+
+type RecoveryCompleteResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecoveryCompleteResponse) Reset() {
+	*x = RecoveryCompleteResponse{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecoveryCompleteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecoveryCompleteResponse) ProtoMessage() {}
+
+func (x *RecoveryCompleteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecoveryCompleteResponse.ProtoReflect.Descriptor instead.
+func (*RecoveryCompleteResponse) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{20}
 }
 
 var File_oblivio_v1_auth_proto protoreflect.FileDescriptor
@@ -707,16 +1212,30 @@ const file_oblivio_v1_auth_proto_rawDesc = "" +
 	"\x14GetKDFParamsResponse\x12\x1b\n" +
 	"\tsalt_user\x18\x01 \x01(\fR\bsaltUser\x127\n" +
 	"\n" +
-	"kdf_params\x18\x02 \x01(\v2\x18.oblivio.v1.Argon2ParamsR\tkdfParams\"\x99\x01\n" +
+	"kdf_params\x18\x02 \x01(\v2\x18.oblivio.v1.Argon2ParamsR\tkdfParams\"|\n" +
 	"\x10AuthorizeRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x19\n" +
-	"\bauth_key\x18\x02 \x01(\fR\aauthKey\x12\x1b\n" +
-	"\ttotp_code\x18\x03 \x01(\tR\btotpCode\x127\n" +
-	"\vdevice_info\x18\x04 \x01(\v2\x16.oblivio.v1.DeviceInfoR\n" +
-	"deviceInfo\"y\n" +
+	"\bauth_key\x18\x02 \x01(\fR\aauthKey\x127\n" +
+	"\vdevice_info\x18\x03 \x01(\v2\x16.oblivio.v1.DeviceInfoR\n" +
+	"deviceInfo\"\x8e\x01\n" +
 	"\x11AuthorizeResponse\x12:\n" +
-	"\fauth_payload\x18\x01 \x01(\v2\x17.oblivio.v1.AuthPayloadR\vauthPayload\x12(\n" +
-	"\x10mfa_challenge_id\x18\x02 \x01(\tR\x0emfaChallengeId\"s\n" +
+	"\fauth_payload\x18\x01 \x01(\v2\x17.oblivio.v1.AuthPayloadR\vauthPayload\x12=\n" +
+	"\rmfa_challenge\x18\x02 \x01(\v2\x18.oblivio.v1.MFAChallengeR\fmfaChallenge\"\xb3\x01\n" +
+	"\fMFAChallenge\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12#\n" +
+	"\rtotp_required\x18\x02 \x01(\bR\ftotpRequired\x12+\n" +
+	"\x11webauthn_required\x18\x03 \x01(\bR\x10webauthnRequired\x122\n" +
+	"\x15webauthn_options_json\x18\x04 \x01(\fR\x13webauthnOptionsJson\"\xc1\x01\n" +
+	"\x12CompleteMFARequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1b\n" +
+	"\ttotp_code\x18\x02 \x01(\tR\btotpCode\x126\n" +
+	"\x17webauthn_assertion_json\x18\x03 \x01(\fR\x15webauthnAssertionJson\x127\n" +
+	"\vdevice_info\x18\x04 \x01(\v2\x16.oblivio.v1.DeviceInfoR\n" +
+	"deviceInfo\"Q\n" +
+	"\x13CompleteMFAResponse\x12:\n" +
+	"\fauth_payload\x18\x01 \x01(\v2\x17.oblivio.v1.AuthPayloadR\vauthPayload\"s\n" +
 	"\x13RefreshTokenRequest\x12#\n" +
 	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\x127\n" +
 	"\vdevice_info\x18\x02 \x01(\v2\x16.oblivio.v1.DeviceInfoR\n" +
@@ -729,12 +1248,37 @@ const file_oblivio_v1_auth_proto_rawDesc = "" +
 	"\x11GetMyKeysResponse\x12\x1a\n" +
 	"\bverifier\x18\x01 \x01(\fR\bverifier\x12*\n" +
 	"\x11wrapped_vault_key\x18\x02 \x01(\fR\x0fwrappedVaultKey\x12*\n" +
-	"\x11vault_key_version\x18\x03 \x01(\rR\x0fvaultKeyVersion2\xcf\x03\n" +
+	"\x11vault_key_version\x18\x03 \x01(\rR\x0fvaultKeyVersion\"0\n" +
+	"\x18GetRecoveryParamsRequest\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\"y\n" +
+	"\x19GetRecoveryParamsResponse\x12#\n" +
+	"\rrecovery_salt\x18\x01 \x01(\fR\frecoverySalt\x127\n" +
+	"\n" +
+	"kdf_params\x18\x02 \x01(\v2\x18.oblivio.v1.Argon2ParamsR\tkdfParams\"S\n" +
+	"\x14RecoveryStartRequest\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\x12%\n" +
+	"\x0erecovery_proof\x18\x02 \x01(\fR\rrecoveryProof\"\x84\x01\n" +
+	"\x15RecoveryStartResponse\x12.\n" +
+	"\x13recovery_session_id\x18\x01 \x01(\tR\x11recoverySessionId\x12;\n" +
+	"\x1arecovery_wrapped_vault_key\x18\x02 \x01(\fR\x17recoveryWrappedVaultKey\"\x82\x02\n" +
+	"\x17RecoveryCompleteRequest\x12.\n" +
+	"\x13recovery_session_id\x18\x01 \x01(\tR\x11recoverySessionId\x12\x1b\n" +
+	"\tsalt_user\x18\x02 \x01(\fR\bsaltUser\x127\n" +
+	"\n" +
+	"kdf_params\x18\x03 \x01(\v2\x18.oblivio.v1.Argon2ParamsR\tkdfParams\x12\x19\n" +
+	"\bauth_key\x18\x04 \x01(\fR\aauthKey\x12\x1a\n" +
+	"\bverifier\x18\x05 \x01(\fR\bverifier\x12*\n" +
+	"\x11wrapped_vault_key\x18\x06 \x01(\fR\x0fwrappedVaultKey\"\x1a\n" +
+	"\x18RecoveryCompleteResponse2\xb6\x06\n" +
 	"\vAuthService\x12E\n" +
 	"\bRegister\x12\x1b.oblivio.v1.RegisterRequest\x1a\x1c.oblivio.v1.RegisterResponse\x12Q\n" +
 	"\fGetKDFParams\x12\x1f.oblivio.v1.GetKDFParamsRequest\x1a .oblivio.v1.GetKDFParamsResponse\x12H\n" +
-	"\tAuthorize\x12\x1c.oblivio.v1.AuthorizeRequest\x1a\x1d.oblivio.v1.AuthorizeResponse\x12Q\n" +
-	"\fRefreshToken\x12\x1f.oblivio.v1.RefreshTokenRequest\x1a .oblivio.v1.RefreshTokenResponse\x12?\n" +
+	"\tAuthorize\x12\x1c.oblivio.v1.AuthorizeRequest\x1a\x1d.oblivio.v1.AuthorizeResponse\x12N\n" +
+	"\vCompleteMFA\x12\x1e.oblivio.v1.CompleteMFARequest\x1a\x1f.oblivio.v1.CompleteMFAResponse\x12Q\n" +
+	"\fRefreshToken\x12\x1f.oblivio.v1.RefreshTokenRequest\x1a .oblivio.v1.RefreshTokenResponse\x12`\n" +
+	"\x11GetRecoveryParams\x12$.oblivio.v1.GetRecoveryParamsRequest\x1a%.oblivio.v1.GetRecoveryParamsResponse\x12T\n" +
+	"\rRecoveryStart\x12 .oblivio.v1.RecoveryStartRequest\x1a!.oblivio.v1.RecoveryStartResponse\x12]\n" +
+	"\x10RecoveryComplete\x12#.oblivio.v1.RecoveryCompleteRequest\x1a$.oblivio.v1.RecoveryCompleteResponse\x12?\n" +
 	"\x06Logout\x12\x19.oblivio.v1.LogoutRequest\x1a\x1a.oblivio.v1.LogoutResponse\x12H\n" +
 	"\tGetMyKeys\x12\x1c.oblivio.v1.GetMyKeysRequest\x1a\x1d.oblivio.v1.GetMyKeysResponseB\xaa\x01\n" +
 	"\x0ecom.oblivio.v1B\tAuthProtoP\x01ZDgithub.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1;obliviov1\xa2\x02\x03OXX\xaa\x02\n" +
@@ -753,50 +1297,72 @@ func file_oblivio_v1_auth_proto_rawDescGZIP() []byte {
 	return file_oblivio_v1_auth_proto_rawDescData
 }
 
-var file_oblivio_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_oblivio_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_oblivio_v1_auth_proto_goTypes = []any{
-	(*RegisterRequest)(nil),      // 0: oblivio.v1.RegisterRequest
-	(*RegisterResponse)(nil),     // 1: oblivio.v1.RegisterResponse
-	(*GetKDFParamsRequest)(nil),  // 2: oblivio.v1.GetKDFParamsRequest
-	(*GetKDFParamsResponse)(nil), // 3: oblivio.v1.GetKDFParamsResponse
-	(*AuthorizeRequest)(nil),     // 4: oblivio.v1.AuthorizeRequest
-	(*AuthorizeResponse)(nil),    // 5: oblivio.v1.AuthorizeResponse
-	(*RefreshTokenRequest)(nil),  // 6: oblivio.v1.RefreshTokenRequest
-	(*RefreshTokenResponse)(nil), // 7: oblivio.v1.RefreshTokenResponse
-	(*LogoutRequest)(nil),        // 8: oblivio.v1.LogoutRequest
-	(*LogoutResponse)(nil),       // 9: oblivio.v1.LogoutResponse
-	(*GetMyKeysRequest)(nil),     // 10: oblivio.v1.GetMyKeysRequest
-	(*GetMyKeysResponse)(nil),    // 11: oblivio.v1.GetMyKeysResponse
-	(*Argon2Params)(nil),         // 12: oblivio.v1.Argon2Params
-	(*DeviceInfo)(nil),           // 13: oblivio.v1.DeviceInfo
-	(*AuthPayload)(nil),          // 14: oblivio.v1.AuthPayload
+	(*RegisterRequest)(nil),           // 0: oblivio.v1.RegisterRequest
+	(*RegisterResponse)(nil),          // 1: oblivio.v1.RegisterResponse
+	(*GetKDFParamsRequest)(nil),       // 2: oblivio.v1.GetKDFParamsRequest
+	(*GetKDFParamsResponse)(nil),      // 3: oblivio.v1.GetKDFParamsResponse
+	(*AuthorizeRequest)(nil),          // 4: oblivio.v1.AuthorizeRequest
+	(*AuthorizeResponse)(nil),         // 5: oblivio.v1.AuthorizeResponse
+	(*MFAChallenge)(nil),              // 6: oblivio.v1.MFAChallenge
+	(*CompleteMFARequest)(nil),        // 7: oblivio.v1.CompleteMFARequest
+	(*CompleteMFAResponse)(nil),       // 8: oblivio.v1.CompleteMFAResponse
+	(*RefreshTokenRequest)(nil),       // 9: oblivio.v1.RefreshTokenRequest
+	(*RefreshTokenResponse)(nil),      // 10: oblivio.v1.RefreshTokenResponse
+	(*LogoutRequest)(nil),             // 11: oblivio.v1.LogoutRequest
+	(*LogoutResponse)(nil),            // 12: oblivio.v1.LogoutResponse
+	(*GetMyKeysRequest)(nil),          // 13: oblivio.v1.GetMyKeysRequest
+	(*GetMyKeysResponse)(nil),         // 14: oblivio.v1.GetMyKeysResponse
+	(*GetRecoveryParamsRequest)(nil),  // 15: oblivio.v1.GetRecoveryParamsRequest
+	(*GetRecoveryParamsResponse)(nil), // 16: oblivio.v1.GetRecoveryParamsResponse
+	(*RecoveryStartRequest)(nil),      // 17: oblivio.v1.RecoveryStartRequest
+	(*RecoveryStartResponse)(nil),     // 18: oblivio.v1.RecoveryStartResponse
+	(*RecoveryCompleteRequest)(nil),   // 19: oblivio.v1.RecoveryCompleteRequest
+	(*RecoveryCompleteResponse)(nil),  // 20: oblivio.v1.RecoveryCompleteResponse
+	(*Argon2Params)(nil),              // 21: oblivio.v1.Argon2Params
+	(*DeviceInfo)(nil),                // 22: oblivio.v1.DeviceInfo
+	(*AuthPayload)(nil),               // 23: oblivio.v1.AuthPayload
 }
 var file_oblivio_v1_auth_proto_depIdxs = []int32{
-	12, // 0: oblivio.v1.RegisterRequest.kdf_params:type_name -> oblivio.v1.Argon2Params
-	13, // 1: oblivio.v1.RegisterRequest.device_info:type_name -> oblivio.v1.DeviceInfo
-	14, // 2: oblivio.v1.RegisterResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
-	12, // 3: oblivio.v1.GetKDFParamsResponse.kdf_params:type_name -> oblivio.v1.Argon2Params
-	13, // 4: oblivio.v1.AuthorizeRequest.device_info:type_name -> oblivio.v1.DeviceInfo
-	14, // 5: oblivio.v1.AuthorizeResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
-	13, // 6: oblivio.v1.RefreshTokenRequest.device_info:type_name -> oblivio.v1.DeviceInfo
-	14, // 7: oblivio.v1.RefreshTokenResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
-	0,  // 8: oblivio.v1.AuthService.Register:input_type -> oblivio.v1.RegisterRequest
-	2,  // 9: oblivio.v1.AuthService.GetKDFParams:input_type -> oblivio.v1.GetKDFParamsRequest
-	4,  // 10: oblivio.v1.AuthService.Authorize:input_type -> oblivio.v1.AuthorizeRequest
-	6,  // 11: oblivio.v1.AuthService.RefreshToken:input_type -> oblivio.v1.RefreshTokenRequest
-	8,  // 12: oblivio.v1.AuthService.Logout:input_type -> oblivio.v1.LogoutRequest
-	10, // 13: oblivio.v1.AuthService.GetMyKeys:input_type -> oblivio.v1.GetMyKeysRequest
-	1,  // 14: oblivio.v1.AuthService.Register:output_type -> oblivio.v1.RegisterResponse
-	3,  // 15: oblivio.v1.AuthService.GetKDFParams:output_type -> oblivio.v1.GetKDFParamsResponse
-	5,  // 16: oblivio.v1.AuthService.Authorize:output_type -> oblivio.v1.AuthorizeResponse
-	7,  // 17: oblivio.v1.AuthService.RefreshToken:output_type -> oblivio.v1.RefreshTokenResponse
-	9,  // 18: oblivio.v1.AuthService.Logout:output_type -> oblivio.v1.LogoutResponse
-	11, // 19: oblivio.v1.AuthService.GetMyKeys:output_type -> oblivio.v1.GetMyKeysResponse
-	14, // [14:20] is the sub-list for method output_type
-	8,  // [8:14] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	21, // 0: oblivio.v1.RegisterRequest.kdf_params:type_name -> oblivio.v1.Argon2Params
+	22, // 1: oblivio.v1.RegisterRequest.device_info:type_name -> oblivio.v1.DeviceInfo
+	23, // 2: oblivio.v1.RegisterResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
+	21, // 3: oblivio.v1.GetKDFParamsResponse.kdf_params:type_name -> oblivio.v1.Argon2Params
+	22, // 4: oblivio.v1.AuthorizeRequest.device_info:type_name -> oblivio.v1.DeviceInfo
+	23, // 5: oblivio.v1.AuthorizeResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
+	6,  // 6: oblivio.v1.AuthorizeResponse.mfa_challenge:type_name -> oblivio.v1.MFAChallenge
+	22, // 7: oblivio.v1.CompleteMFARequest.device_info:type_name -> oblivio.v1.DeviceInfo
+	23, // 8: oblivio.v1.CompleteMFAResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
+	22, // 9: oblivio.v1.RefreshTokenRequest.device_info:type_name -> oblivio.v1.DeviceInfo
+	23, // 10: oblivio.v1.RefreshTokenResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
+	21, // 11: oblivio.v1.GetRecoveryParamsResponse.kdf_params:type_name -> oblivio.v1.Argon2Params
+	21, // 12: oblivio.v1.RecoveryCompleteRequest.kdf_params:type_name -> oblivio.v1.Argon2Params
+	0,  // 13: oblivio.v1.AuthService.Register:input_type -> oblivio.v1.RegisterRequest
+	2,  // 14: oblivio.v1.AuthService.GetKDFParams:input_type -> oblivio.v1.GetKDFParamsRequest
+	4,  // 15: oblivio.v1.AuthService.Authorize:input_type -> oblivio.v1.AuthorizeRequest
+	7,  // 16: oblivio.v1.AuthService.CompleteMFA:input_type -> oblivio.v1.CompleteMFARequest
+	9,  // 17: oblivio.v1.AuthService.RefreshToken:input_type -> oblivio.v1.RefreshTokenRequest
+	15, // 18: oblivio.v1.AuthService.GetRecoveryParams:input_type -> oblivio.v1.GetRecoveryParamsRequest
+	17, // 19: oblivio.v1.AuthService.RecoveryStart:input_type -> oblivio.v1.RecoveryStartRequest
+	19, // 20: oblivio.v1.AuthService.RecoveryComplete:input_type -> oblivio.v1.RecoveryCompleteRequest
+	11, // 21: oblivio.v1.AuthService.Logout:input_type -> oblivio.v1.LogoutRequest
+	13, // 22: oblivio.v1.AuthService.GetMyKeys:input_type -> oblivio.v1.GetMyKeysRequest
+	1,  // 23: oblivio.v1.AuthService.Register:output_type -> oblivio.v1.RegisterResponse
+	3,  // 24: oblivio.v1.AuthService.GetKDFParams:output_type -> oblivio.v1.GetKDFParamsResponse
+	5,  // 25: oblivio.v1.AuthService.Authorize:output_type -> oblivio.v1.AuthorizeResponse
+	8,  // 26: oblivio.v1.AuthService.CompleteMFA:output_type -> oblivio.v1.CompleteMFAResponse
+	10, // 27: oblivio.v1.AuthService.RefreshToken:output_type -> oblivio.v1.RefreshTokenResponse
+	16, // 28: oblivio.v1.AuthService.GetRecoveryParams:output_type -> oblivio.v1.GetRecoveryParamsResponse
+	18, // 29: oblivio.v1.AuthService.RecoveryStart:output_type -> oblivio.v1.RecoveryStartResponse
+	20, // 30: oblivio.v1.AuthService.RecoveryComplete:output_type -> oblivio.v1.RecoveryCompleteResponse
+	12, // 31: oblivio.v1.AuthService.Logout:output_type -> oblivio.v1.LogoutResponse
+	14, // 32: oblivio.v1.AuthService.GetMyKeys:output_type -> oblivio.v1.GetMyKeysResponse
+	23, // [23:33] is the sub-list for method output_type
+	13, // [13:23] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_oblivio_v1_auth_proto_init() }
@@ -811,7 +1377,7 @@ func file_oblivio_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_oblivio_v1_auth_proto_rawDesc), len(file_oblivio_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

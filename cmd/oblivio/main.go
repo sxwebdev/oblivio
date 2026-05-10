@@ -78,11 +78,9 @@ func main() {
 
 	l, err := loadLogger()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to load logger: %s\n", err)
+		logger.Default().Fatalf("failed to load logger: %s", err)
 		os.Exit(1)
 	}
-
-	l.Infof("service build version info: %s", getBuildVersion())
 
 	app := &cli.Command{
 		Name:    appName,

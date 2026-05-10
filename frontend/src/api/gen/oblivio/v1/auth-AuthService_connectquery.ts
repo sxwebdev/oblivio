@@ -22,9 +22,31 @@ export const getKDFParams = AuthService.method.getKDFParams;
 export const authorize = AuthService.method.authorize;
 
 /**
+ * @generated from rpc oblivio.v1.AuthService.CompleteMFA
+ */
+export const completeMFA = AuthService.method.completeMFA;
+
+/**
  * @generated from rpc oblivio.v1.AuthService.RefreshToken
  */
 export const refreshToken = AuthService.method.refreshToken;
+
+/**
+ * Recovery (anonymous).
+ *
+ * @generated from rpc oblivio.v1.AuthService.GetRecoveryParams
+ */
+export const getRecoveryParams = AuthService.method.getRecoveryParams;
+
+/**
+ * @generated from rpc oblivio.v1.AuthService.RecoveryStart
+ */
+export const recoveryStart = AuthService.method.recoveryStart;
+
+/**
+ * @generated from rpc oblivio.v1.AuthService.RecoveryComplete
+ */
+export const recoveryComplete = AuthService.method.recoveryComplete;
 
 /**
  * Authenticated endpoints.

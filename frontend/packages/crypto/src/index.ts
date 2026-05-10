@@ -9,3 +9,4 @@ export * from "./vault";
 export * from "./item";
 export * from "./recovery";
 export * from "./blind";
+export * from "./totp";

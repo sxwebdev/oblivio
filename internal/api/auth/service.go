@@ -2,11 +2,17 @@
 package auth
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"connectrpc.com/connect"
+	"github.com/go-webauthn/webauthn/protocol"
+	wa "github.com/go-webauthn/webauthn/webauthn"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -18,11 +24,11 @@ import (
 	"github.com/sxwebdev/oblivio/internal/config"
 	"github.com/sxwebdev/oblivio/internal/models"
 	"github.com/sxwebdev/oblivio/internal/store"
+	"github.com/sxwebdev/oblivio/internal/store/repos"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_auth"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_kdf_params"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_vault"
-
-	"github.com/google/uuid"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_webauthn_credentials"
 )
 
 // Service implements the AuthService ConnectRPC contract.
@@ -34,32 +40,43 @@ type Service struct {
 	argon2            auth.Argon2Params
 	auditWriter       *audit.Writer
 	defaultDeviceType string
+	wa                *wa.WebAuthn
+	mfa               *auth.MFAStore
+	recovery          *auth.RecoveryStore
 }
 
-// NewService constructs the AuthService handler.
-//
-// auditWriter records register/login/logout/refresh events. AuthService
-// procedures are on the anonymous allowlist so the audit-chain interceptor
-// (which keys off the authenticated user_id) never runs against them — the
-// handler must therefore log explicitly after the action succeeds.
-func NewService(st *store.Store, am *auth.Manager, cfg config.AuthConfig, auditWriter *audit.Writer) *Service {
+// Deps bundles the dependencies required to build the AuthService handler.
+type Deps struct {
+	Store         *store.Store
+	AuthManager   *auth.Manager
+	Cfg           config.AuthConfig
+	AuditWriter   *audit.Writer
+	WebAuthn      *wa.WebAuthn
+	MFAStore      *auth.MFAStore
+	RecoveryStore *auth.RecoveryStore
+}
+
+// NewService constructs the AuthService handler. AuthService procedures are
+// on the anonymous allowlist so the audit-chain interceptor (which keys off
+// the authenticated user_id) never runs against them — the handler must
+// therefore log explicitly after the action succeeds.
+func NewService(d Deps) *Service {
 	return &Service{
-		st: st,
-		am: am,
+		st: d.Store,
+		am: d.AuthManager,
 		argon2: auth.Argon2Params{
-			T:    cfg.Argon2Server.T,
-			MKiB: cfg.Argon2Server.MKiB,
-			P:    cfg.Argon2Server.P,
+			T:    d.Cfg.Argon2Server.T,
+			MKiB: d.Cfg.Argon2Server.MKiB,
+			P:    d.Cfg.Argon2Server.P,
 		},
-		auditWriter:       auditWriter,
+		auditWriter:       d.AuditWriter,
 		defaultDeviceType: "web",
+		wa:                d.WebAuthn,
+		mfa:               d.MFAStore,
+		recovery:          d.RecoveryStore,
 	}
 }
 
-// logAudit fires an audit-chain row for an auth event. Failures are
-// swallowed deliberately — losing a chain row is preferable to failing a
-// legitimate user-facing flow; the periodic verify job (Sprint 4) raises
-// the alarm when entries are missing.
 func (s *Service) logAudit(ctx context.Context, userID uuid.UUID, action models.AuditAction, req connect.AnyRequest, extra map[string]any) {
 	if s.auditWriter == nil {
 		return
@@ -83,7 +100,6 @@ func (s *Service) logAudit(ctx context.Context, userID uuid.UUID, action models.
 }
 
 // Register provisions a new user from the client-supplied artefacts.
-// The server never sees master_password or vault_key — only their derivations.
 func (s *Service) Register(ctx context.Context, req *connect.Request[pb.RegisterRequest]) (*connect.Response[pb.RegisterResponse], error) {
 	r := req.Msg
 	if err := validateRegister(r); err != nil {
@@ -94,16 +110,11 @@ func (s *Service) Register(ctx context.Context, req *connect.Request[pb.Register
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	// Per plan §5.5 the recovery_proof is HKDF(recovery_key, "oblivio/auth/v1");
-	// we hash it with Argon2id once more before storing so a database leak
-	// does not yield a directly-replayable proof.
 	recoveryProofHash, err := auth.HashAuthKey(r.RecoveryProof, s.argon2)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Single transaction: user + kdf + auth + vault. If any step fails the
-	// whole registration is rolled back.
 	pool := s.st.Pool()
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -177,8 +188,7 @@ func (s *Service) Register(ctx context.Context, req *connect.Request[pb.Register
 }
 
 // GetKDFParams returns the per-user Argon2id parameters needed by the client
-// to re-derive master_key from master_password. Unknown emails receive
-// deterministic pseudo-parameters to prevent user enumeration.
+// to re-derive master_key from master_password.
 func (s *Service) GetKDFParams(ctx context.Context, req *connect.Request[pb.GetKDFParamsRequest]) (*connect.Response[pb.GetKDFParamsResponse], error) {
 	email := strings.ToLower(strings.TrimSpace(req.Msg.Email))
 	if email == "" {
@@ -188,10 +198,6 @@ func (s *Service) GetKDFParams(ctx context.Context, req *connect.Request[pb.GetK
 	u, err := s.st.Users().GetUserByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			// Anti-enumeration: stable pseudo-parameters per email.
-			// Sprint 4 will add a server-secret HKDF; for MVP we just return
-			// defaults so the client cannot distinguish from a real account
-			// until Authorize fails.
 			return connect.NewResponse(&pb.GetKDFParamsResponse{
 				SaltUser:  pseudoSalt(email),
 				KdfParams: defaultKDFParams(),
@@ -215,8 +221,9 @@ func (s *Service) GetKDFParams(ctx context.Context, req *connect.Request[pb.GetK
 	}), nil
 }
 
-// Authorize verifies the client-supplied auth_key against the stored hash
-// and issues a fresh access/refresh token pair on success.
+// Authorize verifies auth_key. When 2FA is configured, it returns an
+// MFAChallenge that the client completes via CompleteMFA. Otherwise it
+// issues tokens straight away.
 func (s *Service) Authorize(ctx context.Context, req *connect.Request[pb.AuthorizeRequest]) (*connect.Response[pb.AuthorizeResponse], error) {
 	r := req.Msg
 	email := strings.ToLower(strings.TrimSpace(r.Email))
@@ -245,20 +252,171 @@ func (s *Service) Authorize(ctx context.Context, req *connect.Request[pb.Authori
 		return nil, unauthenticated()
 	}
 
-	uv, err := s.st.UserVault().GetUserVault(ctx, u.ID)
+	// Check 2FA state. Either TOTP enabled or registered passkeys triggers
+	// an MFA challenge.
+	totpRow, totpErr := s.st.UserLoginTOTP().GetUserLoginTOTP(ctx, u.ID)
+	totpEnabled := totpErr == nil && totpRow != nil && totpRow.Enabled
+
+	credCount := int64(0)
+	if s.wa != nil {
+		if c, err := s.st.UserWebAuthn().CountWebAuthnCredentials(ctx, u.ID); err == nil {
+			credCount = c
+		}
+	}
+
+	if totpEnabled || credCount > 0 {
+		ch := auth.MFAChallenge{
+			UserID:       u.ID,
+			Email:        u.Email,
+			AuthKey:      append([]byte(nil), r.AuthKey...),
+			DeviceID:     deviceID(r.DeviceInfo),
+			DeviceType:   deviceType(r.DeviceInfo, s.defaultDeviceType),
+			DeviceName:   deviceName(r.DeviceInfo),
+			TOTPRequired: totpEnabled,
+		}
+		mfaResp := &pb.MFAChallenge{
+			TotpRequired:     totpEnabled,
+			WebauthnRequired: credCount > 0,
+		}
+		if credCount > 0 {
+			creds, err := s.st.UserWebAuthn().ListWebAuthnCredentials(ctx, u.ID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			wuser := buildWebAuthnUser(u, creds)
+			options, session, err := s.wa.BeginLogin(wuser)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("webauthn begin login: %w", err))
+			}
+			ch.WebAuthnState = session
+			optJSON, err := json.Marshal(options)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			mfaResp.WebauthnOptionsJson = optJSON
+		}
+		sid := s.mfa.Put(ch)
+		mfaResp.SessionId = sid.String()
+		return connect.NewResponse(&pb.AuthorizeResponse{MfaChallenge: mfaResp}), nil
+	}
+
+	return s.issueAuthorized(ctx, req, u.ID, deviceID(r.DeviceInfo), deviceType(r.DeviceInfo, s.defaultDeviceType), deviceName(r.DeviceInfo))
+}
+
+// CompleteMFA finalises the authentication after the user satisfies the
+// requested factor. Exactly one of totp_code / webauthn_assertion_json must
+// be provided.
+func (s *Service) CompleteMFA(ctx context.Context, req *connect.Request[pb.CompleteMFARequest]) (*connect.Response[pb.CompleteMFAResponse], error) {
+	r := req.Msg
+	id, err := uuid.Parse(r.SessionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid session_id"))
+	}
+
+	hasTOTP := strings.TrimSpace(r.TotpCode) != ""
+	hasWA := len(r.WebauthnAssertionJson) > 0
+	if hasTOTP == hasWA {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("exactly one of totp_code or webauthn_assertion_json required"))
+	}
+
+	ch, err := s.mfa.Peek(id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("mfa challenge expired"))
+	}
+
+	switch {
+	case hasTOTP:
+		if !ch.TOTPRequired {
+			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("totp not configured for this challenge"))
+		}
+		row, err := s.st.UserLoginTOTP().GetUserLoginTOTP(ctx, ch.UserID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		secret, err := openLoginTOTP(ch.AuthKey, row.EncryptedSecret)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		if err := auth.ValidateTOTPCode(secret, r.TotpCode); err != nil {
+			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid totp code"))
+		}
+	case hasWA:
+		if s.wa == nil || ch.WebAuthnState == nil {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("webauthn challenge not present"))
+		}
+		creds, err := s.st.UserWebAuthn().ListWebAuthnCredentials(ctx, ch.UserID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		u, err := s.st.Users().GetUserByID(ctx, ch.UserID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		wuser := buildWebAuthnUser(u, creds)
+		parsed, err := protocol.ParseCredentialRequestResponseBody(bytes.NewReader(r.WebauthnAssertionJson))
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("parse assertion: %w", err))
+		}
+		credential, err := s.wa.ValidateLogin(wuser, *ch.WebAuthnState, parsed)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("webauthn validate: %w", err))
+		}
+		// Update sign_count for the touched credential.
+		matched, err := s.st.UserWebAuthn().GetWebAuthnCredentialByCredID(ctx, credential.ID)
+		if err == nil {
+			_ = s.st.UserWebAuthn().TouchWebAuthnCredential(ctx, repo_user_webauthn_credentials.TouchWebAuthnCredentialParams{
+				ID:        matched.ID,
+				SignCount: int64(credential.Authenticator.SignCount),
+			})
+		}
+	}
+
+	// Consume the challenge only after successful validation.
+	taken, err := s.mfa.Take(id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("mfa challenge expired"))
+	}
+	// AuthKey is no longer needed; scrub before the GC sees the slice.
+	defer taken.Wipe()
+	defer ch.Wipe()
+
+	dev := r.DeviceInfo
+	devID := ch.DeviceID
+	devType := ch.DeviceType
+	devName := ch.DeviceName
+	if dev != nil {
+		if dev.DeviceId != "" {
+			devID = dev.DeviceId
+		}
+		if dev.DeviceType != "" {
+			devType = dev.DeviceType
+		}
+		if dev.DeviceName != "" {
+			devName = dev.DeviceName
+		}
+	}
+
+	resp, err := s.issueAuthorized(ctx, req, ch.UserID, devID, devType, devName)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&pb.CompleteMFAResponse{AuthPayload: resp.Msg.AuthPayload}), nil
+}
+
+// issueAuthorized loads vault artefacts, mints tokens and writes the login
+// audit event. Shared between Authorize (no 2FA) and CompleteMFA.
+func (s *Service) issueAuthorized(ctx context.Context, req connect.AnyRequest, userID uuid.UUID, devID, devType, devName string) (*connect.Response[pb.AuthorizeResponse], error) {
+	uv, err := s.st.UserVault().GetUserVault(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-
-	tokens, err := s.am.Issue(ctx, u.ID, deviceID(r.DeviceInfo), deviceType(r.DeviceInfo, s.defaultDeviceType), deviceName(r.DeviceInfo))
+	tokens, err := s.am.Issue(ctx, userID, devID, devType, devName)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-
-	s.logAudit(ctx, u.ID, models.AuditActionLogin, req, map[string]any{
-		"device_id": deviceID(r.DeviceInfo),
+	s.logAudit(ctx, userID, models.AuditActionLogin, req, map[string]any{
+		"device_id": devID,
 	})
-
 	return connect.NewResponse(&pb.AuthorizeResponse{
 		AuthPayload: buildAuthPayload(tokens, &payloadKeys{
 			Verifier:        uv.Verifier,
@@ -311,7 +469,7 @@ func (s *Service) Logout(ctx context.Context, req *connect.Request[pb.LogoutRequ
 }
 
 // GetMyKeys returns the encrypted vault artefacts the client needs to unlock
-// its key tree (verifier + wrapped_vault_key). The server cannot decrypt these.
+// its key tree.
 func (s *Service) GetMyKeys(ctx context.Context, _ *connect.Request[pb.GetMyKeysRequest]) (*connect.Response[pb.GetMyKeysResponse], error) {
 	uc, ok := middleware.FromContext(ctx)
 	if !ok {
@@ -326,6 +484,159 @@ func (s *Service) GetMyKeys(ctx context.Context, _ *connect.Request[pb.GetMyKeys
 		WrappedVaultKey: uv.WrappedVaultKey,
 		VaultKeyVersion: uint32(uv.VaultKeyVersion),
 	}), nil
+}
+
+// --- Recovery (plan §5.5) ---------------------------------------------
+
+// GetRecoveryParams returns the recovery salt + KDF params so the client can
+// re-derive recovery_key from the recovery_code.
+func (s *Service) GetRecoveryParams(ctx context.Context, req *connect.Request[pb.GetRecoveryParamsRequest]) (*connect.Response[pb.GetRecoveryParamsResponse], error) {
+	email := strings.ToLower(strings.TrimSpace(req.Msg.Email))
+	if email == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("email required"))
+	}
+	u, err := s.st.Users().GetUserByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Anti-enumeration. Return stable pseudo-params; the client
+			// will compute a proof and RecoveryStart will fail uniformly.
+			return connect.NewResponse(&pb.GetRecoveryParamsResponse{
+				RecoverySalt: pseudoSalt(email),
+				KdfParams:    defaultKDFParams(),
+			}), nil
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	uv, err := s.st.UserVault().GetUserVault(ctx, u.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	params, err := s.st.UserKDFParams().GetUserKDFParams(ctx, u.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&pb.GetRecoveryParamsResponse{
+		RecoverySalt: uv.RecoverySalt,
+		KdfParams: &pb.Argon2Params{
+			T:    uint32(params.Argon2T),
+			MKib: uint32(params.Argon2MKib),
+			P:    uint32(params.Argon2P),
+			Algo: params.Algo,
+		},
+	}), nil
+}
+
+// RecoveryStart verifies recovery_proof and, on success, returns the
+// recovery-wrapped vault_key so the client can decrypt it locally.
+func (s *Service) RecoveryStart(ctx context.Context, req *connect.Request[pb.RecoveryStartRequest]) (*connect.Response[pb.RecoveryStartResponse], error) {
+	email := strings.ToLower(strings.TrimSpace(req.Msg.Email))
+	if email == "" || len(req.Msg.RecoveryProof) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("email and recovery_proof required"))
+	}
+	u, err := s.st.Users().GetUserByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, unauthenticated()
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	uv, err := s.st.UserVault().GetUserVault(ctx, u.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	ok, err := auth.VerifyAuthKey(req.Msg.RecoveryProof, uv.RecoveryProofHash)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok {
+		return nil, unauthenticated()
+	}
+	sid := s.recovery.Put(auth.RecoverySession{
+		UserID: u.ID,
+		Email:  u.Email,
+	})
+	s.logAudit(ctx, u.ID, models.AuditActionRecoveryStart, req, nil)
+	return connect.NewResponse(&pb.RecoveryStartResponse{
+		RecoverySessionId:       sid.String(),
+		RecoveryWrappedVaultKey: uv.RecoveryWrappedVaultKey,
+	}), nil
+}
+
+// RecoveryComplete rotates the user's auth artefacts to a freshly-derived
+// master_password. All sessions are revoked.
+func (s *Service) RecoveryComplete(ctx context.Context, req *connect.Request[pb.RecoveryCompleteRequest]) (*connect.Response[pb.RecoveryCompleteResponse], error) {
+	r := req.Msg
+	id, err := uuid.Parse(r.RecoverySessionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid recovery_session_id"))
+	}
+	if len(r.SaltUser) < 16 || len(r.AuthKey) < 16 || r.KdfParams == nil ||
+		len(r.Verifier) == 0 || len(r.WrappedVaultKey) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("missing new auth artefacts"))
+	}
+	sess, err := s.recovery.Take(id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("recovery session expired"))
+	}
+
+	hashed, err := auth.HashAuthKey(r.AuthKey, s.argon2)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	pool := s.st.Pool()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := s.st.UserKDFParams(repos.WithTx(tx)).UpsertUserKDFParams(ctx, repo_user_kdf_params.UpsertUserKDFParamsParams{
+		UserID:     sess.UserID,
+		SaltUser:   r.SaltUser,
+		Argon2T:    int32(r.KdfParams.GetT()),
+		Argon2MKib: int32(r.KdfParams.GetMKib()),
+		Argon2P:    int32(r.KdfParams.GetP()),
+		Algo:       firstNonEmpty(r.KdfParams.GetAlgo(), "argon2id"),
+	}); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if err := s.st.UserAuth(repos.WithTx(tx)).UpsertUserAuth(ctx, repo_user_auth.UpsertUserAuthParams{
+		UserID:      sess.UserID,
+		AuthKeyHash: hashed,
+	}); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if err := s.st.UserVault(repos.WithTx(tx)).CompleteRecovery(ctx, repo_user_vault.CompleteRecoveryParams{
+		UserID:          sess.UserID,
+		Verifier:        r.Verifier,
+		WrappedVaultKey: r.WrappedVaultKey,
+	}); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if err := s.st.AuthSessions(repos.WithTx(tx)).RevokeAllUserSessions(ctx, sess.UserID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Burn every JWT we ever signed for this user from the in-memory
+	// tokenmanager store. Without this an access token snapped at recovery
+	// time would stay valid for its full 20 min TTL — defeating the point
+	// of password rotation.
+	if err := s.am.RevokeAllUserTokens(ctx, sess.UserID); err != nil {
+		// Non-fatal: DB-side revocation already happened. Still log so the
+		// audit chain captures the partial state.
+		s.logAudit(ctx, sess.UserID, models.AuditActionRecoveryComplete, req, map[string]any{
+			"warning": "in-memory token revocation failed: " + err.Error(),
+		})
+		return connect.NewResponse(&pb.RecoveryCompleteResponse{}), nil
+	}
+
+	s.logAudit(ctx, sess.UserID, models.AuditActionRecoveryComplete, req, nil)
+
+	return connect.NewResponse(&pb.RecoveryCompleteResponse{}), nil
 }
 
 // --- helpers ---
@@ -375,7 +686,6 @@ func validateRegister(r *pb.RegisterRequest) error {
 }
 
 func unauthenticated() error {
-	// Identical message for unknown email and wrong password — anti-enumeration.
 	return connect.NewError(connect.CodeUnauthenticated, errors.New("invalid credentials"))
 }
 
@@ -411,9 +721,6 @@ func isUniqueViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "23505")
 }
 
-// pseudoSalt returns 16 deterministic bytes for an unknown email. The current
-// implementation is a placeholder — Sprint 4 will derive it via HKDF with a
-// server-side secret so it cannot be distinguished from a real salt.
 func pseudoSalt(email string) []byte {
 	out := make([]byte, 16)
 	for i := 0; i < len(email) && i < 16; i++ {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	wa "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
@@ -48,8 +49,7 @@ func startCMD() *cli.Command {
 				PipelineID:  pipelineID,
 			})
 
-			// Re-init logger with config settings
-			l = logger.NewExtended(append(defaultLoggerOpts(), logger.WithConfig(conf.Log))...)
+			l.Infof("service build version info: %s", getBuildVersion())
 
 			// Run app schema migrations (golang-migrate) and River schema migrations
 			// before starting services so that a clean database boots successfully.
@@ -84,12 +84,34 @@ func startCMD() *cli.Command {
 
 			authManager := auth.NewManager(secrets, st, conf.Auth.AccessTokenTTL, conf.Auth.RefreshTokenTTL)
 
+			// In-memory stores for short-lived multi-step flows (MFA challenge,
+			// recovery handshake). They live for the process lifetime; both
+			// have GC goroutines we stop on shutdown via defer.
+			mfaStore := auth.NewMFAStore(5 * time.Minute)
+			defer mfaStore.Close()
+			recoveryStore := auth.NewRecoveryStore(15 * time.Minute)
+			defer recoveryStore.Close()
+
+			waRP, err := buildWebAuthn(conf.WebAuthn)
+			if err != nil {
+				l.Warnf("webauthn disabled: %v", err)
+			}
+
 			jobService, err := jobs.NewService(l, conf.Jobs, pg.Pool(), st)
 			if err != nil {
 				return fmt.Errorf("failed to create job service: %w", err)
 			}
 
-			apiServer := api.New(l, conf.Server, conf.Auth, authManager, st)
+			apiServer := api.New(api.Deps{
+				Log:           l,
+				Cfg:           conf.Server,
+				Auth:          conf.Auth,
+				Store:         st,
+				AuthManager:   authManager,
+				WebAuthn:      waRP,
+				MFAStore:      mfaStore,
+				RecoveryStore: recoveryStore,
+			})
 
 			lnc := launcher.New(
 				launcher.WithName(appName),
@@ -139,6 +161,24 @@ func (m migrateLogger) Printf(format string, v ...any) {
 }
 
 func (m migrateLogger) Verbose() bool { return true }
+
+// buildWebAuthn constructs a WebAuthn relying party from config. Returns
+// (nil, err) when configuration is incomplete so the caller can surface a
+// warning and continue running with passkeys disabled.
+func buildWebAuthn(cfg config.WebAuthnConfig) (*wa.WebAuthn, error) {
+	if cfg.RPID == "" || cfg.RPOrigin == "" {
+		return nil, fmt.Errorf("webauthn: rp_id and rp_origin must be set in config")
+	}
+	rp, err := wa.New(&wa.Config{
+		RPID:          cfg.RPID,
+		RPDisplayName: cfg.RPName,
+		RPOrigins:     []string{cfg.RPOrigin},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("webauthn: %w", err)
+	}
+	return rp, nil
+}
 
 // runRiverMigrations applies all pending River schema migrations.
 func runRiverMigrations(ctx context.Context, dsn string) error {

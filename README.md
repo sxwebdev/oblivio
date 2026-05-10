@@ -1,30 +1,36 @@
-# Oblivio
+# OBLIVIO
 
-Backend: Go + Fiber + Pebble. Frontend: Vite + React.
+## Usage
 
-## Backend
+```text
+NAME:
+   oblivio - Oblivio service
 
-Env:
+USAGE:
+   oblivio [global options] [command [command options]]
 
-- `OBLIVIO_LISTEN_ADDR=:8080`
-- `OBLIVIO_DB_PATH=./data/pebble`
-- `OBLIVIO_ADMIN_SECRET=dev-admin` (MVP only!)
+VERSION:
 
-Run:
+version: local
+revision: unknown
+branch: unknown
+pipeline ID: unknown
+build date: unknown
+go version: go1.26.3
 
-```sh
-OBLIVIO_ADMIN_SECRET=dev-admin go run ./cmd/oblivio
+COMMANDS:
+   start       start the oblivio service
+   config      configuration utilities
+   migrations  database migration commands
+   utils       custom cli utils
+   version     print current version
+   help, h     Shows a list of commands or help for one command
+
+GLOBAL OPTIONS:
+   --help, -h     show help
+   --version, -v  print the version
 ```
 
-## Frontend
+## Environment Variables
 
-From `frontend/`:
-
-```sh
-pnpm install
-pnpm dev
-```
-
-Then open <http://localhost:3000>
-
-Note: API base is `/v1` and expects the backend on the same origin in dev or configure a proxy.
+Environment vaiables [available here](ENVS.md).
