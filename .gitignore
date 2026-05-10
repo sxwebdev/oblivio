@@ -13,9 +13,16 @@
 
 # Code coverage profiles and other test artifacts
 *.out
-coverage.*
+/coverage.*
 *.coverprofile
 profile.cov
+# vitest v8 coverage reports (HTML + json-summary)
+frontend/packages/*/coverage/
+frontend/coverage/
+
+# Go fuzz corpus and crashers (regenerated on demand; gitignored to keep
+# the repo small. Failing seeds get committed selectively when needed.)
+testdata/fuzz/
 
 # Dependency directories (remove the comment below to include it)
 # vendor/

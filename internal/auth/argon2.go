@@ -103,6 +103,13 @@ func parsePHC(s string) (Argon2Params, []byte, []byte, error) {
 		}
 	}
 
+	// Argon2id requires t≥1, p≥1 and m≥8*p (RFC 9106 §3.1). golang.org/x/crypto
+	// panics otherwise, so any attacker-supplied PHC carrying zeroes must be
+	// rejected here before it reaches IDKey.
+	if t < 1 || p < 1 || m < 8*uint32(p) {
+		return Argon2Params{}, nil, nil, fmt.Errorf("argon2: out-of-range params t=%d m=%d p=%d", t, m, p)
+	}
+
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
 	if err != nil {
 		return Argon2Params{}, nil, nil, fmt.Errorf("argon2: decode salt: %w", err)
@@ -110,6 +117,10 @@ func parsePHC(s string) (Argon2Params, []byte, []byte, error) {
 	hash, err := base64.RawStdEncoding.DecodeString(parts[5])
 	if err != nil {
 		return Argon2Params{}, nil, nil, fmt.Errorf("argon2: decode hash: %w", err)
+	}
+	// IDKey panics when keyLen < 4. Reject obviously-truncated hashes.
+	if len(hash) < 4 {
+		return Argon2Params{}, nil, nil, fmt.Errorf("argon2: hash too short: %d bytes", len(hash))
 	}
 	return Argon2Params{T: t, MKiB: m, P: p}, salt, hash, nil
 }

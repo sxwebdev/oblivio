@@ -28,9 +28,12 @@ export function generateRecoveryCode(): string {
   ].join("-")
 }
 
-// Strip dashes and uppercase the code before any KDF.
+// Strip dashes/whitespace and uppercase the code before any KDF.
+// Whitespace handling matters because users routinely paste codes with
+// trailing spaces or line breaks; failing to normalise turns a valid
+// recovery into a generic "wrong code" error.
 export function normalizeRecoveryCode(code: string): string {
-  return code.replace(/-/g, "").toUpperCase()
+  return code.replace(/[\s-]+/g, "").toUpperCase()
 }
 
 // Derive a 32-byte recovery_key from the recovery_code.
