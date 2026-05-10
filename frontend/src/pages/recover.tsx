@@ -18,7 +18,6 @@ import {
   randomBytes,
   unwrapVaultKeyFromRecovery,
   wrapVaultKey,
-  type Argon2Params,
 } from "@oblivio/crypto"
 
 import { authClient } from "@/api/client"

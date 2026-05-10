@@ -29,6 +29,7 @@ const (
 	AuditActionEntryView        AuditAction = "entry_view"
 	AuditActionEntryDelete      AuditAction = "entry_delete"
 	AuditActionSessionTerminate AuditAction = "session_terminate"
+	AuditActionAccountDelete    AuditAction = "account_delete"
 )
 
 func (e AuditAction) Valid() bool {
@@ -51,7 +52,8 @@ func (e AuditAction) Valid() bool {
 		AuditActionEntryUpdate,
 		AuditActionEntryView,
 		AuditActionEntryDelete,
-		AuditActionSessionTerminate:
+		AuditActionSessionTerminate,
+		AuditActionAccountDelete:
 		return true
 	}
 	return false

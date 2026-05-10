@@ -109,7 +109,7 @@ func generateHOTP(secret []byte, counter uint64, digits int) string {
 		(uint32(sum[off+2]&0xff) << 8) |
 		uint32(sum[off+3]&0xff)
 	mod := uint32(1)
-	for i := 0; i < digits; i++ {
+	for range digits {
 		mod *= 10
 	}
 	v %= mod

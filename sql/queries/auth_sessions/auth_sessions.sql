@@ -44,7 +44,20 @@ UPDATE auth_sessions SET revoked_at = now() WHERE id = $1;
 -- name: RevokeAllUserSessions :exec
 UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL;
 
+-- name: RevokeAllUserSessionsExcept :execrows
+UPDATE auth_sessions SET revoked_at = now()
+WHERE user_id = $1 AND id <> $2 AND revoked_at IS NULL;
+
 -- name: ListUserSessions :many
 SELECT * FROM auth_sessions
 WHERE user_id = $1 AND revoked_at IS NULL
 ORDER BY last_seen_at DESC;
+
+-- name: DeleteExpiredSessions :execrows
+-- Reaps rows whose refresh has expired or that have been revoked far enough
+-- in the past that the audit chain already captured the termination event.
+-- Keeping revoked rows around briefly lets "I just logged out from the other
+-- tab" investigations succeed; 24h is long enough for that.
+DELETE FROM auth_sessions
+WHERE refresh_expires_at < $1
+   OR (revoked_at IS NOT NULL AND revoked_at < $1);

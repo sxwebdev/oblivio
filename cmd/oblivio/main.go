@@ -28,7 +28,7 @@ var (
 
 func getBuildVersion() string {
 	return fmt.Sprintf(
-		"\nversion: %s\nrevision: %s\nbranch: %s\npipeline ID: %s\nbuild date: %s\ngo version: %s",
+		"version: %s / revision: %s / branch: %s / pipeline ID: %s / build date: %s / go version: %s",
 		version,
 		revision,
 		branch,

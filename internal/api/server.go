@@ -22,6 +22,7 @@ import (
 	apilogintotp "github.com/sxwebdev/oblivio/internal/api/login_totp"
 	"github.com/sxwebdev/oblivio/internal/api/middleware"
 	apiprojects "github.com/sxwebdev/oblivio/internal/api/projects"
+	apisessions "github.com/sxwebdev/oblivio/internal/api/sessions"
 	apivault "github.com/sxwebdev/oblivio/internal/api/vault"
 	apiwebauthn "github.com/sxwebdev/oblivio/internal/api/webauthn"
 	"github.com/sxwebdev/oblivio/internal/audit"
@@ -79,13 +80,16 @@ func (s *Server) Name() string { return "api" }
 // idempotentProcedures lists the procedures that respect the
 // Idempotency-Key header (mutating endpoints).
 var idempotentProcedures = map[string]struct{}{
-	"/oblivio.v1.ProjectsService/CreateProject":   {},
-	"/oblivio.v1.ProjectsService/UpdateProject":   {},
-	"/oblivio.v1.ProjectsService/DeleteProject":   {},
-	"/oblivio.v1.ProjectsService/ReorderProjects": {},
-	"/oblivio.v1.EntriesService/CreateEntry":      {},
-	"/oblivio.v1.EntriesService/UpdateEntry":      {},
-	"/oblivio.v1.EntriesService/DeleteEntry":      {},
+	"/oblivio.v1.ProjectsService/CreateProject":             {},
+	"/oblivio.v1.ProjectsService/UpdateProject":             {},
+	"/oblivio.v1.ProjectsService/DeleteProject":             {},
+	"/oblivio.v1.ProjectsService/ReorderProjects":           {},
+	"/oblivio.v1.EntriesService/CreateEntry":                {},
+	"/oblivio.v1.EntriesService/UpdateEntry":                {},
+	"/oblivio.v1.EntriesService/DeleteEntry":                {},
+	"/oblivio.v1.SessionsService/TerminateSession":          {},
+	"/oblivio.v1.SessionsService/TerminateAllExceptCurrent": {},
+	"/oblivio.v1.VaultService/DeleteMe":                     {},
 }
 
 // Start binds the HTTP listener and serves until Stop is called.
@@ -118,8 +122,14 @@ func (s *Server) Start(ctx context.Context) error {
 	auditSvc := apiaudit.NewService()
 	rpcMux.Handle(obliviov1connect.NewAuditServiceHandler(auditSvc, interceptors))
 
-	vaultSvc := apivault.NewService()
+	vaultSvc := apivault.NewService(apivault.Deps{
+		AuthManager: s.am,
+		AuditWriter: auditWriter,
+	})
 	rpcMux.Handle(obliviov1connect.NewVaultServiceHandler(vaultSvc, interceptors))
+
+	sessionsSvc := apisessions.NewService(auditWriter)
+	rpcMux.Handle(obliviov1connect.NewSessionsServiceHandler(sessionsSvc, interceptors))
 
 	loginTOTPSvc := apilogintotp.NewService()
 	rpcMux.Handle(obliviov1connect.NewLoginTOTPServiceHandler(loginTOTPSvc, interceptors))
@@ -135,8 +145,14 @@ func (s *Server) Start(ctx context.Context) error {
 	idempotencyMW := middleware.NewIdempotencyMiddleware(s.store, middleware.IdempotencyConfig{
 		Procedures: idempotentProcedures,
 	})
+	rateLimitMW := middleware.NewRateLimitMiddleware(s.auth.RateLimits)
 
-	wrappedRPC := authMW.Wrap(idempotencyMW.Wrap(rpcMux))
+	// Order matters:
+	//   rate-limit (outer)   — kill abusive traffic before any work.
+	//   auth                 — populate UserContext.
+	//   idempotency          — needs UserContext to scope keys per user.
+	//   rpcMux (innermost)   — runs interceptors then handler.
+	wrappedRPC := rateLimitMW.Wrap(authMW.Wrap(idempotencyMW.Wrap(rpcMux)))
 
 	apiHandler := http.StripPrefix("/api", wrappedRPC)
 	root := http.NewServeMux()
@@ -145,6 +161,7 @@ func (s *Server) Start(ctx context.Context) error {
 	root.Handle("/api/oblivio.v1.EntriesService/", apiHandler)
 	root.Handle("/api/oblivio.v1.AuditService/", apiHandler)
 	root.Handle("/api/oblivio.v1.VaultService/", apiHandler)
+	root.Handle("/api/oblivio.v1.SessionsService/", apiHandler)
 	root.Handle("/api/oblivio.v1.LoginTOTPService/", apiHandler)
 	root.Handle("/api/oblivio.v1.WebAuthnService/", apiHandler)
 	root.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -158,11 +175,13 @@ func (s *Server) Start(ctx context.Context) error {
 		s.log.Warnf("frontend/dist not embedded: %v", err)
 	}
 
-	handler := http.Handler(root)
+	handler := middleware.SecurityHeaders(middleware.SecurityHeadersConfig{
+		HSTS: s.cfg.TLS.CertFile != "" && s.cfg.TLS.KeyFile != "",
+	}, root)
 
 	s.srv = &http.Server{
 		Addr:              s.cfg.Addr,
-		Handler:           securityHeaders(handler),
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -204,23 +223,4 @@ func (s *Server) Healthy(_ context.Context) error {
 		return fmt.Errorf("api server not started: %w", ops.ErrHealthCheckServiceStarting)
 	}
 	return nil
-}
-
-// securityHeaders applies a baseline set of safety headers to every response.
-func securityHeaders(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hdr := w.Header()
-		hdr.Set("Content-Security-Policy",
-			"default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; "+
-				"style-src 'self' 'unsafe-inline'; img-src 'self' data:; "+
-				"connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; "+
-				"form-action 'self'; object-src 'none'")
-		hdr.Set("Cross-Origin-Opener-Policy", "same-origin")
-		hdr.Set("Cross-Origin-Embedder-Policy", "require-corp")
-		hdr.Set("Cross-Origin-Resource-Policy", "same-origin")
-		hdr.Set("X-Content-Type-Options", "nosniff")
-		hdr.Set("Referrer-Policy", "no-referrer")
-		hdr.Set("Permissions-Policy", "clipboard-read=(self), clipboard-write=(self), interest-cohort=()")
-		h.ServeHTTP(w, r)
-	})
 }

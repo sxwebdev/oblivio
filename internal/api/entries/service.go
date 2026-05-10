@@ -19,6 +19,7 @@ import (
 	pb "github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1"
 	"github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1/obliviov1connect"
 	"github.com/sxwebdev/oblivio/internal/api/middleware"
+	"github.com/sxwebdev/oblivio/internal/metrics"
 	"github.com/sxwebdev/oblivio/internal/models"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_entries"
 )
@@ -92,6 +93,7 @@ func (s *Service) GetEntriesByIds(ctx context.Context, req *connect.Request[pb.G
 	if len(rows) == 1 {
 		middleware.SetAuditTarget(ctx, rows[0].ID)
 	}
+	metrics.EntryViewsTotal.Add(float64(len(rows)))
 	return connect.NewResponse(&pb.GetEntriesByIdsResponse{Entries: out}), nil
 }
 

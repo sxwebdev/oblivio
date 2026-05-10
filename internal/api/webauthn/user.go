@@ -45,6 +45,6 @@ func (u *webauthnUser) WebAuthnID() []byte {
 	b, _ := u.id.MarshalBinary()
 	return b
 }
-func (u *webauthnUser) WebAuthnName() string                   { return u.name }
-func (u *webauthnUser) WebAuthnDisplayName() string            { return u.displayName }
+func (u *webauthnUser) WebAuthnName() string                       { return u.name }
+func (u *webauthnUser) WebAuthnDisplayName() string                { return u.displayName }
 func (u *webauthnUser) WebAuthnCredentials() []webauthn.Credential { return u.credentials }

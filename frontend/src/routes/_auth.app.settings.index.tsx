@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router"
-import { KeyRound, ShieldCheck } from "lucide-react"
+import { Lock, ShieldCheck } from "lucide-react"
 
 import {
   Card,
@@ -46,18 +46,20 @@ function SettingsIndex() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <KeyRound className="size-5 text-primary" />
-              Master password
+              <Lock className="size-5 text-primary" />
+              Security
             </CardTitle>
             <CardDescription>
-              Change password and recovery code rotation land in Sprint 4.
+              Manage active sessions and delete your account permanently.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              If you forget your password, restart from the sign-in screen and
-              click <em>Recover</em>.
-            </p>
+            <Link
+              to="/app/settings/security"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              Sessions &amp; danger zone
+            </Link>
           </CardContent>
         </Card>
       </div>

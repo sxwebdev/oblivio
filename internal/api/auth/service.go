@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -22,6 +23,7 @@ import (
 	"github.com/sxwebdev/oblivio/internal/audit"
 	"github.com/sxwebdev/oblivio/internal/auth"
 	"github.com/sxwebdev/oblivio/internal/config"
+	"github.com/sxwebdev/oblivio/internal/metrics"
 	"github.com/sxwebdev/oblivio/internal/models"
 	"github.com/sxwebdev/oblivio/internal/store"
 	"github.com/sxwebdev/oblivio/internal/store/repos"
@@ -84,9 +86,7 @@ func (s *Service) logAudit(ctx context.Context, userID uuid.UUID, action models.
 	meta := map[string]any{
 		"procedure": req.Spec().Procedure,
 	}
-	for k, v := range extra {
-		meta[k] = v
-	}
+	maps.Copy(meta, extra)
 	ev := audit.Event{
 		Action:    action,
 		UserAgent: req.Header().Get("User-Agent"),
@@ -234,6 +234,7 @@ func (s *Service) Authorize(ctx context.Context, req *connect.Request[pb.Authori
 	u, err := s.st.Users().GetUserByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			metrics.LoginAttemptsTotal.WithLabelValues("failure").Inc()
 			return nil, unauthenticated()
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -249,6 +250,7 @@ func (s *Service) Authorize(ctx context.Context, req *connect.Request[pb.Authori
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	if !ok {
+		metrics.LoginAttemptsTotal.WithLabelValues("failure").Inc()
 		return nil, unauthenticated()
 	}
 
@@ -297,6 +299,7 @@ func (s *Service) Authorize(ctx context.Context, req *connect.Request[pb.Authori
 		}
 		sid := s.mfa.Put(ch)
 		mfaResp.SessionId = sid.String()
+		metrics.LoginAttemptsTotal.WithLabelValues("mfa_challenge").Inc()
 		return connect.NewResponse(&pb.AuthorizeResponse{MfaChallenge: mfaResp}), nil
 	}
 
@@ -338,8 +341,10 @@ func (s *Service) CompleteMFA(ctx context.Context, req *connect.Request[pb.Compl
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		if err := auth.ValidateTOTPCode(secret, r.TotpCode); err != nil {
+			metrics.MFAAttemptsTotal.WithLabelValues("totp", "failure").Inc()
 			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid totp code"))
 		}
+		metrics.MFAAttemptsTotal.WithLabelValues("totp", "success").Inc()
 	case hasWA:
 		if s.wa == nil || ch.WebAuthnState == nil {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("webauthn challenge not present"))
@@ -359,8 +364,10 @@ func (s *Service) CompleteMFA(ctx context.Context, req *connect.Request[pb.Compl
 		}
 		credential, err := s.wa.ValidateLogin(wuser, *ch.WebAuthnState, parsed)
 		if err != nil {
+			metrics.MFAAttemptsTotal.WithLabelValues("webauthn", "failure").Inc()
 			return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("webauthn validate: %w", err))
 		}
+		metrics.MFAAttemptsTotal.WithLabelValues("webauthn", "success").Inc()
 		// Update sign_count for the touched credential.
 		matched, err := s.st.UserWebAuthn().GetWebAuthnCredentialByCredID(ctx, credential.ID)
 		if err == nil {
@@ -417,6 +424,7 @@ func (s *Service) issueAuthorized(ctx context.Context, req connect.AnyRequest, u
 	s.logAudit(ctx, userID, models.AuditActionLogin, req, map[string]any{
 		"device_id": devID,
 	})
+	metrics.LoginAttemptsTotal.WithLabelValues("success").Inc()
 	return connect.NewResponse(&pb.AuthorizeResponse{
 		AuthPayload: buildAuthPayload(tokens, &payloadKeys{
 			Verifier:        uv.Verifier,
@@ -434,6 +442,7 @@ func (s *Service) RefreshToken(ctx context.Context, req *connect.Request[pb.Refr
 	}
 	tokens, err := s.am.Refresh(ctx, r.RefreshToken, deviceType(r.DeviceInfo, s.defaultDeviceType), deviceName(r.DeviceInfo))
 	if err != nil {
+		metrics.RefreshAttemptsTotal.WithLabelValues("failure").Inc()
 		return nil, unauthenticated()
 	}
 
@@ -443,6 +452,7 @@ func (s *Service) RefreshToken(ctx context.Context, req *connect.Request[pb.Refr
 	}
 
 	s.logAudit(ctx, tokens.UserID, models.AuditActionRefresh, req, nil)
+	metrics.RefreshAttemptsTotal.WithLabelValues("success").Inc()
 
 	return connect.NewResponse(&pb.RefreshTokenResponse{
 		AuthPayload: buildAuthPayload(tokens, &payloadKeys{

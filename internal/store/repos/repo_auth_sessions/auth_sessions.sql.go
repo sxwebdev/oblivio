@@ -14,6 +14,24 @@ import (
 	"github.com/sxwebdev/oblivio/internal/models"
 )
 
+const deleteExpiredSessions = `-- name: DeleteExpiredSessions :execrows
+DELETE FROM auth_sessions
+WHERE refresh_expires_at < $1
+   OR (revoked_at IS NOT NULL AND revoked_at < $1)
+`
+
+// Reaps rows whose refresh has expired or that have been revoked far enough
+// in the past that the audit chain already captured the termination event.
+// Keeping revoked rows around briefly lets "I just logged out from the other
+// tab" investigations succeed; 24h is long enough for that.
+func (q *Queries) DeleteExpiredSessions(ctx context.Context, refreshExpiresAt pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredSessions, refreshExpiresAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getSessionByAccessHash = `-- name: GetSessionByAccessHash :one
 SELECT id, user_id, device_id, device_type, device_name, ip, country, access_token_hash, refresh_token_hash, access_expires_at, refresh_expires_at, revoked_at, created_at, last_seen_at FROM auth_sessions
 WHERE access_token_hash = $1 AND revoked_at IS NULL
@@ -142,6 +160,24 @@ UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS
 func (q *Queries) RevokeAllUserSessions(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, revokeAllUserSessions, userID)
 	return err
+}
+
+const revokeAllUserSessionsExcept = `-- name: RevokeAllUserSessionsExcept :execrows
+UPDATE auth_sessions SET revoked_at = now()
+WHERE user_id = $1 AND id <> $2 AND revoked_at IS NULL
+`
+
+type RevokeAllUserSessionsExceptParams struct {
+	UserID uuid.UUID `db:"user_id" json:"user_id"`
+	ID     uuid.UUID `db:"id" json:"id"`
+}
+
+func (q *Queries) RevokeAllUserSessionsExcept(ctx context.Context, arg RevokeAllUserSessionsExceptParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeAllUserSessionsExcept, arg.UserID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const revokeSession = `-- name: RevokeSession :exec

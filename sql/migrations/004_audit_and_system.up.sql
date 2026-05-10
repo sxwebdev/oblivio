@@ -4,7 +4,7 @@ CREATE TYPE audit_action AS ENUM (
     'webauthn_register','webauthn_remove','totp_enable','totp_disable',
     'project_create','project_update','project_delete',
     'entry_create','entry_update','entry_view','entry_delete',
-    'session_terminate'
+    'session_terminate','account_delete'
 );
 
 -- Append-only hash-chained audit log. The chain head is mirrored into

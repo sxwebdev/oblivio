@@ -16,17 +16,14 @@ import (
 // pgxtx is the transaction type used by the pgxv5 River driver.
 type pgxtx = pgx.Tx
 
-// Service manages the River job queue lifecycle.
+// Service manages the River job queue lifecycle. As of Sprint 4 it runs the
+// audit-chain verifier on a daily cadence and is the home for future
+// periodic maintenance work (rate-limit GC, session GC, email retry).
 type Service struct {
 	pool        *pgxpool.Pool
 	st          *store.Store
 	log         logger.ExtendedLogger
 	riverClient *river.Client[pgxtx]
-	// hasWorkers is true when at least one worker is registered. River refuses to
-	// Start a client without both Queues and Workers configured, so when no
-	// workers exist the service runs in insert-only mode and Start is a no-op
-	// that blocks until context cancellation.
-	hasWorkers bool
 }
 
 // NewService creates a new River job service and initialises the River client.
@@ -40,14 +37,32 @@ func NewService(
 	driver := riverpgxv5.New(pool)
 
 	workers := river.NewWorkers()
-	// Workers are registered as new background jobs are introduced.
-	hasWorkers := false
+	river.AddWorker(workers, NewAuditChainVerifyWorker(pool, log))
+	river.AddWorker(workers, NewSessionsGCWorker(st, log))
 
-	rcfg := &river.Config{Workers: workers}
-	if hasWorkers {
-		rcfg.Queues = map[string]river.QueueConfig{
-			river.QueueDefault: {MaxWorkers: 10},
-		}
+	periodicJobs := []*river.PeriodicJob{
+		river.NewPeriodicJob(
+			river.PeriodicInterval(auditChainVerifySchedule()),
+			func() (river.JobArgs, *river.InsertOpts) {
+				return AuditChainVerifyArgs{}, nil
+			},
+			&river.PeriodicJobOpts{RunOnStart: true},
+		),
+		river.NewPeriodicJob(
+			river.PeriodicInterval(sessionsGCInterval(cfg)),
+			func() (river.JobArgs, *river.InsertOpts) {
+				return SessionsGCArgs{}, nil
+			},
+			&river.PeriodicJobOpts{RunOnStart: true},
+		),
+	}
+
+	rcfg := &river.Config{
+		Workers: workers,
+		Queues: map[string]river.QueueConfig{
+			river.QueueDefault: {MaxWorkers: 4},
+		},
+		PeriodicJobs: periodicJobs,
 	}
 
 	riverClient, err := river.NewClient(driver, rcfg)
@@ -60,7 +75,6 @@ func NewService(
 		st:          st,
 		log:         log,
 		riverClient: riverClient,
-		hasWorkers:  hasWorkers,
 	}, nil
 }
 
@@ -68,13 +82,9 @@ func NewService(
 func (s *Service) Name() string { return "river-jobs" }
 
 // Start runs the River client and blocks until ctx is cancelled.
-// When no workers are registered the client is not started (River would reject
-// it); the service simply waits for shutdown so it slots into the launcher.
 func (s *Service) Start(ctx context.Context) error {
-	if s.hasWorkers {
-		if err := s.riverClient.Start(ctx); err != nil {
-			return fmt.Errorf("start river client: %w", err)
-		}
+	if err := s.riverClient.Start(ctx); err != nil {
+		return fmt.Errorf("start river client: %w", err)
 	}
 	<-ctx.Done()
 	return nil
@@ -82,9 +92,6 @@ func (s *Service) Start(ctx context.Context) error {
 
 // Stop gracefully shuts down the River client.
 func (s *Service) Stop(ctx context.Context) error {
-	if !s.hasWorkers {
-		return nil
-	}
 	return s.riverClient.Stop(ctx)
 }
 

@@ -24,6 +24,7 @@ import { Route as AuthAppNotesIndexRouteImport } from './routes/_auth.app.notes.
 import { Route as AuthAppEntriesIndexRouteImport } from './routes/_auth.app.entries.index'
 import { Route as AuthAppAuditIndexRouteImport } from './routes/_auth.app.audit.index'
 import { Route as AuthAppSettingsTwoFactorRouteImport } from './routes/_auth.app.settings.two-factor'
+import { Route as AuthAppSettingsSecurityRouteImport } from './routes/_auth.app.settings.security'
 import { Route as AuthAppProjectsNewRouteImport } from './routes/_auth.app.projects.new'
 import { Route as AuthAppNotesNewRouteImport } from './routes/_auth.app.notes.new'
 import { Route as AuthAppEntriesNewRouteImport } from './routes/_auth.app.entries.new'
@@ -105,6 +106,11 @@ const AuthAppSettingsTwoFactorRoute =
     path: '/settings/two-factor',
     getParentRoute: () => AuthAppRoute,
   } as any)
+const AuthAppSettingsSecurityRoute = AuthAppSettingsSecurityRouteImport.update({
+  id: '/settings/security',
+  path: '/settings/security',
+  getParentRoute: () => AuthAppRoute,
+} as any)
 const AuthAppProjectsNewRoute = AuthAppProjectsNewRouteImport.update({
   id: '/projects/new',
   path: '/projects/new',
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/app/entries/new': typeof AuthAppEntriesNewRoute
   '/app/notes/new': typeof AuthAppNotesNewRoute
   '/app/projects/new': typeof AuthAppProjectsNewRoute
+  '/app/settings/security': typeof AuthAppSettingsSecurityRoute
   '/app/settings/two-factor': typeof AuthAppSettingsTwoFactorRoute
   '/app/audit/': typeof AuthAppAuditIndexRoute
   '/app/entries/': typeof AuthAppEntriesIndexRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/app/entries/new': typeof AuthAppEntriesNewRoute
   '/app/notes/new': typeof AuthAppNotesNewRoute
   '/app/projects/new': typeof AuthAppProjectsNewRoute
+  '/app/settings/security': typeof AuthAppSettingsSecurityRoute
   '/app/settings/two-factor': typeof AuthAppSettingsTwoFactorRoute
   '/app/audit': typeof AuthAppAuditIndexRoute
   '/app/entries': typeof AuthAppEntriesIndexRoute
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/_auth/app/entries/new': typeof AuthAppEntriesNewRoute
   '/_auth/app/notes/new': typeof AuthAppNotesNewRoute
   '/_auth/app/projects/new': typeof AuthAppProjectsNewRoute
+  '/_auth/app/settings/security': typeof AuthAppSettingsSecurityRoute
   '/_auth/app/settings/two-factor': typeof AuthAppSettingsTwoFactorRoute
   '/_auth/app/audit/': typeof AuthAppAuditIndexRoute
   '/_auth/app/entries/': typeof AuthAppEntriesIndexRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/app/entries/new'
     | '/app/notes/new'
     | '/app/projects/new'
+    | '/app/settings/security'
     | '/app/settings/two-factor'
     | '/app/audit/'
     | '/app/entries/'
@@ -237,6 +247,7 @@ export interface FileRouteTypes {
     | '/app/entries/new'
     | '/app/notes/new'
     | '/app/projects/new'
+    | '/app/settings/security'
     | '/app/settings/two-factor'
     | '/app/audit'
     | '/app/entries'
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '/_auth/app/entries/new'
     | '/_auth/app/notes/new'
     | '/_auth/app/projects/new'
+    | '/_auth/app/settings/security'
     | '/_auth/app/settings/two-factor'
     | '/_auth/app/audit/'
     | '/_auth/app/entries/'
@@ -384,6 +396,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthAppSettingsTwoFactorRouteImport
       parentRoute: typeof AuthAppRoute
     }
+    '/_auth/app/settings/security': {
+      id: '/_auth/app/settings/security'
+      path: '/settings/security'
+      fullPath: '/app/settings/security'
+      preLoaderRoute: typeof AuthAppSettingsSecurityRouteImport
+      parentRoute: typeof AuthAppRoute
+    }
     '/_auth/app/projects/new': {
       id: '/_auth/app/projects/new'
       path: '/projects/new'
@@ -434,6 +453,7 @@ interface AuthAppRouteChildren {
   AuthAppEntriesNewRoute: typeof AuthAppEntriesNewRoute
   AuthAppNotesNewRoute: typeof AuthAppNotesNewRoute
   AuthAppProjectsNewRoute: typeof AuthAppProjectsNewRoute
+  AuthAppSettingsSecurityRoute: typeof AuthAppSettingsSecurityRoute
   AuthAppSettingsTwoFactorRoute: typeof AuthAppSettingsTwoFactorRoute
   AuthAppAuditIndexRoute: typeof AuthAppAuditIndexRoute
   AuthAppEntriesIndexRoute: typeof AuthAppEntriesIndexRoute
@@ -450,6 +470,7 @@ const AuthAppRouteChildren: AuthAppRouteChildren = {
   AuthAppEntriesNewRoute: AuthAppEntriesNewRoute,
   AuthAppNotesNewRoute: AuthAppNotesNewRoute,
   AuthAppProjectsNewRoute: AuthAppProjectsNewRoute,
+  AuthAppSettingsSecurityRoute: AuthAppSettingsSecurityRoute,
   AuthAppSettingsTwoFactorRoute: AuthAppSettingsTwoFactorRoute,
   AuthAppAuditIndexRoute: AuthAppAuditIndexRoute,
   AuthAppEntriesIndexRoute: AuthAppEntriesIndexRoute,

@@ -18,17 +18,17 @@ type AuditProcedureMap = map[string]models.AuditAction
 // events. The auth-side actions are appended explicitly inside the auth
 // service (Sprint 1), so they are not present here.
 var DefaultAuditProcedures = AuditProcedureMap{
-	"/oblivio.v1.ProjectsService/CreateProject":      models.AuditActionProjectCreate,
-	"/oblivio.v1.ProjectsService/UpdateProject":      models.AuditActionProjectUpdate,
-	"/oblivio.v1.ProjectsService/DeleteProject":      models.AuditActionProjectDelete,
-	"/oblivio.v1.EntriesService/CreateEntry":         models.AuditActionEntryCreate,
-	"/oblivio.v1.EntriesService/UpdateEntry":         models.AuditActionEntryUpdate,
-	"/oblivio.v1.EntriesService/DeleteEntry":         models.AuditActionEntryDelete,
-	"/oblivio.v1.EntriesService/GetEntriesByIds":     models.AuditActionEntryView,
-	"/oblivio.v1.WebAuthnService/RegisterFinish":     models.AuditActionWebauthnRegister,
-	"/oblivio.v1.WebAuthnService/RemoveCredential":   models.AuditActionWebauthnRemove,
-	"/oblivio.v1.LoginTOTPService/Enable":            models.AuditActionTotpEnable,
-	"/oblivio.v1.LoginTOTPService/Disable":           models.AuditActionTotpDisable,
+	"/oblivio.v1.ProjectsService/CreateProject":    models.AuditActionProjectCreate,
+	"/oblivio.v1.ProjectsService/UpdateProject":    models.AuditActionProjectUpdate,
+	"/oblivio.v1.ProjectsService/DeleteProject":    models.AuditActionProjectDelete,
+	"/oblivio.v1.EntriesService/CreateEntry":       models.AuditActionEntryCreate,
+	"/oblivio.v1.EntriesService/UpdateEntry":       models.AuditActionEntryUpdate,
+	"/oblivio.v1.EntriesService/DeleteEntry":       models.AuditActionEntryDelete,
+	"/oblivio.v1.EntriesService/GetEntriesByIds":   models.AuditActionEntryView,
+	"/oblivio.v1.WebAuthnService/RegisterFinish":   models.AuditActionWebauthnRegister,
+	"/oblivio.v1.WebAuthnService/RemoveCredential": models.AuditActionWebauthnRemove,
+	"/oblivio.v1.LoginTOTPService/Enable":          models.AuditActionTotpEnable,
+	"/oblivio.v1.LoginTOTPService/Disable":         models.AuditActionTotpDisable,
 }
 
 // auditBox is a mutable slot that handlers fill in to tell the audit

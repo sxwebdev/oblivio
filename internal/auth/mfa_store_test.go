@@ -33,7 +33,7 @@ func TestMFAStorePeekDoesNotConsume(t *testing.T) {
 	defer s.Close()
 
 	id := s.Put(MFAChallenge{UserID: uuid.New()})
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if _, err := s.Peek(id); err != nil {
 			t.Errorf("peek %d: %v", i, err)
 		}

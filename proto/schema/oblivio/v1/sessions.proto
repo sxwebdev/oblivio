@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package oblivio.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/sxwebdev/oblivio/internal/api/pb/oblivio/v1;oblivio_v1";
+
+// SessionsService lets the user inspect their live login sessions and
+// terminate any of them remotely. Termination flips revoked_at on the
+// auth_sessions row; the next call from the doomed client returns
+// UNAUTHENTICATED on the very first protected procedure.
+service SessionsService {
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  rpc TerminateSession(TerminateSessionRequest) returns (TerminateSessionResponse);
+  rpc TerminateAllExceptCurrent(TerminateAllExceptCurrentRequest) returns (TerminateAllExceptCurrentResponse);
+}
+
+// Session is the per-row view returned by ListSessions. Token hashes are
+// deliberately omitted — the client never needs them.
+message Session {
+  string id = 1;
+  string device_id = 2;
+  string device_type = 3;
+  optional string device_name = 4;
+  optional string ip = 5;
+  optional string country = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp last_seen_at = 8;
+  google.protobuf.Timestamp access_expires_at = 9;
+  google.protobuf.Timestamp refresh_expires_at = 10;
+  // is_current marks the session that signed the calling request, so the
+  // UI can render a "this device" indicator and disable Terminate on it.
+  bool is_current = 11;
+}
+
+message ListSessionsRequest {}
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+}
+
+message TerminateSessionRequest {
+  string session_id = 1;
+}
+message TerminateSessionResponse {}
+
+message TerminateAllExceptCurrentRequest {}
+message TerminateAllExceptCurrentResponse {
+  uint32 terminated_count = 1;
+}
