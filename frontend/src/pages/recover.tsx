@@ -55,7 +55,7 @@ export default function RecoverPage() {
         normalizeRecoveryCode(code),
         params.recoverySalt,
         params.kdfParams.t,
-        params.kdfParams.mKib,
+        params.kdfParams.mKib
       )
       const proof = await deriveRecoveryProof(recoveryKey)
       const start = await authClient.recoveryStart({
@@ -64,7 +64,7 @@ export default function RecoverPage() {
       })
       const unwrapped = await unwrapVaultKeyFromRecovery(
         recoveryKey,
-        start.recoveryWrappedVaultKey,
+        start.recoveryWrappedVaultKey
       )
       setSessionId(start.recoverySessionId)
       setVaultKey(unwrapped)
@@ -73,7 +73,7 @@ export default function RecoverPage() {
       setError(
         e instanceof Error
           ? e.message
-          : "Invalid recovery code (or this email is unknown).",
+          : "Invalid recovery code (or this email is unknown)."
       )
     } finally {
       setBusy(false)
@@ -138,14 +138,14 @@ export default function RecoverPage() {
       <div className="space-y-4">
         <h1 className="text-2xl font-semibold">Password updated</h1>
         <p className="text-sm text-muted-foreground">
-          All previous sessions were signed out. Use your new master password
-          to sign in.
+          All previous sessions were signed out. Use your new master password to
+          sign in.
         </p>
         {newRecovery && (
           <div className="space-y-2">
             <p className="text-sm">
-              Suggested new recovery code — write it down before continuing.
-              The server still accepts the old one until you regenerate from
+              Suggested new recovery code — write it down before continuing. The
+              server still accepts the old one until you regenerate from
               settings.
             </p>
             <pre className="rounded-md border bg-muted p-3 text-center font-mono text-sm">

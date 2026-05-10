@@ -41,8 +41,7 @@ export default function Dashboard() {
 
   const favoritesQ = useQuery({
     queryKey: ["entries", "favorites"],
-    queryFn: () =>
-      entriesClient.listEntries({ favoritesOnly: true, limit: 5 }),
+    queryFn: () => entriesClient.listEntries({ favoritesOnly: true, limit: 5 }),
   })
 
   const notesQ = useQuery({
@@ -58,8 +57,8 @@ export default function Dashboard() {
           Welcome back{email ? `, ${email}` : ""}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Everything below is decrypted in your browser — the server never
-          sees plaintext.
+          Everything below is decrypted in your browser — the server never sees
+          plaintext.
         </p>
       </header>
 
@@ -108,7 +107,11 @@ export default function Dashboard() {
               {favoritesQ.data?.entries.length ?? "—"}
             </div>
             <CardDescription>
-              <Link to="/app/entries" search={{ favorites: true }} className="underline">
+              <Link
+                to="/app/entries"
+                search={{ favorites: true }}
+                className="underline"
+              >
                 Show favorites
               </Link>
             </CardDescription>

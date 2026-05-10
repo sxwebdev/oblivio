@@ -2,60 +2,60 @@
 // @generated from file oblivio/v1/auth.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import { AuthService } from "./auth_pb";
+import { AuthService } from "./auth_pb"
 
 /**
  * Anonymous endpoints.
  *
  * @generated from rpc oblivio.v1.AuthService.Register
  */
-export const register = AuthService.method.register;
+export const register = AuthService.method.register
 
 /**
  * @generated from rpc oblivio.v1.AuthService.GetKDFParams
  */
-export const getKDFParams = AuthService.method.getKDFParams;
+export const getKDFParams = AuthService.method.getKDFParams
 
 /**
  * @generated from rpc oblivio.v1.AuthService.Authorize
  */
-export const authorize = AuthService.method.authorize;
+export const authorize = AuthService.method.authorize
 
 /**
  * @generated from rpc oblivio.v1.AuthService.CompleteMFA
  */
-export const completeMFA = AuthService.method.completeMFA;
+export const completeMFA = AuthService.method.completeMFA
 
 /**
  * @generated from rpc oblivio.v1.AuthService.RefreshToken
  */
-export const refreshToken = AuthService.method.refreshToken;
+export const refreshToken = AuthService.method.refreshToken
 
 /**
  * Recovery (anonymous).
  *
  * @generated from rpc oblivio.v1.AuthService.GetRecoveryParams
  */
-export const getRecoveryParams = AuthService.method.getRecoveryParams;
+export const getRecoveryParams = AuthService.method.getRecoveryParams
 
 /**
  * @generated from rpc oblivio.v1.AuthService.RecoveryStart
  */
-export const recoveryStart = AuthService.method.recoveryStart;
+export const recoveryStart = AuthService.method.recoveryStart
 
 /**
  * @generated from rpc oblivio.v1.AuthService.RecoveryComplete
  */
-export const recoveryComplete = AuthService.method.recoveryComplete;
+export const recoveryComplete = AuthService.method.recoveryComplete
 
 /**
  * Authenticated endpoints.
  *
  * @generated from rpc oblivio.v1.AuthService.Logout
  */
-export const logout = AuthService.method.logout;
+export const logout = AuthService.method.logout
 
 /**
  * @generated from rpc oblivio.v1.AuthService.GetMyKeys
  */
-export const getMyKeys = AuthService.method.getMyKeys;
+export const getMyKeys = AuthService.method.getMyKeys

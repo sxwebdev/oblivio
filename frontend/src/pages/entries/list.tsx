@@ -65,11 +65,17 @@ export default function EntriesListPage({
   const vaultKey = useVaultStore((s) => s.vaultKey)
   const qc = useQueryClient()
 
-  const [projectId, setProjectId] = useState<string | undefined>(initial?.projectId)
-  const [kind, setKind] = useState<EntryKind | undefined>(pinKind ?? initial?.kind)
+  const [projectId, setProjectId] = useState<string | undefined>(
+    initial?.projectId
+  )
+  const [kind, setKind] = useState<EntryKind | undefined>(
+    pinKind ?? initial?.kind
+  )
   const [favorites, setFavorites] = useState(initial?.favorites ?? false)
   const [query, setQuery] = useState(initial?.query ?? "")
-  const [searchHash, setSearchHash] = useState<Uint8Array | undefined>(undefined)
+  const [searchHash, setSearchHash] = useState<Uint8Array | undefined>(
+    undefined
+  )
 
   const projectsQ = useQuery({
     queryKey: ["projects"],
@@ -80,7 +86,11 @@ export default function EntriesListPage({
   // human-readable project label instead of a raw UUID.
   const projectNamesQ = useQuery({
     enabled: !!vaultKey && !!projectsQ.data?.projects.length,
-    queryKey: ["projects", "names", projectsQ.data?.projects.map((p) => p.id).join(",")],
+    queryKey: [
+      "projects",
+      "names",
+      projectsQ.data?.projects.map((p) => p.id).join(","),
+    ],
     queryFn: async (): Promise<Record<string, string>> => {
       if (!vaultKey || !projectsQ.data) return {}
       const names: Record<string, string> = {}
@@ -99,14 +109,17 @@ export default function EntriesListPage({
           } catch {
             names[p.id] = ""
           }
-        }),
+        })
       )
       return names
     },
   })
 
   const listQ = useQuery({
-    queryKey: ["entries", { projectId, kind, favorites, searchHash: searchHash ? "yes" : "no" }],
+    queryKey: [
+      "entries",
+      { projectId, kind, favorites, searchHash: searchHash ? "yes" : "no" },
+    ],
     queryFn: () =>
       entriesClient.listEntries({
         projectId,
@@ -143,7 +156,7 @@ export default function EntriesListPage({
           } catch {
             titles[e.id] = ""
           }
-        }),
+        })
       )
       return titles
     },
@@ -153,7 +166,7 @@ export default function EntriesListPage({
     mutationFn: async (e: EntryMeta) =>
       entriesClient.toggleFavorite(
         { id: e.id, isFavorite: !e.isFavorite },
-        { headers: idempotencyHeaders() },
+        { headers: idempotencyHeaders() }
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["entries"] }),
     onError: (err) => toast.error(`Toggle failed: ${(err as Error).message}`),
@@ -241,7 +254,9 @@ export default function EntriesListPage({
               <Select
                 value={kind?.toString() ?? "all"}
                 onValueChange={(v) =>
-                  setKind(!v || v === "all" ? undefined : (Number(v) as EntryKind))
+                  setKind(
+                    !v || v === "all" ? undefined : (Number(v) as EntryKind)
+                  )
                 }
               >
                 <SelectTrigger>
@@ -263,7 +278,9 @@ export default function EntriesListPage({
             <Label>Project</Label>
             <Select
               value={projectId ?? "all"}
-              onValueChange={(v) => setProjectId(!v || v === "all" ? undefined : v)}
+              onValueChange={(v) =>
+                setProjectId(!v || v === "all" ? undefined : v)
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="All projects" />
@@ -328,7 +345,9 @@ export default function EntriesListPage({
                     title={titlesQ.data?.[e.id]}
                     titlesLoading={titlesQ.isLoading}
                     projectName={
-                      e.projectId ? projectNamesQ.data?.[e.projectId] : undefined
+                      e.projectId
+                        ? projectNamesQ.data?.[e.projectId]
+                        : undefined
                     }
                     onToggleFav={() => favoriteMut.mutate(e)}
                   />

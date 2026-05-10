@@ -31,7 +31,8 @@ function SettingsIndex() {
               Two-factor authentication
             </CardTitle>
             <CardDescription>
-              Add an authenticator app or a passkey on top of your master password.
+              Add an authenticator app or a passkey on top of your master
+              password.
             </CardDescription>
           </CardHeader>
           <CardContent>

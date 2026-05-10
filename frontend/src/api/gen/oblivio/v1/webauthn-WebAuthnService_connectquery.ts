@@ -2,7 +2,7 @@
 // @generated from file oblivio/v1/webauthn.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import { WebAuthnService } from "./webauthn_pb";
+import { WebAuthnService } from "./webauthn_pb"
 
 /**
  * Begin a registration ceremony. Returns the CredentialCreationOptions
@@ -10,25 +10,25 @@ import { WebAuthnService } from "./webauthn_pb";
  *
  * @generated from rpc oblivio.v1.WebAuthnService.RegisterBegin
  */
-export const registerBegin = WebAuthnService.method.registerBegin;
+export const registerBegin = WebAuthnService.method.registerBegin
 
 /**
  * Finish registration with the attestation produced by the authenticator.
  *
  * @generated from rpc oblivio.v1.WebAuthnService.RegisterFinish
  */
-export const registerFinish = WebAuthnService.method.registerFinish;
+export const registerFinish = WebAuthnService.method.registerFinish
 
 /**
  * List the user's registered credentials (metadata only — no public keys).
  *
  * @generated from rpc oblivio.v1.WebAuthnService.ListCredentials
  */
-export const listCredentials = WebAuthnService.method.listCredentials;
+export const listCredentials = WebAuthnService.method.listCredentials
 
 /**
  * Remove a credential by its UUID.
  *
  * @generated from rpc oblivio.v1.WebAuthnService.RemoveCredential
  */
-export const removeCredential = WebAuthnService.method.removeCredential;
+export const removeCredential = WebAuthnService.method.removeCredential

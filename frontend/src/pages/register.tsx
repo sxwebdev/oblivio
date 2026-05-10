@@ -58,7 +58,7 @@ export default function RegisterPage() {
       const recoveryKey = await deriveRecoveryKey(code, recoverySalt)
       const recoveryWrappedVaultKey = await wrapVaultKeyForRecovery(
         recoveryKey,
-        vaultKey,
+        vaultKey
       )
       const recoveryProof = await deriveRecoveryProof(recoveryKey)
 
@@ -72,7 +72,11 @@ export default function RegisterPage() {
         recoverySalt,
         recoveryWrappedVaultKey,
         recoveryProof,
-        deviceInfo: { deviceId, deviceType: "web", deviceName: navigator.userAgent.slice(0, 64) },
+        deviceInfo: {
+          deviceId,
+          deviceType: "web",
+          deviceName: navigator.userAgent.slice(0, 64),
+        },
       })
 
       const payload = resp.authPayload
@@ -84,7 +88,8 @@ export default function RegisterPage() {
         accessToken: payload.accessToken,
         refreshToken: payload.refreshToken,
         accessExpiresAt: Number(payload.accessExpiresAt?.seconds ?? 0n) * 1000,
-        refreshExpiresAt: Number(payload.refreshExpiresAt?.seconds ?? 0n) * 1000,
+        refreshExpiresAt:
+          Number(payload.refreshExpiresAt?.seconds ?? 0n) * 1000,
       })
       setVaultKey(vaultKey, payload.vaultKeyVersion)
 
@@ -107,7 +112,7 @@ export default function RegisterPage() {
           This is the only way to recover your vault if you forget your master
           password. We will not show it again.
         </p>
-        <pre className="rounded-md border bg-muted p-4 font-mono text-center text-sm">
+        <pre className="rounded-md border bg-muted p-4 text-center font-mono text-sm">
           {recoveryCode}
         </pre>
         <Button onClick={() => navigate({ to: "/app" })} className="w-full">

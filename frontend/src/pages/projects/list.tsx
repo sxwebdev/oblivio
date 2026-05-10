@@ -51,7 +51,7 @@ export default function ProjectsListPage() {
     mutationFn: async (p: Project) =>
       projectsClient.deleteProject(
         { id: p.id, expectedVersion: p.version },
-        { headers: idempotencyHeaders() },
+        { headers: idempotencyHeaders() }
       ),
     onSuccess: () => {
       toast.success("Project deleted")

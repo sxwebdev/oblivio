@@ -7,15 +7,15 @@
 // (vault_id, item_id, version) triple so the server cannot swap envelopes
 // between records or roll a record back to a stale version.
 
-import { decryptBlob, encryptBlob } from "./aead";
-import { randomBytes, utf8 } from "./util";
-import { ITEM_AAD_LABEL, WRAP_AAD_LABEL } from "./types";
+import { decryptBlob, encryptBlob } from "./aead"
+import { randomBytes, utf8 } from "./util"
+import { ITEM_AAD_LABEL, WRAP_AAD_LABEL } from "./types"
 
 // generateItemKey returns 32 random bytes suitable for AES-256-GCM.
 // Like vault_key we keep raw bytes so callers may import them with whatever
 // usages they need (encrypt, decrypt, deriveBits…).
 export function generateItemKey(): Uint8Array {
-  return randomBytes(32);
+  return randomBytes(32)
 }
 
 // importItemKey returns a non-extractable AES-GCM CryptoKey.
@@ -25,8 +25,8 @@ export async function importItemKey(raw: Uint8Array): Promise<CryptoKey> {
     raw as unknown as ArrayBuffer,
     { name: "AES-GCM" },
     false,
-    ["encrypt", "decrypt"],
-  );
+    ["encrypt", "decrypt"]
+  )
 }
 
 // buildItemAAD returns the canonical AAD for *encrypted_blob* (the actual
@@ -36,9 +36,9 @@ export async function importItemKey(raw: Uint8Array): Promise<CryptoKey> {
 export function buildItemAAD(
   itemId: string,
   version: number | bigint,
-  vaultId: string,
+  vaultId: string
 ): Uint8Array {
-  return utf8(`${itemId}|${version}|${vaultId}|${ITEM_AAD_LABEL}`);
+  return utf8(`${itemId}|${version}|${vaultId}|${ITEM_AAD_LABEL}`)
 }
 
 // buildItemWrapAAD returns the canonical AAD for *wrapped_item_key*. It binds
@@ -47,9 +47,9 @@ export function buildItemAAD(
 export function buildItemWrapAAD(
   vaultId: string,
   itemId: string,
-  version: number | bigint,
+  version: number | bigint
 ): Uint8Array {
-  return utf8(`${vaultId}|${itemId}|${version}|${WRAP_AAD_LABEL}`);
+  return utf8(`${vaultId}|${itemId}|${version}|${WRAP_AAD_LABEL}`)
 }
 
 // wrapItemKey seals item_key under vault_key with the supplied AAD.
@@ -58,9 +58,9 @@ export function buildItemWrapAAD(
 export async function wrapItemKey(
   vaultKey: CryptoKey,
   itemKey: Uint8Array,
-  aad: Uint8Array,
+  aad: Uint8Array
 ): Promise<Uint8Array> {
-  return encryptBlob(vaultKey, itemKey, aad);
+  return encryptBlob(vaultKey, itemKey, aad)
 }
 
 // unwrapItemKey returns the raw item_key bytes. Throws OperationError on AAD
@@ -68,7 +68,7 @@ export async function wrapItemKey(
 export async function unwrapItemKey(
   vaultKey: CryptoKey,
   wrapped: Uint8Array,
-  aad: Uint8Array,
+  aad: Uint8Array
 ): Promise<Uint8Array> {
-  return decryptBlob(vaultKey, wrapped, aad);
+  return decryptBlob(vaultKey, wrapped, aad)
 }

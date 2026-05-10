@@ -5,23 +5,20 @@
 // is decrypted from the vault by the parent — this component never touches
 // the network and never persists the code.
 
-import { useEffect, useState } from "react";
-import { Copy } from "lucide-react";
+import { useEffect, useState } from "react"
+import { Copy } from "lucide-react"
 
-import {
-  generateTotpCode,
-  totpRemainingSeconds,
-} from "@oblivio/crypto";
+import { generateTotpCode, totpRemainingSeconds } from "@oblivio/crypto"
 
-import { Button } from "@/components/ui/button";
-import { copySecret } from "@/lib/clipboard";
+import { Button } from "@/components/ui/button"
+import { copySecret } from "@/lib/clipboard"
 
 type Props = {
-  secret: string;
-  period?: number;
-  digits?: number;
-  label?: string;
-};
+  secret: string
+  period?: number
+  digits?: number
+  label?: string
+}
 
 export function TotpDisplay({
   secret,
@@ -29,47 +26,47 @@ export function TotpDisplay({
   digits = 6,
   label = "code",
 }: Props) {
-  const [code, setCode] = useState<string>("------");
-  const [remaining, setRemaining] = useState<number>(period);
-  const [error, setError] = useState<string | null>(null);
+  const [code, setCode] = useState<string>("------")
+  const [remaining, setRemaining] = useState<number>(period)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    let cancelled = false;
+    let cancelled = false
     async function tick() {
       try {
-        const now = new Date();
-        const nextCode = await generateTotpCode(secret, now, { period, digits });
-        const nextRem = totpRemainingSeconds(now, period);
+        const now = new Date()
+        const nextCode = await generateTotpCode(secret, now, { period, digits })
+        const nextRem = totpRemainingSeconds(now, period)
         if (!cancelled) {
-          setCode(nextCode);
-          setRemaining(nextRem);
-          setError(null);
+          setCode(nextCode)
+          setRemaining(nextRem)
+          setError(null)
         }
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : String(e));
+          setError(e instanceof Error ? e.message : String(e))
         }
       }
     }
-    tick();
-    const id = setInterval(tick, 1000);
+    tick()
+    const id = setInterval(tick, 1000)
     return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [secret, period, digits]);
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [secret, period, digits])
 
   if (error) {
     return (
       <p className="text-sm text-destructive">Invalid TOTP secret: {error}</p>
-    );
+    )
   }
 
-  const pct = Math.max(0, Math.min(1, remaining / period));
+  const pct = Math.max(0, Math.min(1, remaining / period))
   // SVG ring geometry.
-  const radius = 18;
-  const circ = 2 * Math.PI * radius;
-  const dash = circ * pct;
+  const radius = 18
+  const circ = 2 * Math.PI * radius
+  const dash = circ * pct
 
   return (
     <div className="flex items-center gap-4">
@@ -115,5 +112,5 @@ export function TotpDisplay({
         <Copy className="size-4" />
       </Button>
     </div>
-  );
+  )
 }

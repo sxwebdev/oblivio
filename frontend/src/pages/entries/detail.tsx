@@ -63,7 +63,7 @@ export default function EntryDetailPage({ entryId }: { entryId: string }) {
     mutationFn: async () =>
       entriesClient.deleteEntry(
         { id: entryId },
-        { headers: idempotencyHeaders() },
+        { headers: idempotencyHeaders() }
       ),
     onSuccess: async () => {
       toast.success("Item deleted")
@@ -123,7 +123,9 @@ export default function EntryDetailPage({ entryId }: { entryId: string }) {
         <Card>
           <CardHeader>
             <CardTitle>Credentials</CardTitle>
-            <CardDescription>Click a copy icon to put it on the clipboard.</CardDescription>
+            <CardDescription>
+              Click a copy icon to put it on the clipboard.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <FieldRow label="Username" value={plaintext.username} />
@@ -132,7 +134,7 @@ export default function EntryDetailPage({ entryId }: { entryId: string }) {
             {plaintext.totpSecret && (
               <>
                 <div className="rounded-md border bg-muted/40 px-3 py-2">
-                  <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+                  <div className="mb-2 text-xs tracking-wide text-muted-foreground uppercase">
                     One-time code
                   </div>
                   <TotpDisplay
@@ -141,7 +143,11 @@ export default function EntryDetailPage({ entryId }: { entryId: string }) {
                     digits={plaintext.totpDigits}
                   />
                 </div>
-                <FieldRow label="TOTP secret" value={plaintext.totpSecret} secret />
+                <FieldRow
+                  label="TOTP secret"
+                  value={plaintext.totpSecret}
+                  secret
+                />
               </>
             )}
           </CardContent>
@@ -168,7 +174,11 @@ export default function EntryDetailPage({ entryId }: { entryId: string }) {
                 No TOTP secret stored on this entry.
               </p>
             )}
-            <FieldRow label="Secret (base32)" value={plaintext.totpSecret} secret />
+            <FieldRow
+              label="Secret (base32)"
+              value={plaintext.totpSecret}
+              secret
+            />
           </CardContent>
         </Card>
       )}
@@ -207,8 +217,17 @@ export default function EntryDetailPage({ entryId }: { entryId: string }) {
             <CardTitle>SSH key</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <FieldRow label="Public key" value={plaintext.publicKey} multiline />
-            <FieldRow label="Private key" value={plaintext.privateKey} multiline secret />
+            <FieldRow
+              label="Public key"
+              value={plaintext.publicKey}
+              multiline
+            />
+            <FieldRow
+              label="Private key"
+              value={plaintext.privateKey}
+              multiline
+              secret
+            />
             <FieldRow label="Passphrase" value={plaintext.passphrase} secret />
           </CardContent>
         </Card>
@@ -218,7 +237,9 @@ export default function EntryDetailPage({ entryId }: { entryId: string }) {
         <Card>
           <CardHeader>
             <CardTitle>Notes</CardTitle>
-            <CardDescription>Markdown rendering arrives in Sprint 5.</CardDescription>
+            <CardDescription>
+              Markdown rendering arrives in Sprint 5.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <pre className="font-sans text-sm whitespace-pre-wrap">
@@ -273,7 +294,7 @@ function FieldRow({
   const display = show ? value : "•".repeat(Math.min(12, value.length))
   return (
     <div className="flex items-start gap-3">
-      <div className="w-32 shrink-0 pt-1.5 text-xs uppercase tracking-wide text-muted-foreground">
+      <div className="w-32 shrink-0 pt-1.5 text-xs tracking-wide text-muted-foreground uppercase">
         {label}
       </div>
       <div className="min-w-0 flex-1">

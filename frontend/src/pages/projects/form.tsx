@@ -40,7 +40,11 @@ export default function ProjectForm(props: ProjectFormMode) {
   // For edit mode: fetch the existing project and decrypt its blob.
   const existingQ = useQuery({
     enabled: props.mode === "edit" && !!vaultKey,
-    queryKey: ["projects", "decrypt", props.mode === "edit" ? props.projectId : "_"],
+    queryKey: [
+      "projects",
+      "decrypt",
+      props.mode === "edit" ? props.projectId : "_",
+    ],
     queryFn: async () => {
       if (props.mode !== "edit" || !vaultKey) throw new Error("not ready")
       const r = await projectsClient.getProject({ id: props.projectId })
@@ -89,7 +93,7 @@ export default function ProjectForm(props: ProjectFormMode) {
             nameHash: sealed.titleHash,
             sortOrder: 0,
           },
-          { headers: idempotencyHeaders() },
+          { headers: idempotencyHeaders() }
         )
       }
 
@@ -111,11 +115,13 @@ export default function ProjectForm(props: ProjectFormMode) {
           wrappedItemKey: sealed.wrappedItemKey,
           nameHash: sealed.titleHash,
         },
-        { headers: idempotencyHeaders() },
+        { headers: idempotencyHeaders() }
       )
     },
     onSuccess: async () => {
-      toast.success(props.mode === "create" ? "Project created" : "Project updated")
+      toast.success(
+        props.mode === "create" ? "Project created" : "Project updated"
+      )
       await qc.invalidateQueries({ queryKey: ["projects"] })
       await navigate({ to: "/app/projects" })
     },
@@ -164,7 +170,10 @@ export default function ProjectForm(props: ProjectFormMode) {
       </Card>
 
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={() => navigate({ to: "/app/projects" })}>
+        <Button
+          variant="ghost"
+          onClick={() => navigate({ to: "/app/projects" })}
+        >
           Cancel
         </Button>
         <Button
@@ -172,7 +181,9 @@ export default function ProjectForm(props: ProjectFormMode) {
             setError(null)
             saveMut.mutate()
           }}
-          disabled={saveMut.isPending || (props.mode === "edit" && existingQ.isLoading)}
+          disabled={
+            saveMut.isPending || (props.mode === "edit" && existingQ.isLoading)
+          }
         >
           {saveMut.isPending ? "Saving…" : "Save"}
         </Button>

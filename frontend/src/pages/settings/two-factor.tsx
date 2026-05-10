@@ -63,7 +63,9 @@ export default function TwoFactorPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Two-factor authentication</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Two-factor authentication
+        </h1>
         <p className="text-sm text-muted-foreground">
           Add a TOTP code or passkey on top of your master password.
         </p>
@@ -202,7 +204,8 @@ function TotpSection({
         {enabled ? (
           <>
             <p className="text-sm text-muted-foreground">
-              Provide your current code and master password to remove the second factor.
+              Provide your current code and master password to remove the second
+              factor.
             </p>
             <div className="grid grid-cols-2 gap-3">
               <Input
@@ -272,7 +275,10 @@ function TotpSection({
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex gap-2">
-              <Button onClick={activate} disabled={pending || !code || !password}>
+              <Button
+                onClick={activate}
+                disabled={pending || !code || !password}
+              >
                 {pending ? "Activating…" : "Activate"}
               </Button>
               <Button
@@ -313,13 +319,13 @@ function PasskeySection({
         credentialName: name || "passkey",
       })
       const options = JSON.parse(
-        new TextDecoder().decode(begin.optionsJson),
+        new TextDecoder().decode(begin.optionsJson)
       ) as { publicKey: PublicKeyCredentialCreationOptionsJSON }
       const attestation = await startRegistration({
         optionsJSON: options.publicKey,
       })
       const attestationBytes = new TextEncoder().encode(
-        JSON.stringify(attestation),
+        JSON.stringify(attestation)
       )
       await webauthnClient.registerFinish({
         sessionId: begin.sessionId,
@@ -342,8 +348,7 @@ function PasskeySection({
       toast.success("Passkey removed")
       onChanged()
     },
-    onError: (e) =>
-      toast.error(`Remove failed: ${(e as Error).message}`),
+    onError: (e) => toast.error(`Remove failed: ${(e as Error).message}`),
   })
 
   return (
@@ -358,9 +363,7 @@ function PasskeySection({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          {loading && (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          )}
+          {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
           {!loading && credentials.length === 0 && (
             <p className="text-sm text-muted-foreground">No passkeys yet.</p>
           )}
@@ -412,7 +415,7 @@ function PasskeySection({
 // settings forms where the password is collected just-in-time.
 async function deriveAuthKeyFromPassword(
   email: string,
-  password: string,
+  password: string
 ): Promise<{ authKey: Uint8Array }> {
   if (!email || !password) {
     throw new Error("email and master password required")

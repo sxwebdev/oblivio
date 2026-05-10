@@ -91,7 +91,7 @@ export default function AuditPage() {
                     <TableCell className="font-mono text-xs">
                       {e.createdAt
                         ? new Date(
-                            Number(e.createdAt.seconds) * 1000,
+                            Number(e.createdAt.seconds) * 1000
                           ).toLocaleString()
                         : "—"}
                     </TableCell>

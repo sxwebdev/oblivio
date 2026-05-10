@@ -75,7 +75,7 @@ function SessionsCard() {
     mutationFn: async (sessionId: string) =>
       sessionsClient.terminateSession(
         { sessionId },
-        { headers: idempotencyHeaders() },
+        { headers: idempotencyHeaders() }
       ),
     onSuccess: () => {
       toast.success("Session terminated")
@@ -89,13 +89,13 @@ function SessionsCard() {
     mutationFn: async () =>
       sessionsClient.terminateAllExceptCurrent(
         {},
-        { headers: idempotencyHeaders() },
+        { headers: idempotencyHeaders() }
       ),
     onSuccess: (r) => {
       toast.success(
         `Terminated ${r.terminatedCount} other session${
           r.terminatedCount === 1 ? "" : "s"
-        }`,
+        }`
       )
       qc.invalidateQueries({ queryKey: ["sessions", "list"] })
     },
@@ -115,8 +115,8 @@ function SessionsCard() {
             Active sessions
           </CardTitle>
           <CardDescription>
-            Anyone signed in to your vault appears here. Terminating revokes
-            the matching access &amp; refresh token immediately.
+            Anyone signed in to your vault appears here. Terminating revokes the
+            matching access &amp; refresh token immediately.
           </CardDescription>
         </div>
         <Button
@@ -183,7 +183,9 @@ function SessionRow({
           <span className="font-medium">{label}</span>
           {session.isCurrent && <Badge variant="secondary">This device</Badge>}
         </div>
-        <div className="text-xs text-muted-foreground">{session.deviceType}</div>
+        <div className="text-xs text-muted-foreground">
+          {session.deviceType}
+        </div>
       </TableCell>
       <TableCell className="text-xs">
         {session.ip ?? "—"}
@@ -219,9 +221,8 @@ function DangerCard() {
           Danger zone
         </CardTitle>
         <CardDescription>
-          Permanently delete your account. All projects, items and the
-          encrypted vault key are removed; any surviving backups become
-          unreadable.
+          Permanently delete your account. All projects, items and the encrypted
+          vault key are removed; any surviving backups become unreadable.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -243,10 +244,7 @@ function DeleteAccountDialog() {
 
   const deleteMe = useMutation({
     mutationFn: async () =>
-      vaultClient.deleteMe(
-        { reason },
-        { headers: idempotencyHeaders() },
-      ),
+      vaultClient.deleteMe({ reason }, { headers: idempotencyHeaders() }),
     onSuccess: async () => {
       toast.success("Account deleted")
       lockVault()
@@ -268,48 +266,50 @@ function DeleteAccountDialog() {
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete account?</DialogTitle>
-          <DialogDescription>
-            This cannot be undone. The server immediately drops your vault key
-            and removes every row that references your account.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div>
-            <Label htmlFor="confirm-email">
-              Type your email <span className="font-mono">{email}</span> to
-              confirm
-            </Label>
-            <Input
-              id="confirm-email"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              autoComplete="off"
-            />
+          <DialogHeader>
+            <DialogTitle>Delete account?</DialogTitle>
+            <DialogDescription>
+              This cannot be undone. The server immediately drops your vault key
+              and removes every row that references your account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="confirm-email">
+                Type your email <span className="font-mono">{email}</span> to
+                confirm
+              </Label>
+              <Input
+                id="confirm-email"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <div>
+              <Label htmlFor="reason">
+                Reason (optional, stored in audit log)
+              </Label>
+              <Input
+                id="reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="e.g. switching service"
+              />
+            </div>
           </div>
-          <div>
-            <Label htmlFor="reason">Reason (optional, stored in audit log)</Label>
-            <Input
-              id="reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. switching service"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={!canDelete || deleteMe.isPending}
-            onClick={() => deleteMe.mutate()}
-          >
-            {deleteMe.isPending ? "Deleting…" : "Delete forever"}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!canDelete || deleteMe.isPending}
+              onClick={() => deleteMe.mutate()}
+            >
+              {deleteMe.isPending ? "Deleting…" : "Delete forever"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

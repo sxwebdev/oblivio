@@ -87,9 +87,12 @@ export default function LoginPage() {
       // CompleteMFA returns. The raw bytes hang around until then so we can
       // re-derive auth_key for the WebAuthn assertion path if needed.
       let opts: PublicKeyCredentialRequestOptionsJSON | null = null
-      if (resp.mfaChallenge.webauthnOptionsJson && resp.mfaChallenge.webauthnOptionsJson.length > 0) {
+      if (
+        resp.mfaChallenge.webauthnOptionsJson &&
+        resp.mfaChallenge.webauthnOptionsJson.length > 0
+      ) {
         const decoded = JSON.parse(
-          new TextDecoder().decode(resp.mfaChallenge.webauthnOptionsJson),
+          new TextDecoder().decode(resp.mfaChallenge.webauthnOptionsJson)
         ) as { publicKey: PublicKeyCredentialRequestOptionsJSON }
         opts = decoded.publicKey
       }
@@ -137,7 +140,9 @@ export default function LoginPage() {
     setBusy(true)
     setError(null)
     try {
-      const assertion = await startAuthentication({ optionsJSON: mfa.webauthnOptions })
+      const assertion = await startAuthentication({
+        optionsJSON: mfa.webauthnOptions,
+      })
       const assertionBytes = new TextEncoder().encode(JSON.stringify(assertion))
       const resp = await authClient.completeMFA({
         sessionId: mfa.sessionId,
@@ -162,7 +167,7 @@ export default function LoginPage() {
   async function finishUnlock(
     masterKey: CryptoKey,
     masterKeyRaw: Uint8Array,
-    payload: AuthPayload,
+    payload: AuthPayload
   ) {
     if (!(await checkVerifier(masterKey, payload.verifier))) {
       throw new Error("verifier check failed — wrong password")

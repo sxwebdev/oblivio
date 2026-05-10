@@ -52,7 +52,9 @@ export default function EntryForm(props: EntryFormMode) {
   const vaultId = vaultIdScope(userId)
 
   const [kind, setKind] = useState<EntryKind>(
-    props.mode === "create" ? (props.defaultKind ?? EntryKind.LOGIN) : EntryKind.LOGIN,
+    props.mode === "create"
+      ? (props.defaultKind ?? EntryKind.LOGIN)
+      : EntryKind.LOGIN
   )
   const [projectId, setProjectId] = useState<string>("")
   const [isFavorite, setIsFavorite] = useState(false)
@@ -89,7 +91,7 @@ export default function EntryForm(props: EntryFormMode) {
           } catch {
             names[p.id] = ""
           }
-        }),
+        })
       )
       return names
     },
@@ -97,7 +99,11 @@ export default function EntryForm(props: EntryFormMode) {
 
   const existingQ = useQuery({
     enabled: props.mode === "edit" && !!vaultKey,
-    queryKey: ["entries", "detail", props.mode === "edit" ? props.entryId : "_"],
+    queryKey: [
+      "entries",
+      "detail",
+      props.mode === "edit" ? props.entryId : "_",
+    ],
     queryFn: async () => {
       if (props.mode !== "edit" || !vaultKey) throw new Error("not ready")
       const r = await entriesClient.getEntry({ id: props.entryId })
@@ -125,7 +131,7 @@ export default function EntryForm(props: EntryFormMode) {
 
   const hasTotp = useMemo(
     () => !!(pt.totpSecret && pt.totpSecret.trim().length > 0),
-    [pt.totpSecret],
+    [pt.totpSecret]
   )
 
   const saveMut = useMutation({
@@ -154,7 +160,7 @@ export default function EntryForm(props: EntryFormMode) {
             hasTotp,
             isFavorite,
           },
-          { headers: idempotencyHeaders() },
+          { headers: idempotencyHeaders() }
         )
       }
 
@@ -181,7 +187,7 @@ export default function EntryForm(props: EntryFormMode) {
           hasTotp,
           isFavorite,
         },
-        { headers: idempotencyHeaders() },
+        { headers: idempotencyHeaders() }
       )
     },
     onSuccess: async () => {
@@ -189,7 +195,8 @@ export default function EntryForm(props: EntryFormMode) {
       await qc.invalidateQueries({ queryKey: ["entries"] })
       await navigate({ to: "/app/entries" })
     },
-    onError: (err) => setError(err instanceof Error ? err.message : String(err)),
+    onError: (err) =>
+      setError(err instanceof Error ? err.message : String(err)),
   })
 
   function set<K extends keyof EntryPlaintext>(k: K, v: EntryPlaintext[K]) {
@@ -247,7 +254,8 @@ export default function EntryForm(props: EntryFormMode) {
                 <SelectItem value="none">(no project)</SelectItem>
                 {projectsQ.data?.projects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {projectNamesQ.data?.[p.id] || `Project ${p.id.slice(0, 8)}`}
+                    {projectNamesQ.data?.[p.id] ||
+                      `Project ${p.id.slice(0, 8)}`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -468,7 +476,10 @@ export default function EntryForm(props: EntryFormMode) {
       </Card>
 
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={() => navigate({ to: "/app/entries" })}>
+        <Button
+          variant="ghost"
+          onClick={() => navigate({ to: "/app/entries" })}
+        >
           Cancel
         </Button>
         <Button
@@ -476,7 +487,9 @@ export default function EntryForm(props: EntryFormMode) {
             setError(null)
             saveMut.mutate()
           }}
-          disabled={saveMut.isPending || (props.mode === "edit" && existingQ.isLoading)}
+          disabled={
+            saveMut.isPending || (props.mode === "edit" && existingQ.isLoading)
+          }
         >
           {saveMut.isPending ? "Saving…" : "Save"}
         </Button>
