@@ -6,5 +6,6 @@ export * from "./util";
 export * from "./kdf";
 export * from "./aead";
 export * from "./vault";
+export * from "./item";
 export * from "./recovery";
 export * from "./blind";

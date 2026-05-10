@@ -35,3 +35,13 @@ export const HKDF_BLIND_INFO = "oblivio/blind/v1";
 export const HKDF_LOGIN_TOTP_INFO = "oblivio/login-totp/v1";
 export const VAULT_WRAP_AAD = "vault-wrap";
 export const RECOVERY_WRAP_AAD = "recovery";
+
+// Suffix labels used inside AAD strings for item-level operations.
+// Per plan §4.3:
+//   • item ciphertext AAD = "<item_id>|<version>|<vault_id>|item"
+//   • wrapped item_key AAD = "<vault_id>|<item_id>|<version>|wrap"
+// Encoding the labels as ASCII is sufficient — AAD is just a binary blob
+// that both sides reconstruct identically. The pipe separator is unambiguous
+// because UUIDs and decimal versions never contain it.
+export const ITEM_AAD_LABEL = "item";
+export const WRAP_AAD_LABEL = "wrap";
