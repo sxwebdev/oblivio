@@ -1,26 +1,11 @@
 {
-  "tabWidth": 2,
-  "useTabs": false,
-  "arrowParens": "always",
-  "printWidth": 80,
-  "quoteProps": "consistent",
-  "endOfLine": "auto",
-  "semi": true,
-  "trailingComma": "all",
+  "endOfLine": "lf",
+  "semi": false,
   "singleQuote": false,
-  "overrides": [
-    {
-      "files": ["*.json", "*.yml", "*.md"],
-      "options": {
-        "tabWidth": 2
-      }
-    },
-    {
-      "files": "*.{ts,tsx}",
-      "options": {
-        "parser": "typescript"
-      }
-    }
-  ],
-  "plugins": ["prettier-plugin-tailwindcss"]
+  "tabWidth": 2,
+  "trailingComma": "es5",
+  "printWidth": 80,
+  "plugins": ["prettier-plugin-tailwindcss"],
+  "tailwindStylesheet": "src/index.css",
+  "tailwindFunctions": ["cn", "cva"]
 }

@@ -1,4 +1,4 @@
-# Oblivio MVP
+# Oblivio
 
 Backend: Go + Fiber + Pebble. Frontend: Vite + React.
 

@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/tkcrm/pgxgen/master/schemas/pgxgen-schema.json
+version: "2"
+
+schemas:
+  - name: main
+    engine: postgresql
+    schema_dir: migrations
+
+    models:
+      output_dir: ../internal/models
+      output_file_name: models_gen.go
+      package_name: models
+      package_path: github.com/sxwebdev/oblivio/internal/models
+      emit_json_tags: true
+      emit_db_tags: true
+      sql_package: pgx/v5
+
+    sqlc:
+      defaults:
+        sql_package: pgx/v5
+        emit_interface: true
+        emit_json_tags: true
+        emit_db_tags: true
+        emit_empty_slices: true
+        emit_result_struct_pointers: true
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+      overrides:
+        types:
+          - db_type: uuid
+            go_type: github.com/google/uuid.UUID
+          - db_type: uuid
+            nullable: true
+            go_type: github.com/google/uuid.NullUUID
+          - db_type: numeric
+            go_type: github.com/shopspring/decimal.Decimal
+          - db_type: numeric
+            nullable: true
+            go_type: github.com/shopspring/decimal.NullDecimal
+
+    defaults:
+      queries_dir_prefix: queries
+      output_dir_prefix: ../internal/store/repos
+      crud:
+        auto_clean: true
+        exclude_table_name: true
+        methods:
+          create:
+            skip_columns: [id, updated_at]
+            returning: "*"
+            column_values: { created_at: "now()" }
+      constants:
+        include_column_names: true
+
+    tables:
+      wallets:
+        primary_column: id
+        crud:
+          methods:
+            create:
+              skip_columns: [id, updated_at]
+              returning: "*"
+              column_values: { created_at: "now()" }
+            update:
+              skip_columns: [id, created_at]
+              returning: "*"
+              column_values: { updated_at: "now()" }
+            delete: {}
+            get:
+              name: GetByID
+            find:
+              order: { by: created_at, direction: DESC }
+              limit: true
+            total: {}
+
+      delegation_orders:
+        primary_column: id
+        crud:
+          methods:
+            create:
+              skip_columns: [id, updated_at]
+              returning: "*"
+              column_values: { created_at: "now()" }
+            update:
+              skip_columns: [id, created_at]
+              returning: "*"
+              column_values: { updated_at: "now()" }
+            get:
+              name: GetByID
+            find:
+              order: { by: created_at, direction: DESC }
+              limit: true
+            total: {}
+
+      settings:
+        primary_column: key
+        crud:
+          methods:
+            get:
+              name: GetByKey
+            find: {}
