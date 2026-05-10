@@ -1,4 +1,4 @@
-// ConnectRPC client wired with a Bearer-token interceptor backed by the
+// ConnectRPC clients wired with a Bearer-token interceptor backed by the
 // Zustand auth store. Requests inherit `Authorization: Bearer <token>` for
 // every authenticated procedure; anonymous ones are unaffected because the
 // server-side allowlist accepts them with or without the header.
@@ -8,12 +8,16 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 
 import { AuthService } from "./gen/oblivio/v1/auth_pb";
 import { VaultService } from "./gen/oblivio/v1/vault_pb";
+import { ProjectsService } from "./gen/oblivio/v1/projects_pb";
+import { EntriesService } from "./gen/oblivio/v1/entries_pb";
+import { AuditService } from "./gen/oblivio/v1/audit_pb";
 
 import { useAuthStore } from "@/stores/auth";
 
-// In dev (vite on :5173), Vite's proxy forwards "/oblivio.v1.*" to the Go
-// backend on :8080. In prod the WebUI is embedded and same-origin.
-const baseUrl = "";
+// All ConnectRPC traffic is namespaced under `/api`. In dev the Vite
+// proxy on :5173 forwards `/api/*` to the Go backend on :8080; in prod
+// the WebUI is embedded and same-origin under the same `/api` prefix.
+const baseUrl = "/api";
 
 const bearerInterceptor: Interceptor = (next) => async (req) => {
   const token = useAuthStore.getState().accessToken;
@@ -30,3 +34,14 @@ const transport = createConnectTransport({
 
 export const authClient = createClient(AuthService, transport);
 export const vaultClient = createClient(VaultService, transport);
+export const projectsClient = createClient(ProjectsService, transport);
+export const entriesClient = createClient(EntriesService, transport);
+export const auditClient = createClient(AuditService, transport);
+
+// idempotencyHeaders returns a one-shot Idempotency-Key header dictionary.
+// Pass it through to a mutating RPC via { headers: idempotencyHeaders() }.
+// Each call generates a fresh UUID so retries by the user (e.g. double
+// click on Save) collapse into a single server-side write.
+export function idempotencyHeaders(): HeadersInit {
+  return { "Idempotency-Key": crypto.randomUUID() };
+}

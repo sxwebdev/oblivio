@@ -13,26 +13,36 @@ import (
 	pb "github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1"
 	"github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1/obliviov1connect"
 	"github.com/sxwebdev/oblivio/internal/api/middleware"
+	"github.com/sxwebdev/oblivio/internal/audit"
 	"github.com/sxwebdev/oblivio/internal/auth"
 	"github.com/sxwebdev/oblivio/internal/config"
+	"github.com/sxwebdev/oblivio/internal/models"
 	"github.com/sxwebdev/oblivio/internal/store"
-	"github.com/sxwebdev/oblivio/internal/store/repos/user_auth"
-	"github.com/sxwebdev/oblivio/internal/store/repos/user_kdf_params"
-	"github.com/sxwebdev/oblivio/internal/store/repos/user_vault"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_auth"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_kdf_params"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_vault"
+
+	"github.com/google/uuid"
 )
 
 // Service implements the AuthService ConnectRPC contract.
 type Service struct {
 	obliviov1connect.UnimplementedAuthServiceHandler
 
-	st      *store.Store
-	am      *auth.Manager
-	argon2  auth.Argon2Params
+	st                *store.Store
+	am                *auth.Manager
+	argon2            auth.Argon2Params
+	auditWriter       *audit.Writer
 	defaultDeviceType string
 }
 
 // NewService constructs the AuthService handler.
-func NewService(st *store.Store, am *auth.Manager, cfg config.AuthConfig) *Service {
+//
+// auditWriter records register/login/logout/refresh events. AuthService
+// procedures are on the anonymous allowlist so the audit-chain interceptor
+// (which keys off the authenticated user_id) never runs against them — the
+// handler must therefore log explicitly after the action succeeds.
+func NewService(st *store.Store, am *auth.Manager, cfg config.AuthConfig, auditWriter *audit.Writer) *Service {
 	return &Service{
 		st: st,
 		am: am,
@@ -41,8 +51,35 @@ func NewService(st *store.Store, am *auth.Manager, cfg config.AuthConfig) *Servi
 			MKiB: cfg.Argon2Server.MKiB,
 			P:    cfg.Argon2Server.P,
 		},
+		auditWriter:       auditWriter,
 		defaultDeviceType: "web",
 	}
+}
+
+// logAudit fires an audit-chain row for an auth event. Failures are
+// swallowed deliberately — losing a chain row is preferable to failing a
+// legitimate user-facing flow; the periodic verify job (Sprint 4) raises
+// the alarm when entries are missing.
+func (s *Service) logAudit(ctx context.Context, userID uuid.UUID, action models.AuditAction, req connect.AnyRequest, extra map[string]any) {
+	if s.auditWriter == nil {
+		return
+	}
+	meta := map[string]any{
+		"procedure": req.Spec().Procedure,
+	}
+	for k, v := range extra {
+		meta[k] = v
+	}
+	ev := audit.Event{
+		Action:    action,
+		UserAgent: req.Header().Get("User-Agent"),
+		Metadata:  meta,
+	}
+	if userID != uuid.Nil {
+		ev.UserID = uuid.NullUUID{UUID: userID, Valid: true}
+		ev.TargetID = uuid.NullUUID{UUID: userID, Valid: true}
+	}
+	_, _ = s.auditWriter.Append(ctx, ev)
 }
 
 // Register provisions a new user from the client-supplied artefacts.
@@ -87,7 +124,7 @@ func (s *Service) Register(ctx context.Context, req *connect.Request[pb.Register
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	if err := kdf.UpsertUserKDFParams(ctx, user_kdf_params.UpsertUserKDFParamsParams{
+	if err := kdf.UpsertUserKDFParams(ctx, repo_user_kdf_params.UpsertUserKDFParamsParams{
 		UserID:     newUser.ID,
 		SaltUser:   r.SaltUser,
 		Argon2T:    int32(r.KdfParams.GetT()),
@@ -98,14 +135,14 @@ func (s *Service) Register(ctx context.Context, req *connect.Request[pb.Register
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	if err := ua.UpsertUserAuth(ctx, user_auth.UpsertUserAuthParams{
+	if err := ua.UpsertUserAuth(ctx, repo_user_auth.UpsertUserAuthParams{
 		UserID:      newUser.ID,
 		AuthKeyHash: hashed,
 	}); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	if err := uv.CreateUserVault(ctx, user_vault.CreateUserVaultParams{
+	if err := uv.CreateUserVault(ctx, repo_user_vault.CreateUserVaultParams{
 		UserID:                  newUser.ID,
 		Verifier:                r.Verifier,
 		WrappedVaultKey:         r.WrappedVaultKey,
@@ -124,6 +161,10 @@ func (s *Service) Register(ctx context.Context, req *connect.Request[pb.Register
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	s.logAudit(ctx, newUser.ID, models.AuditActionRegister, req, map[string]any{
+		"device_id": deviceID(r.DeviceInfo),
+	})
 
 	return connect.NewResponse(&pb.RegisterResponse{
 		UserId: newUser.ID.String(),
@@ -214,6 +255,10 @@ func (s *Service) Authorize(ctx context.Context, req *connect.Request[pb.Authori
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	s.logAudit(ctx, u.ID, models.AuditActionLogin, req, map[string]any{
+		"device_id": deviceID(r.DeviceInfo),
+	})
+
 	return connect.NewResponse(&pb.AuthorizeResponse{
 		AuthPayload: buildAuthPayload(tokens, &payloadKeys{
 			Verifier:        uv.Verifier,
@@ -239,6 +284,8 @@ func (s *Service) RefreshToken(ctx context.Context, req *connect.Request[pb.Refr
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	s.logAudit(ctx, tokens.UserID, models.AuditActionRefresh, req, nil)
+
 	return connect.NewResponse(&pb.RefreshTokenResponse{
 		AuthPayload: buildAuthPayload(tokens, &payloadKeys{
 			Verifier:        uv.Verifier,
@@ -249,7 +296,7 @@ func (s *Service) RefreshToken(ctx context.Context, req *connect.Request[pb.Refr
 }
 
 // Logout invalidates the caller's access token and the corresponding session row.
-func (s *Service) Logout(ctx context.Context, _ *connect.Request[pb.LogoutRequest]) (*connect.Response[pb.LogoutResponse], error) {
+func (s *Service) Logout(ctx context.Context, req *connect.Request[pb.LogoutRequest]) (*connect.Response[pb.LogoutResponse], error) {
 	uc, ok := middleware.FromContext(ctx)
 	if !ok {
 		return nil, unauthenticated()
@@ -257,6 +304,9 @@ func (s *Service) Logout(ctx context.Context, _ *connect.Request[pb.LogoutReques
 	if err := s.am.Logout(ctx, uc.AccessToken); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	s.logAudit(ctx, uc.UserID, models.AuditActionLogout, req, map[string]any{
+		"device_id": uc.DeviceID,
+	})
 	return connect.NewResponse(&pb.LogoutResponse{}), nil
 }
 
@@ -335,12 +385,14 @@ func deviceID(d *pb.DeviceInfo) string {
 	}
 	return d.DeviceId
 }
+
 func deviceType(d *pb.DeviceInfo, fallback string) string {
 	if d == nil || d.DeviceType == "" {
 		return fallback
 	}
 	return d.DeviceType
 }
+
 func deviceName(d *pb.DeviceInfo) string {
 	if d == nil {
 		return ""
@@ -373,4 +425,3 @@ func pseudoSalt(email string) []byte {
 func defaultKDFParams() *pb.Argon2Params {
 	return &pb.Argon2Params{T: 3, MKib: 131072, P: 4, Algo: "argon2id"}
 }
-

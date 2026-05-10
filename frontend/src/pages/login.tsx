@@ -12,7 +12,7 @@ import {
   type Argon2Params,
 } from "@oblivio/crypto"
 
-import { authClient } from "@/api/client"
+import { authClient, vaultClient } from "@/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuthStore } from "@/stores/auth"
@@ -65,8 +65,13 @@ export default function LoginPage() {
 
       const vaultKey = await unwrapVaultKey(masterKey, payload.wrappedVaultKey)
 
+      // The Authorize response does not carry user_id (anti-enumeration:
+      // we only learn the canonical UUID after issuing the token). Set a
+      // provisional session now so vaultClient picks up the Bearer token,
+      // then resolve user_id via GetMe — its value is the AAD scope for
+      // every encrypted blob, so we MUST have it before unlocking the UI.
       setSession({
-        userId: "", // unknown until GetMe is wired
+        userId: "",
         email,
         accessToken: payload.accessToken,
         refreshToken: payload.refreshToken,
@@ -74,8 +79,17 @@ export default function LoginPage() {
         refreshExpiresAt: Number(payload.refreshExpiresAt?.seconds ?? 0n) * 1000,
       })
       setVaultKey(vaultKey, payload.vaultKeyVersion)
-
       masterKeyRaw.fill(0)
+
+      const me = await vaultClient.getMe({})
+      setSession({
+        userId: me.userId,
+        email: me.email,
+        accessToken: payload.accessToken,
+        refreshToken: payload.refreshToken,
+        accessExpiresAt: Number(payload.accessExpiresAt?.seconds ?? 0n) * 1000,
+        refreshExpiresAt: Number(payload.refreshExpiresAt?.seconds ?? 0n) * 1000,
+      })
 
       navigate({ to: "/app" })
     } catch (err) {

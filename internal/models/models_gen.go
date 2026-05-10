@@ -7,6 +7,93 @@ import (
 	"net/netip"
 )
 
+type AuditAction string
+
+const (
+	AuditActionRegister         AuditAction = "register"
+	AuditActionLogin            AuditAction = "login"
+	AuditActionLogout           AuditAction = "logout"
+	AuditActionRefresh          AuditAction = "refresh"
+	AuditActionPasswordChange   AuditAction = "password_change"
+	AuditActionRecoveryStart    AuditAction = "recovery_start"
+	AuditActionRecoveryComplete AuditAction = "recovery_complete"
+	AuditActionWebauthnRegister AuditAction = "webauthn_register"
+	AuditActionWebauthnRemove   AuditAction = "webauthn_remove"
+	AuditActionTotpEnable       AuditAction = "totp_enable"
+	AuditActionTotpDisable      AuditAction = "totp_disable"
+	AuditActionProjectCreate    AuditAction = "project_create"
+	AuditActionProjectUpdate    AuditAction = "project_update"
+	AuditActionProjectDelete    AuditAction = "project_delete"
+	AuditActionEntryCreate      AuditAction = "entry_create"
+	AuditActionEntryUpdate      AuditAction = "entry_update"
+	AuditActionEntryView        AuditAction = "entry_view"
+	AuditActionEntryDelete      AuditAction = "entry_delete"
+	AuditActionSessionTerminate AuditAction = "session_terminate"
+)
+
+func (e AuditAction) Valid() bool {
+	switch e {
+	case AuditActionRegister,
+		AuditActionLogin,
+		AuditActionLogout,
+		AuditActionRefresh,
+		AuditActionPasswordChange,
+		AuditActionRecoveryStart,
+		AuditActionRecoveryComplete,
+		AuditActionWebauthnRegister,
+		AuditActionWebauthnRemove,
+		AuditActionTotpEnable,
+		AuditActionTotpDisable,
+		AuditActionProjectCreate,
+		AuditActionProjectUpdate,
+		AuditActionProjectDelete,
+		AuditActionEntryCreate,
+		AuditActionEntryUpdate,
+		AuditActionEntryView,
+		AuditActionEntryDelete,
+		AuditActionSessionTerminate:
+		return true
+	}
+	return false
+}
+
+type EntryKind string
+
+const (
+	EntryKindLogin    EntryKind = "login"
+	EntryKindTotp     EntryKind = "totp"
+	EntryKindCard     EntryKind = "card"
+	EntryKindIdentity EntryKind = "identity"
+	EntryKindSshKey   EntryKind = "ssh_key"
+	EntryKindNote     EntryKind = "note"
+)
+
+func (e EntryKind) Valid() bool {
+	switch e {
+	case EntryKindLogin,
+		EntryKindTotp,
+		EntryKindCard,
+		EntryKindIdentity,
+		EntryKindSshKey,
+		EntryKindNote:
+		return true
+	}
+	return false
+}
+
+type AuditLog struct {
+	ID        int64              `db:"id" json:"id"`
+	UserID    uuid.NullUUID      `db:"user_id" json:"user_id"`
+	Action    AuditAction        `db:"action" json:"action"`
+	TargetID  uuid.NullUUID      `db:"target_id" json:"target_id"`
+	Ip        *netip.Addr        `db:"ip" json:"ip"`
+	UserAgent pgtype.Text        `db:"user_agent" json:"user_agent"`
+	Metadata  []byte             `db:"metadata" json:"metadata"`
+	PrevHash  []byte             `db:"prev_hash" json:"prev_hash"`
+	SelfHash  []byte             `db:"self_hash" json:"self_hash"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type AuthSession struct {
 	ID               uuid.UUID          `db:"id" json:"id"`
 	UserID           uuid.UUID          `db:"user_id" json:"user_id"`
@@ -22,6 +109,57 @@ type AuthSession struct {
 	RevokedAt        pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	LastSeenAt       pgtype.Timestamptz `db:"last_seen_at" json:"last_seen_at"`
+}
+
+type Entry struct {
+	ID             uuid.UUID          `db:"id" json:"id"`
+	UserID         uuid.UUID          `db:"user_id" json:"user_id"`
+	ProjectID      uuid.NullUUID      `db:"project_id" json:"project_id"`
+	Kind           EntryKind          `db:"kind" json:"kind"`
+	EncryptedBlob  []byte             `db:"encrypted_blob" json:"encrypted_blob"`
+	WrappedItemKey []byte             `db:"wrapped_item_key" json:"wrapped_item_key"`
+	TitleHash      []byte             `db:"title_hash" json:"title_hash"`
+	DomainHash     []byte             `db:"domain_hash" json:"domain_hash"`
+	HasTotp        bool               `db:"has_totp" json:"has_totp"`
+	IsFavorite     bool               `db:"is_favorite" json:"is_favorite"`
+	Version        int32              `db:"version" json:"version"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type IdempotencyKey struct {
+	Key            string             `db:"key" json:"key"`
+	UserID         uuid.UUID          `db:"user_id" json:"user_id"`
+	Procedure      string             `db:"procedure" json:"procedure"`
+	RequestHash    []byte             `db:"request_hash" json:"request_hash"`
+	ResponseStatus int32              `db:"response_status" json:"response_status"`
+	ResponseBody   []byte             `db:"response_body" json:"response_body"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ExpiresAt      pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
+}
+
+type Project struct {
+	ID             uuid.UUID          `db:"id" json:"id"`
+	UserID         uuid.UUID          `db:"user_id" json:"user_id"`
+	EncryptedBlob  []byte             `db:"encrypted_blob" json:"encrypted_blob"`
+	WrappedItemKey []byte             `db:"wrapped_item_key" json:"wrapped_item_key"`
+	NameHash       []byte             `db:"name_hash" json:"name_hash"`
+	Version        int32              `db:"version" json:"version"`
+	SortOrder      int32              `db:"sort_order" json:"sort_order"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type RateLimitBucket struct {
+	BucketKey    string             `db:"bucket_key" json:"bucket_key"`
+	Tokens       float32            `db:"tokens" json:"tokens"`
+	LastRefillAt pgtype.Timestamptz `db:"last_refill_at" json:"last_refill_at"`
+}
+
+type SystemState struct {
+	Key       string             `db:"key" json:"key"`
+	Value     []byte             `db:"value" json:"value"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type User struct {

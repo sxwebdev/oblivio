@@ -9,27 +9,33 @@ import (
 	"net/http"
 	"time"
 
-	oblivio "github.com/sxwebdev/oblivio"
-	"github.com/sxwebdev/oblivio/internal/api/middleware"
-	"github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1/obliviov1connect"
-	"github.com/sxwebdev/oblivio/internal/auth"
-	"github.com/sxwebdev/oblivio/internal/config"
-	"github.com/sxwebdev/oblivio/internal/store"
+	"connectrpc.com/connect"
 	"github.com/tkcrm/mx/launcher/ops"
 	"github.com/tkcrm/mx/logger"
 
+	oblivio "github.com/sxwebdev/oblivio"
+	apiaudit "github.com/sxwebdev/oblivio/internal/api/audit"
 	apiauth "github.com/sxwebdev/oblivio/internal/api/auth"
+	apientries "github.com/sxwebdev/oblivio/internal/api/entries"
+	"github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1/obliviov1connect"
+	"github.com/sxwebdev/oblivio/internal/api/middleware"
+	apiprojects "github.com/sxwebdev/oblivio/internal/api/projects"
+	apivault "github.com/sxwebdev/oblivio/internal/api/vault"
+	"github.com/sxwebdev/oblivio/internal/audit"
+	"github.com/sxwebdev/oblivio/internal/auth"
+	"github.com/sxwebdev/oblivio/internal/config"
+	"github.com/sxwebdev/oblivio/internal/store"
 )
 
 // Server hosts the ConnectRPC API and the embedded WebUI on a single port.
 type Server struct {
-	log    logger.ExtendedLogger
-	cfg    config.ServerConfig
-	auth   config.AuthConfig
-	store  *store.Store
-	am     *auth.Manager
-	srv    *http.Server
-	errCh  chan error
+	log   logger.ExtendedLogger
+	cfg   config.ServerConfig
+	auth  config.AuthConfig
+	store *store.Store
+	am    *auth.Manager
+	srv   *http.Server
+	errCh chan error
 }
 
 // New constructs the API server. It does not start listening — call Start.
@@ -47,19 +53,64 @@ func New(log logger.ExtendedLogger, cfg config.ServerConfig, authCfg config.Auth
 // Name returns the service name for the launcher.
 func (s *Server) Name() string { return "api" }
 
+// idempotentProcedures lists the procedures that respect the
+// Idempotency-Key header (mutating endpoints).
+var idempotentProcedures = map[string]struct{}{
+	"/oblivio.v1.ProjectsService/CreateProject":   {},
+	"/oblivio.v1.ProjectsService/UpdateProject":   {},
+	"/oblivio.v1.ProjectsService/DeleteProject":   {},
+	"/oblivio.v1.ProjectsService/ReorderProjects": {},
+	"/oblivio.v1.EntriesService/CreateEntry":      {},
+	"/oblivio.v1.EntriesService/UpdateEntry":      {},
+	"/oblivio.v1.EntriesService/DeleteEntry":      {},
+}
+
 // Start binds the HTTP listener and serves until Stop is called.
 func (s *Server) Start(ctx context.Context) error {
-	// ConnectRPC mux is wrapped by the authn middleware. Non-RPC paths
-	// (healthz, static WebUI) are mounted on a parent mux that bypasses authn.
+	auditWriter := audit.NewWriter(s.store.Pool())
+
+	rlsInterceptor := middleware.NewRLSInterceptor(s.store.Pool())
+	auditInterceptor := middleware.NewAuditInterceptor(auditWriter, middleware.DefaultAuditProcedures)
+	interceptors := connect.WithInterceptors(rlsInterceptor, auditInterceptor)
+
 	rpcMux := http.NewServeMux()
-	authSvc := apiauth.NewService(s.store, s.am, s.auth)
+
+	authSvc := apiauth.NewService(s.store, s.am, s.auth, auditWriter)
 	rpcMux.Handle(obliviov1connect.NewAuthServiceHandler(authSvc))
 
-	authMW := middleware.NewAuthMiddleware(s.am)
-	wrappedRPC := authMW.Wrap(rpcMux)
+	projectsSvc := apiprojects.NewService()
+	rpcMux.Handle(obliviov1connect.NewProjectsServiceHandler(projectsSvc, interceptors))
 
+	entriesSvc := apientries.NewService()
+	rpcMux.Handle(obliviov1connect.NewEntriesServiceHandler(entriesSvc, interceptors))
+
+	auditSvc := apiaudit.NewService()
+	rpcMux.Handle(obliviov1connect.NewAuditServiceHandler(auditSvc, interceptors))
+
+	vaultSvc := apivault.NewService()
+	rpcMux.Handle(obliviov1connect.NewVaultServiceHandler(vaultSvc, interceptors))
+
+	authMW := middleware.NewAuthMiddleware(s.am)
+	idempotencyMW := middleware.NewIdempotencyMiddleware(s.store, middleware.IdempotencyConfig{
+		Procedures: idempotentProcedures,
+	})
+
+	// Outer-to-inner: authn → idempotency → rpcMux. authn populates the
+	// user_id; idempotency reads it; the connect handlers run last with the
+	// RLS interceptor opening a tx per call.
+	wrappedRPC := authMW.Wrap(idempotencyMW.Wrap(rpcMux))
+
+	// All ConnectRPC procedures are served under the `/api` prefix so the
+	// Vite dev proxy (`/api` → :8080) and the embedded prod UI share a
+	// single same-origin contract. StripPrefix keeps the inner mux and
+	// middleware procedure keys as the canonical `/oblivio.v1.*` paths.
+	apiHandler := http.StripPrefix("/api", wrappedRPC)
 	root := http.NewServeMux()
-	root.Handle("/oblivio.v1.AuthService/", wrappedRPC)
+	root.Handle("/api/oblivio.v1.AuthService/", apiHandler)
+	root.Handle("/api/oblivio.v1.ProjectsService/", apiHandler)
+	root.Handle("/api/oblivio.v1.EntriesService/", apiHandler)
+	root.Handle("/api/oblivio.v1.AuditService/", apiHandler)
+	root.Handle("/api/oblivio.v1.VaultService/", apiHandler)
 	root.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)

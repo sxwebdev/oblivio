@@ -11,7 +11,7 @@ import (
 	"github.com/sxwebdev/tokenmanager"
 
 	"github.com/sxwebdev/oblivio/internal/store"
-	"github.com/sxwebdev/oblivio/internal/store/repos/auth_sessions"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_auth_sessions"
 )
 
 // IssuedTokens bundles a freshly minted access/refresh pair with their
@@ -76,7 +76,7 @@ func (m *Manager) Issue(ctx context.Context, userID uuid.UUID, deviceID, deviceT
 		return IssuedTokens{}, fmt.Errorf("issue refresh: %w", err)
 	}
 
-	row, err := m.st.AuthSessions().UpsertSession(ctx, auth_sessions.UpsertSessionParams{
+	row, err := m.st.AuthSessions().UpsertSession(ctx, repo_auth_sessions.UpsertSessionParams{
 		UserID:           userID,
 		DeviceID:         deviceID,
 		DeviceType:       deviceType,

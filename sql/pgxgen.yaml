@@ -14,11 +14,13 @@ schemas:
       emit_json_tags: true
       emit_db_tags: true
       sql_package: pgx/v5
+      custom_types:
+        - NullEntryKind
+        - NullAuditAction
 
     sqlc:
       defaults:
         sql_package: pgx/v5
-        emit_interface: true
         emit_json_tags: true
         emit_db_tags: true
         emit_empty_slices: true
@@ -36,6 +38,7 @@ schemas:
     defaults:
       queries_dir_prefix: queries
       output_dir_prefix: ../internal/store/repos
+      package_prefix: "repo_"
 
     tables:
       users:
@@ -50,3 +53,15 @@ schemas:
         primary_column: user_id
       auth_sessions:
         primary_column: id
+      projects:
+        primary_column: id
+      entries:
+        primary_column: id
+      audit_log:
+        primary_column: id
+      system_state:
+        primary_column: key
+      idempotency_keys:
+        primary_column: key
+      rate_limit_buckets:
+        primary_column: bucket_key

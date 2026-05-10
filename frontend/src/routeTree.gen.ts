@@ -12,9 +12,22 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as PublicRouteImport } from './routes/_public'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PublicUnlockRouteImport } from './routes/_public.unlock'
 import { Route as PublicRegisterRouteImport } from './routes/_public.register'
 import { Route as PublicLoginRouteImport } from './routes/_public.login'
 import { Route as AuthAppRouteImport } from './routes/_auth.app'
+import { Route as AuthAppIndexRouteImport } from './routes/_auth.app.index'
+import { Route as AuthAppSettingsIndexRouteImport } from './routes/_auth.app.settings.index'
+import { Route as AuthAppProjectsIndexRouteImport } from './routes/_auth.app.projects.index'
+import { Route as AuthAppNotesIndexRouteImport } from './routes/_auth.app.notes.index'
+import { Route as AuthAppEntriesIndexRouteImport } from './routes/_auth.app.entries.index'
+import { Route as AuthAppAuditIndexRouteImport } from './routes/_auth.app.audit.index'
+import { Route as AuthAppProjectsNewRouteImport } from './routes/_auth.app.projects.new'
+import { Route as AuthAppNotesNewRouteImport } from './routes/_auth.app.notes.new'
+import { Route as AuthAppEntriesNewRouteImport } from './routes/_auth.app.entries.new'
+import { Route as AuthAppEntriesEntryIdIndexRouteImport } from './routes/_auth.app.entries.$entryId.index'
+import { Route as AuthAppProjectsProjectIdEditRouteImport } from './routes/_auth.app.projects.$projectId.edit'
+import { Route as AuthAppEntriesEntryIdEditRouteImport } from './routes/_auth.app.entries.$entryId.edit'
 
 const PublicRoute = PublicRouteImport.update({
   id: '/_public',
@@ -28,6 +41,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PublicUnlockRoute = PublicUnlockRouteImport.update({
+  id: '/unlock',
+  path: '/unlock',
+  getParentRoute: () => PublicRoute,
 } as any)
 const PublicRegisterRoute = PublicRegisterRouteImport.update({
   id: '/register',
@@ -44,33 +62,167 @@ const AuthAppRoute = AuthAppRouteImport.update({
   path: '/app',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthAppIndexRoute = AuthAppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthAppRoute,
+} as any)
+const AuthAppSettingsIndexRoute = AuthAppSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => AuthAppRoute,
+} as any)
+const AuthAppProjectsIndexRoute = AuthAppProjectsIndexRouteImport.update({
+  id: '/projects/',
+  path: '/projects/',
+  getParentRoute: () => AuthAppRoute,
+} as any)
+const AuthAppNotesIndexRoute = AuthAppNotesIndexRouteImport.update({
+  id: '/notes/',
+  path: '/notes/',
+  getParentRoute: () => AuthAppRoute,
+} as any)
+const AuthAppEntriesIndexRoute = AuthAppEntriesIndexRouteImport.update({
+  id: '/entries/',
+  path: '/entries/',
+  getParentRoute: () => AuthAppRoute,
+} as any)
+const AuthAppAuditIndexRoute = AuthAppAuditIndexRouteImport.update({
+  id: '/audit/',
+  path: '/audit/',
+  getParentRoute: () => AuthAppRoute,
+} as any)
+const AuthAppProjectsNewRoute = AuthAppProjectsNewRouteImport.update({
+  id: '/projects/new',
+  path: '/projects/new',
+  getParentRoute: () => AuthAppRoute,
+} as any)
+const AuthAppNotesNewRoute = AuthAppNotesNewRouteImport.update({
+  id: '/notes/new',
+  path: '/notes/new',
+  getParentRoute: () => AuthAppRoute,
+} as any)
+const AuthAppEntriesNewRoute = AuthAppEntriesNewRouteImport.update({
+  id: '/entries/new',
+  path: '/entries/new',
+  getParentRoute: () => AuthAppRoute,
+} as any)
+const AuthAppEntriesEntryIdIndexRoute =
+  AuthAppEntriesEntryIdIndexRouteImport.update({
+    id: '/entries/$entryId/',
+    path: '/entries/$entryId/',
+    getParentRoute: () => AuthAppRoute,
+  } as any)
+const AuthAppProjectsProjectIdEditRoute =
+  AuthAppProjectsProjectIdEditRouteImport.update({
+    id: '/projects/$projectId/edit',
+    path: '/projects/$projectId/edit',
+    getParentRoute: () => AuthAppRoute,
+  } as any)
+const AuthAppEntriesEntryIdEditRoute =
+  AuthAppEntriesEntryIdEditRouteImport.update({
+    id: '/entries/$entryId/edit',
+    path: '/entries/$entryId/edit',
+    getParentRoute: () => AuthAppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/app': typeof AuthAppRoute
+  '/app': typeof AuthAppRouteWithChildren
   '/login': typeof PublicLoginRoute
   '/register': typeof PublicRegisterRoute
+  '/unlock': typeof PublicUnlockRoute
+  '/app/': typeof AuthAppIndexRoute
+  '/app/entries/new': typeof AuthAppEntriesNewRoute
+  '/app/notes/new': typeof AuthAppNotesNewRoute
+  '/app/projects/new': typeof AuthAppProjectsNewRoute
+  '/app/audit/': typeof AuthAppAuditIndexRoute
+  '/app/entries/': typeof AuthAppEntriesIndexRoute
+  '/app/notes/': typeof AuthAppNotesIndexRoute
+  '/app/projects/': typeof AuthAppProjectsIndexRoute
+  '/app/settings/': typeof AuthAppSettingsIndexRoute
+  '/app/entries/$entryId/edit': typeof AuthAppEntriesEntryIdEditRoute
+  '/app/projects/$projectId/edit': typeof AuthAppProjectsProjectIdEditRoute
+  '/app/entries/$entryId/': typeof AuthAppEntriesEntryIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/app': typeof AuthAppRoute
   '/login': typeof PublicLoginRoute
   '/register': typeof PublicRegisterRoute
+  '/unlock': typeof PublicUnlockRoute
+  '/app': typeof AuthAppIndexRoute
+  '/app/entries/new': typeof AuthAppEntriesNewRoute
+  '/app/notes/new': typeof AuthAppNotesNewRoute
+  '/app/projects/new': typeof AuthAppProjectsNewRoute
+  '/app/audit': typeof AuthAppAuditIndexRoute
+  '/app/entries': typeof AuthAppEntriesIndexRoute
+  '/app/notes': typeof AuthAppNotesIndexRoute
+  '/app/projects': typeof AuthAppProjectsIndexRoute
+  '/app/settings': typeof AuthAppSettingsIndexRoute
+  '/app/entries/$entryId/edit': typeof AuthAppEntriesEntryIdEditRoute
+  '/app/projects/$projectId/edit': typeof AuthAppProjectsProjectIdEditRoute
+  '/app/entries/$entryId': typeof AuthAppEntriesEntryIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
-  '/_auth/app': typeof AuthAppRoute
+  '/_auth/app': typeof AuthAppRouteWithChildren
   '/_public/login': typeof PublicLoginRoute
   '/_public/register': typeof PublicRegisterRoute
+  '/_public/unlock': typeof PublicUnlockRoute
+  '/_auth/app/': typeof AuthAppIndexRoute
+  '/_auth/app/entries/new': typeof AuthAppEntriesNewRoute
+  '/_auth/app/notes/new': typeof AuthAppNotesNewRoute
+  '/_auth/app/projects/new': typeof AuthAppProjectsNewRoute
+  '/_auth/app/audit/': typeof AuthAppAuditIndexRoute
+  '/_auth/app/entries/': typeof AuthAppEntriesIndexRoute
+  '/_auth/app/notes/': typeof AuthAppNotesIndexRoute
+  '/_auth/app/projects/': typeof AuthAppProjectsIndexRoute
+  '/_auth/app/settings/': typeof AuthAppSettingsIndexRoute
+  '/_auth/app/entries/$entryId/edit': typeof AuthAppEntriesEntryIdEditRoute
+  '/_auth/app/projects/$projectId/edit': typeof AuthAppProjectsProjectIdEditRoute
+  '/_auth/app/entries/$entryId/': typeof AuthAppEntriesEntryIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app' | '/login' | '/register'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/login'
+    | '/register'
+    | '/unlock'
+    | '/app/'
+    | '/app/entries/new'
+    | '/app/notes/new'
+    | '/app/projects/new'
+    | '/app/audit/'
+    | '/app/entries/'
+    | '/app/notes/'
+    | '/app/projects/'
+    | '/app/settings/'
+    | '/app/entries/$entryId/edit'
+    | '/app/projects/$projectId/edit'
+    | '/app/entries/$entryId/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app' | '/login' | '/register'
+  to:
+    | '/'
+    | '/login'
+    | '/register'
+    | '/unlock'
+    | '/app'
+    | '/app/entries/new'
+    | '/app/notes/new'
+    | '/app/projects/new'
+    | '/app/audit'
+    | '/app/entries'
+    | '/app/notes'
+    | '/app/projects'
+    | '/app/settings'
+    | '/app/entries/$entryId/edit'
+    | '/app/projects/$projectId/edit'
+    | '/app/entries/$entryId'
   id:
     | '__root__'
     | '/'
@@ -79,6 +231,19 @@ export interface FileRouteTypes {
     | '/_auth/app'
     | '/_public/login'
     | '/_public/register'
+    | '/_public/unlock'
+    | '/_auth/app/'
+    | '/_auth/app/entries/new'
+    | '/_auth/app/notes/new'
+    | '/_auth/app/projects/new'
+    | '/_auth/app/audit/'
+    | '/_auth/app/entries/'
+    | '/_auth/app/notes/'
+    | '/_auth/app/projects/'
+    | '/_auth/app/settings/'
+    | '/_auth/app/entries/$entryId/edit'
+    | '/_auth/app/projects/$projectId/edit'
+    | '/_auth/app/entries/$entryId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -110,6 +275,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_public/unlock': {
+      id: '/_public/unlock'
+      path: '/unlock'
+      fullPath: '/unlock'
+      preLoaderRoute: typeof PublicUnlockRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_public/register': {
       id: '/_public/register'
       path: '/register'
@@ -131,15 +303,132 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthAppRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/app/': {
+      id: '/_auth/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AuthAppIndexRouteImport
+      parentRoute: typeof AuthAppRoute
+    }
+    '/_auth/app/settings/': {
+      id: '/_auth/app/settings/'
+      path: '/settings'
+      fullPath: '/app/settings/'
+      preLoaderRoute: typeof AuthAppSettingsIndexRouteImport
+      parentRoute: typeof AuthAppRoute
+    }
+    '/_auth/app/projects/': {
+      id: '/_auth/app/projects/'
+      path: '/projects'
+      fullPath: '/app/projects/'
+      preLoaderRoute: typeof AuthAppProjectsIndexRouteImport
+      parentRoute: typeof AuthAppRoute
+    }
+    '/_auth/app/notes/': {
+      id: '/_auth/app/notes/'
+      path: '/notes'
+      fullPath: '/app/notes/'
+      preLoaderRoute: typeof AuthAppNotesIndexRouteImport
+      parentRoute: typeof AuthAppRoute
+    }
+    '/_auth/app/entries/': {
+      id: '/_auth/app/entries/'
+      path: '/entries'
+      fullPath: '/app/entries/'
+      preLoaderRoute: typeof AuthAppEntriesIndexRouteImport
+      parentRoute: typeof AuthAppRoute
+    }
+    '/_auth/app/audit/': {
+      id: '/_auth/app/audit/'
+      path: '/audit'
+      fullPath: '/app/audit/'
+      preLoaderRoute: typeof AuthAppAuditIndexRouteImport
+      parentRoute: typeof AuthAppRoute
+    }
+    '/_auth/app/projects/new': {
+      id: '/_auth/app/projects/new'
+      path: '/projects/new'
+      fullPath: '/app/projects/new'
+      preLoaderRoute: typeof AuthAppProjectsNewRouteImport
+      parentRoute: typeof AuthAppRoute
+    }
+    '/_auth/app/notes/new': {
+      id: '/_auth/app/notes/new'
+      path: '/notes/new'
+      fullPath: '/app/notes/new'
+      preLoaderRoute: typeof AuthAppNotesNewRouteImport
+      parentRoute: typeof AuthAppRoute
+    }
+    '/_auth/app/entries/new': {
+      id: '/_auth/app/entries/new'
+      path: '/entries/new'
+      fullPath: '/app/entries/new'
+      preLoaderRoute: typeof AuthAppEntriesNewRouteImport
+      parentRoute: typeof AuthAppRoute
+    }
+    '/_auth/app/entries/$entryId/': {
+      id: '/_auth/app/entries/$entryId/'
+      path: '/entries/$entryId'
+      fullPath: '/app/entries/$entryId/'
+      preLoaderRoute: typeof AuthAppEntriesEntryIdIndexRouteImport
+      parentRoute: typeof AuthAppRoute
+    }
+    '/_auth/app/projects/$projectId/edit': {
+      id: '/_auth/app/projects/$projectId/edit'
+      path: '/projects/$projectId/edit'
+      fullPath: '/app/projects/$projectId/edit'
+      preLoaderRoute: typeof AuthAppProjectsProjectIdEditRouteImport
+      parentRoute: typeof AuthAppRoute
+    }
+    '/_auth/app/entries/$entryId/edit': {
+      id: '/_auth/app/entries/$entryId/edit'
+      path: '/entries/$entryId/edit'
+      fullPath: '/app/entries/$entryId/edit'
+      preLoaderRoute: typeof AuthAppEntriesEntryIdEditRouteImport
+      parentRoute: typeof AuthAppRoute
+    }
   }
 }
 
+interface AuthAppRouteChildren {
+  AuthAppIndexRoute: typeof AuthAppIndexRoute
+  AuthAppEntriesNewRoute: typeof AuthAppEntriesNewRoute
+  AuthAppNotesNewRoute: typeof AuthAppNotesNewRoute
+  AuthAppProjectsNewRoute: typeof AuthAppProjectsNewRoute
+  AuthAppAuditIndexRoute: typeof AuthAppAuditIndexRoute
+  AuthAppEntriesIndexRoute: typeof AuthAppEntriesIndexRoute
+  AuthAppNotesIndexRoute: typeof AuthAppNotesIndexRoute
+  AuthAppProjectsIndexRoute: typeof AuthAppProjectsIndexRoute
+  AuthAppSettingsIndexRoute: typeof AuthAppSettingsIndexRoute
+  AuthAppEntriesEntryIdEditRoute: typeof AuthAppEntriesEntryIdEditRoute
+  AuthAppProjectsProjectIdEditRoute: typeof AuthAppProjectsProjectIdEditRoute
+  AuthAppEntriesEntryIdIndexRoute: typeof AuthAppEntriesEntryIdIndexRoute
+}
+
+const AuthAppRouteChildren: AuthAppRouteChildren = {
+  AuthAppIndexRoute: AuthAppIndexRoute,
+  AuthAppEntriesNewRoute: AuthAppEntriesNewRoute,
+  AuthAppNotesNewRoute: AuthAppNotesNewRoute,
+  AuthAppProjectsNewRoute: AuthAppProjectsNewRoute,
+  AuthAppAuditIndexRoute: AuthAppAuditIndexRoute,
+  AuthAppEntriesIndexRoute: AuthAppEntriesIndexRoute,
+  AuthAppNotesIndexRoute: AuthAppNotesIndexRoute,
+  AuthAppProjectsIndexRoute: AuthAppProjectsIndexRoute,
+  AuthAppSettingsIndexRoute: AuthAppSettingsIndexRoute,
+  AuthAppEntriesEntryIdEditRoute: AuthAppEntriesEntryIdEditRoute,
+  AuthAppProjectsProjectIdEditRoute: AuthAppProjectsProjectIdEditRoute,
+  AuthAppEntriesEntryIdIndexRoute: AuthAppEntriesEntryIdIndexRoute,
+}
+
+const AuthAppRouteWithChildren =
+  AuthAppRoute._addFileChildren(AuthAppRouteChildren)
+
 interface AuthRouteChildren {
-  AuthAppRoute: typeof AuthAppRoute
+  AuthAppRoute: typeof AuthAppRouteWithChildren
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
-  AuthAppRoute: AuthAppRoute,
+  AuthAppRoute: AuthAppRouteWithChildren,
 }
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
@@ -147,11 +436,13 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 interface PublicRouteChildren {
   PublicLoginRoute: typeof PublicLoginRoute
   PublicRegisterRoute: typeof PublicRegisterRoute
+  PublicUnlockRoute: typeof PublicUnlockRoute
 }
 
 const PublicRouteChildren: PublicRouteChildren = {
   PublicLoginRoute: PublicLoginRoute,
   PublicRegisterRoute: PublicRegisterRoute,
+  PublicUnlockRoute: PublicUnlockRoute,
 }
 
 const PublicRouteWithChildren =
