@@ -15,6 +15,7 @@ import (
 var allProcedures = []string{
 	"/oblivio.v1.AuditService/ListAudit",
 	"/oblivio.v1.AuthService/Authorize",
+	"/oblivio.v1.AuthService/ChangeMasterPassword",
 	"/oblivio.v1.AuthService/CompleteMFA",
 	"/oblivio.v1.AuthService/GetKDFParams",
 	"/oblivio.v1.AuthService/GetMyKeys",
@@ -24,6 +25,8 @@ var allProcedures = []string{
 	"/oblivio.v1.AuthService/RecoveryStart",
 	"/oblivio.v1.AuthService/RefreshToken",
 	"/oblivio.v1.AuthService/Register",
+	"/oblivio.v1.AuthService/ResendVerification",
+	"/oblivio.v1.AuthService/VerifyEmail",
 	"/oblivio.v1.EntriesService/CreateEntry",
 	"/oblivio.v1.EntriesService/DeleteEntry",
 	"/oblivio.v1.EntriesService/GetEntriesByIds",
@@ -46,6 +49,7 @@ var allProcedures = []string{
 	"/oblivio.v1.SessionsService/TerminateSession",
 	"/oblivio.v1.VaultService/DeleteMe",
 	"/oblivio.v1.VaultService/GetMe",
+	"/oblivio.v1.WebAuthnService/BeginAssertion",
 	"/oblivio.v1.WebAuthnService/ListCredentials",
 	"/oblivio.v1.WebAuthnService/RegisterBegin",
 	"/oblivio.v1.WebAuthnService/RegisterFinish",
@@ -56,14 +60,16 @@ var allProcedures = []string{
 // entry must be a deliberate, reviewable diff — never an accident.
 func TestAnonymousProcedures_ExactList(t *testing.T) {
 	want := map[string]bool{
-		"/oblivio.v1.AuthService/Register":          true,
-		"/oblivio.v1.AuthService/GetKDFParams":      true,
-		"/oblivio.v1.AuthService/Authorize":         true,
-		"/oblivio.v1.AuthService/CompleteMFA":       true,
-		"/oblivio.v1.AuthService/RefreshToken":      true,
-		"/oblivio.v1.AuthService/GetRecoveryParams": true,
-		"/oblivio.v1.AuthService/RecoveryStart":     true,
-		"/oblivio.v1.AuthService/RecoveryComplete":  true,
+		"/oblivio.v1.AuthService/Register":           true,
+		"/oblivio.v1.AuthService/GetKDFParams":       true,
+		"/oblivio.v1.AuthService/Authorize":          true,
+		"/oblivio.v1.AuthService/CompleteMFA":        true,
+		"/oblivio.v1.AuthService/RefreshToken":       true,
+		"/oblivio.v1.AuthService/GetRecoveryParams":  true,
+		"/oblivio.v1.AuthService/RecoveryStart":      true,
+		"/oblivio.v1.AuthService/RecoveryComplete":   true,
+		"/oblivio.v1.AuthService/VerifyEmail":        true,
+		"/oblivio.v1.AuthService/ResendVerification": true,
 	}
 	if len(AnonymousProcedures) != len(want) {
 		t.Fatalf("allowlist size = %d, want %d", len(AnonymousProcedures), len(want))

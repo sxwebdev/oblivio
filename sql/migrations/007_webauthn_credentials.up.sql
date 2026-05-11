@@ -15,8 +15,10 @@ CREATE TABLE user_webauthn_credentials (
 );
 CREATE INDEX idx_webauthn_user_id ON user_webauthn_credentials(user_id);
 
--- RLS: a user only sees their own credentials.
+-- RLS: a user only sees their own credentials. Trusted system paths
+-- (auth-service during Authorize) bypass via app.bypass_rls.
 ALTER TABLE user_webauthn_credentials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_webauthn_credentials FORCE  ROW LEVEL SECURITY;
 CREATE POLICY webauthn_owner ON user_webauthn_credentials
-    USING (user_id = app_current_user_id())
-    WITH CHECK (user_id = app_current_user_id());
+    USING       (app_is_system() OR user_id = app_current_user_id())
+    WITH CHECK  (app_is_system() OR user_id = app_current_user_id());

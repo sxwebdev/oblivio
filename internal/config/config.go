@@ -23,9 +23,12 @@ type Config struct {
 
 // ServerConfig holds HTTP/ConnectRPC server settings.
 type ServerConfig struct {
-	Addr           string   `yaml:"addr" validate:"required" default:":8080"`
-	AllowedOrigins []string `yaml:"allowed_origins"`
-	TLS            TLSConfig
+	Addr      string `yaml:"addr" validate:"required" default:":8080"`
+	TLS       TLSConfig
+	// PublicURL is the externally-visible base URL (e.g. https://oblivio.example.com).
+	// Used to build links in transactional emails. When empty the verification
+	// link falls back to "addr" which is fine in dev but useless from outside.
+	PublicURL string `yaml:"public_url"`
 }
 
 // TLSConfig optionally enables TLS termination at the application layer.
@@ -42,7 +45,11 @@ type PostgresConfig struct {
 	Database string `validate:"required"`
 	Username string `validate:"required" vault:"true" secret:"true"`
 	Password string `validate:"required" vault:"true" secret:"true"`
-	SSLMode  string `yaml:"ssl_mode" default:"disable"`
+	// SSLMode defaults to verify-full per plan §2 threat model. Local dev
+	// against a non-TLS Postgres should set ssl_mode: disable explicitly
+	// in config.yaml — keeping the safe default forces an explicit opt-in
+	// to insecure connections.
+	SSLMode string `yaml:"ssl_mode" default:"verify-full"`
 }
 
 // DSN returns a pgx v5 compatible connection URL.
@@ -93,25 +100,34 @@ type WebAuthnConfig struct {
 	RPOrigin string `yaml:"rp_origin"`
 }
 
-// JobsConfig schedules background workers.
+// JobsConfig schedules background workers. All intervals are clamped to
+// >= 1 minute by the workers themselves; a value below the floor falls back
+// to the documented default (typically 1h).
 type JobsConfig struct {
-	AuditChainVerifyCron string        `yaml:"audit_chain_verify_cron" default:"0 3 * * *"`
-	RateLimitGCInterval  time.Duration `yaml:"rate_limit_gc_interval" default:"1h"`
-	SessionsGCInterval   time.Duration `yaml:"sessions_gc_interval" default:"1h"`
+	AuditChainVerifyInterval time.Duration `yaml:"audit_chain_verify_interval" default:"24h"`
+	SessionsGCInterval       time.Duration `yaml:"sessions_gc_interval" default:"1h"`
+	AuthTokensGCInterval     time.Duration `yaml:"auth_tokens_gc_interval" default:"1h"`
+	IdempotencyGCInterval    time.Duration `yaml:"idempotency_gc_interval" default:"1h"`
 }
 
 // EmailConfig configures transactional email delivery (verification, recovery).
-// When Provider is empty, email features are stubbed out (dev mode).
+//
+// Provider values:
+//   - ""     → noop, email features disabled (no token written, no link).
+//   - "log"  → writes message details to the structured logger (dev/CI).
+//   - "smtp" → real delivery via SMTPConfig.
 type EmailConfig struct {
 	Provider string     `yaml:"provider"`
 	From     string     `yaml:"from"`
 	SMTP     SMTPConfig `yaml:"smtp"`
 }
 
-// SMTPConfig describes an SMTP relay.
+// SMTPConfig describes an SMTP relay. AllowInsecure should ONLY be set in
+// dev-with-mailhog scenarios — never in prod.
 type SMTPConfig struct {
-	Host     string `yaml:"host"`
-	Port     uint16 `yaml:"port" default:"587"`
-	Username string `yaml:"username" vault:"true" secret:"true"`
-	Password string `yaml:"password" vault:"true" secret:"true"`
+	Host          string `yaml:"host"`
+	Port          uint16 `yaml:"port" default:"587"`
+	Username      string `yaml:"username" vault:"true" secret:"true"`
+	Password      string `yaml:"password" vault:"true" secret:"true"`
+	AllowInsecure bool   `yaml:"allow_insecure"`
 }

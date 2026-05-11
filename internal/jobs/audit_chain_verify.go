@@ -15,6 +15,7 @@ import (
 	"github.com/tkcrm/mx/logger"
 
 	"github.com/sxwebdev/oblivio/internal/audit"
+	"github.com/sxwebdev/oblivio/internal/config"
 	"github.com/sxwebdev/oblivio/internal/metrics"
 )
 
@@ -67,7 +68,13 @@ func (w *AuditChainVerifyWorker) Work(ctx context.Context, _ *river.Job[AuditCha
 	return nil
 }
 
-// auditChainVerifySchedule returns the River schedule for the periodic
-// verify run. Daily is the plan §11.1 default; we expose it as a function
-// so tests can substitute a shorter interval.
-func auditChainVerifySchedule() time.Duration { return 24 * time.Hour }
+// auditChainVerifyInterval reads the configured cadence and floors it to one
+// minute so a typo in config.yaml cannot pin the worker into a hot loop.
+// Daily is the plan §11.1 default.
+func auditChainVerifyInterval(cfg config.JobsConfig) time.Duration {
+	const minInterval = time.Minute
+	if cfg.AuditChainVerifyInterval < minInterval {
+		return 24 * time.Hour
+	}
+	return cfg.AuditChainVerifyInterval
+}

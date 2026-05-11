@@ -49,13 +49,17 @@ func TestCanonicalJSON_Nested(t *testing.T) {
 	}
 }
 
+// TestCanonicalJSON_Nil documents the (now-corrected) contract: nil and
+// empty-map both serialise to "{}" so the writer (which persists nil as
+// "{}" via metadataBytes) and the verifier (which reads "{}" back into a
+// non-nil empty map) agree on the canonical hash input.
 func TestCanonicalJSON_Nil(t *testing.T) {
 	got, err := canonicalJSON(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != "null" {
-		t.Fatalf("got %s want null", got)
+	if string(got) != "{}" {
+		t.Fatalf("got %s want {}", got)
 	}
 }
 

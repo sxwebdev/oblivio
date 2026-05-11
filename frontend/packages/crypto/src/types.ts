@@ -6,6 +6,10 @@ export type Argon2Params = {
   mKib: number // memory in KiB
   p: number // parallelism
   algo?: string // typically "argon2id"
+  // forceSingleThread overrides p=1 at derivation time. Useful when the
+  // page is not crossOriginIsolated (no SharedArrayBuffer) and hash-wasm
+  // would otherwise hang or fall back unpredictably with p>1.
+  forceSingleThread?: boolean
 }
 
 // WrappedKey is an envelope: nonce(12) || ciphertext+tag.

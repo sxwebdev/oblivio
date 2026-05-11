@@ -15,9 +15,6 @@
 package middleware
 
 import (
-	"bytes"
-	"encoding/json"
-	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -55,9 +52,10 @@ func NewRateLimitMiddleware(cfg config.RateLimits) *RateLimitMiddleware {
 	}
 }
 
-// Wrap installs the middleware. It mutates request bodies for procedures
-// that we need to inspect (e.g. to read the `email` field) and re-installs
-// the bytes so the downstream Connect handler still sees them.
+// Wrap installs the per-IP HTTP-layer middleware. Per-email checks live in
+// a separate ConnectRPC interceptor (rate_limit_email.go) because the
+// browser ships protobuf-framed bodies and we don't want to write a
+// content-type-aware peek for every framing.
 func (m *RateLimitMiddleware) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		procedure := procedureFromPath(r.URL.Path)
@@ -68,39 +66,28 @@ func (m *RateLimitMiddleware) Wrap(next http.Handler) http.Handler {
 		}
 
 		ip := clientIP(r)
-		// Per-IP limit (always applied to listed procedures).
 		ipLimit, ipBurst := rule.ipLimit(m.cfg)
-		if ipLimit > 0 && !m.allow(rule.ipKey(ip), ipLimit, ipBurst) {
+		if ipLimit > 0 && !m.Allow(rule.ipKey(ip), ipLimit, ipBurst) {
 			metrics.RateLimitDropsTotal.WithLabelValues(procedure, "ip").Inc()
 			tooMany(w, "rate limit exceeded (ip)")
 			return
-		}
-
-		// Per-email limit (only when the request body carries an email).
-		emailLimit, emailBurst := rule.emailLimit(m.cfg)
-		if emailLimit > 0 {
-			email, body, ok := peekEmail(r)
-			if ok && email != "" {
-				if !m.allow(rule.emailKey(email), emailLimit, emailBurst) {
-					metrics.RateLimitDropsTotal.WithLabelValues(procedure, "email").Inc()
-					tooMany(w, "rate limit exceeded (email)")
-					return
-				}
-			}
-			// Re-install body (peekEmail consumed it).
-			if body != nil {
-				r.Body = io.NopCloser(bytes.NewReader(body))
-				r.ContentLength = int64(len(body))
-			}
 		}
 
 		next.ServeHTTP(w, r)
 	})
 }
 
-// allow returns true if a token is available. The Sprint-4 limiter resets
-// stale entries (>10min) lazily to avoid an unbounded map.
-func (m *RateLimitMiddleware) allow(key string, perMin uint32, burst int) bool {
+// Cfg returns the configured limits — used by the email interceptor that
+// shares this middleware's bucket pool.
+func (m *RateLimitMiddleware) Cfg() config.RateLimits { return m.cfg }
+
+// Allow returns true if a token is available for the given key. Exported so
+// the email-side ConnectRPC interceptor can bypass the HTTP-layer entry
+// point and reuse the same in-memory bucket pool.
+//
+// The Sprint-4 limiter resets stale entries (>10min) lazily to avoid an
+// unbounded map.
+func (m *RateLimitMiddleware) Allow(key string, perMin uint32, burst int) bool {
 	if perMin == 0 {
 		return true
 	}
@@ -203,32 +190,6 @@ var proceduresWithRateLimit = map[string]procedureRule{
 		ipPerMin: func(c config.RateLimits) uint32 { return c.RegisterPerIPPerHour / 60 }, // amortised
 		emailPer: nil,
 	},
-}
-
-// peekEmail reads the request body, tries to extract an email field, and
-// returns it alongside the consumed bytes. ConnectRPC ships JSON, protobuf
-// and gRPC framings on the same endpoint; we only attempt the cheap JSON
-// path here. Anything else just bypasses the per-email check.
-func peekEmail(r *http.Request) (string, []byte, bool) {
-	if r.Body == nil {
-		return "", nil, false
-	}
-	ct := r.Header.Get("Content-Type")
-	if !strings.Contains(ct, "application/json") {
-		return "", nil, false
-	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<16))
-	if err != nil {
-		return "", body, false
-	}
-	_ = r.Body.Close()
-	var probe struct {
-		Email string `json:"email"`
-	}
-	if err := json.Unmarshal(body, &probe); err != nil {
-		return "", body, true
-	}
-	return probe.Email, body, true
 }
 
 // clientIP extracts the best-guess remote address. We trust X-Forwarded-For

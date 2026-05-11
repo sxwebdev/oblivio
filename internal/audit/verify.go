@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/sxwebdev/oblivio/internal/models"
@@ -55,11 +57,24 @@ func NewVerifier(pool *pgxpool.Pool) *Verifier {
 // Run replays the chain from the genesis entry (id=0 seed of 32 zero bytes)
 // and returns a VerifyResult describing the state at completion.
 //
+// All reads happen inside a single transaction with the system bypass GUC
+// set so RLS doesn't filter audit_log rows down to whichever user_id the
+// session might have remembered.
+//
 // The verifier is read-only. Detection of a mismatch does not auto-remediate
 // — callers should alarm/page on r.OK() == false. (Reconciliation requires
 // human review: tampering could have happened in any of (DB,backup,replica).)
 func (v *Verifier) Run(ctx context.Context) (VerifyResult, error) {
-	head, err := v.loadHead(ctx)
+	tx, err := v.pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return VerifyResult{}, fmt.Errorf("verify: begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, "SET LOCAL app.bypass_rls = 'true'"); err != nil {
+		return VerifyResult{}, fmt.Errorf("verify: set bypass: %w", err)
+	}
+
+	head, err := v.loadHeadTx(ctx, tx)
 	if err != nil {
 		return VerifyResult{}, fmt.Errorf("load head: %w", err)
 	}
@@ -75,7 +90,7 @@ func (v *Verifier) Run(ctx context.Context) (VerifyResult, error) {
 		default:
 		}
 
-		rows, err := v.fetchBatch(ctx, lastID)
+		rows, err := v.fetchBatchTx(ctx, tx, lastID)
 		if err != nil {
 			return VerifyResult{}, err
 		}
@@ -103,9 +118,9 @@ func (v *Verifier) Run(ctx context.Context) (VerifyResult, error) {
 	}, nil
 }
 
-func (v *Verifier) loadHead(ctx context.Context) ([]byte, error) {
+func (v *Verifier) loadHeadTx(ctx context.Context, tx pgx.Tx) ([]byte, error) {
 	var raw []byte
-	if err := v.pool.QueryRow(ctx,
+	if err := tx.QueryRow(ctx,
 		`SELECT value FROM system_state WHERE key = $1`,
 		systemKeyChainHead,
 	).Scan(&raw); err != nil {
@@ -114,12 +129,10 @@ func (v *Verifier) loadHead(ctx context.Context) ([]byte, error) {
 	return decodeHashHexJSON(raw)
 }
 
-// fetchBatch pulls a window of rows by id with a hard ORDER BY id ASC.
-// We can't reuse the generated ListAuditFromID query (it scans rows.* but
-// emits no IP/UserAgent friendly typing for our use); the raw call is
-// short enough to inline.
-func (v *Verifier) fetchBatch(ctx context.Context, fromID int64) ([]*models.AuditLog, error) {
-	rows, err := v.pool.Query(ctx,
+// fetchBatchTx pulls a window of rows by id with a hard ORDER BY id ASC.
+// Runs inside the verify transaction so the system bypass GUC applies.
+func (v *Verifier) fetchBatchTx(ctx context.Context, tx pgx.Tx, fromID int64) ([]*models.AuditLog, error) {
+	rows, err := tx.Query(ctx,
 		`SELECT id, user_id, action, target_id, ip, user_agent, metadata, prev_hash, self_hash, created_at
          FROM audit_log
          WHERE id > $1
@@ -200,12 +213,7 @@ func hashesEqual(a, b []byte) bool {
 	return true
 }
 
-func isJSONNull(b []byte) bool {
-	if len(b) != 4 {
-		return false
-	}
-	return b[0] == 'n' && b[1] == 'u' && b[2] == 'l' && b[3] == 'l'
-}
+func isJSONNull(b []byte) bool { return bytes.Equal(b, []byte("null")) }
 
 // ErrChainMismatch is returned by Verifier when the chain fails to match
 // its stored head. Use errors.Is for behaviour-based checks.

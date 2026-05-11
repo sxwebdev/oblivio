@@ -220,12 +220,19 @@ func (*LoginTOTPServiceEnableResponse) Descriptor() ([]byte, []int) {
 	return file_oblivio_v1_login_totp_proto_rawDescGZIP(), []int{3}
 }
 
+// Disable accepts EITHER totp_code OR a webauthn assertion. The webauthn
+// path is for users who lost access to their authenticator app but still
+// have a passkey enrolled. mfa_session_id pairs with WebAuthnService.
+// BeginAssertion (which seeds the challenge) and webauthn_assertion_json
+// is the response from `navigator.credentials.get` serialised as JSON.
 type LoginTOTPServiceDisableRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AuthKey       []byte                 `protobuf:"bytes,1,opt,name=auth_key,json=authKey,proto3" json:"auth_key,omitempty"`
-	TotpCode      string                 `protobuf:"bytes,2,opt,name=totp_code,json=totpCode,proto3" json:"totp_code,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	AuthKey               []byte                 `protobuf:"bytes,1,opt,name=auth_key,json=authKey,proto3" json:"auth_key,omitempty"`
+	TotpCode              string                 `protobuf:"bytes,2,opt,name=totp_code,json=totpCode,proto3" json:"totp_code,omitempty"`
+	WebauthnAssertionJson []byte                 `protobuf:"bytes,3,opt,name=webauthn_assertion_json,json=webauthnAssertionJson,proto3" json:"webauthn_assertion_json,omitempty"`
+	MfaSessionId          string                 `protobuf:"bytes,4,opt,name=mfa_session_id,json=mfaSessionId,proto3" json:"mfa_session_id,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *LoginTOTPServiceDisableRequest) Reset() {
@@ -268,6 +275,20 @@ func (x *LoginTOTPServiceDisableRequest) GetAuthKey() []byte {
 func (x *LoginTOTPServiceDisableRequest) GetTotpCode() string {
 	if x != nil {
 		return x.TotpCode
+	}
+	return ""
+}
+
+func (x *LoginTOTPServiceDisableRequest) GetWebauthnAssertionJson() []byte {
+	if x != nil {
+		return x.WebauthnAssertionJson
+	}
+	return nil
+}
+
+func (x *LoginTOTPServiceDisableRequest) GetMfaSessionId() string {
+	if x != nil {
+		return x.MfaSessionId
 	}
 	return ""
 }
@@ -411,10 +432,12 @@ const file_oblivio_v1_login_totp_proto_rawDesc = "" +
 	"\x1dLoginTOTPServiceEnableRequest\x12\x19\n" +
 	"\bauth_key\x18\x01 \x01(\fR\aauthKey\x12\x1b\n" +
 	"\ttotp_code\x18\x02 \x01(\tR\btotpCode\" \n" +
-	"\x1eLoginTOTPServiceEnableResponse\"X\n" +
+	"\x1eLoginTOTPServiceEnableResponse\"\xb6\x01\n" +
 	"\x1eLoginTOTPServiceDisableRequest\x12\x19\n" +
 	"\bauth_key\x18\x01 \x01(\fR\aauthKey\x12\x1b\n" +
-	"\ttotp_code\x18\x02 \x01(\tR\btotpCode\"!\n" +
+	"\ttotp_code\x18\x02 \x01(\tR\btotpCode\x126\n" +
+	"\x17webauthn_assertion_json\x18\x03 \x01(\fR\x15webauthnAssertionJson\x12$\n" +
+	"\x0emfa_session_id\x18\x04 \x01(\tR\fmfaSessionId\"!\n" +
 	"\x1fLoginTOTPServiceDisableResponse\"\x1f\n" +
 	"\x1dLoginTOTPServiceStatusRequest\"Z\n" +
 	"\x1eLoginTOTPServiceStatusResponse\x12\x1e\n" +

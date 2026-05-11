@@ -10,8 +10,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import QRCode from "qrcode"
 import {
+  startAuthentication,
   startRegistration,
   type PublicKeyCredentialCreationOptionsJSON,
+  type PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser"
 
 import {
@@ -189,6 +191,41 @@ function TotpSection({
     }
   }
 
+  // Disable TOTP via passkey: re-authenticates with WebAuthn instead of
+  // requiring a fresh TOTP code (useful when the user lost their app).
+  // Master password is still required so a stolen access token alone
+  // can't downgrade 2FA.
+  async function disableViaPasskey() {
+    setPending(true)
+    setError(null)
+    try {
+      const { authKey } = await deriveAuthKeyFromPassword(email, password)
+      const begin = await webauthnClient.beginAssertion({})
+      const optsObj = JSON.parse(
+        new TextDecoder().decode(begin.optionsJson)
+      ) as {
+        publicKey: PublicKeyCredentialRequestOptionsJSON
+      }
+      const assertion = await startAuthentication({
+        optionsJSON: optsObj.publicKey,
+      })
+      const assertionJson = new TextEncoder().encode(JSON.stringify(assertion))
+      await loginTotpClient.disable({
+        authKey,
+        webauthnAssertionJson: assertionJson,
+        mfaSessionId: begin.sessionId,
+      })
+      toast.success("TOTP disabled (via passkey)")
+      setCode("")
+      setPassword("")
+      onChanged()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setPending(false)
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -224,9 +261,23 @@ function TotpSection({
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button onClick={disable} variant="destructive" disabled={pending}>
-              {pending ? "Disabling…" : "Disable TOTP"}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={disable}
+                variant="destructive"
+                disabled={pending}
+              >
+                {pending ? "Disabling…" : "Disable TOTP"}
+              </Button>
+              <Button
+                onClick={disableViaPasskey}
+                variant="outline"
+                disabled={pending || !password}
+                title="Use a registered passkey instead of a TOTP code"
+              >
+                Disable via passkey
+              </Button>
+            </div>
           </>
         ) : !secret ? (
           <Button onClick={begin}>Set up TOTP</Button>

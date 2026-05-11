@@ -32,5 +32,16 @@ services:
       timeout: 5s
       retries: 5
 
+  # mailhog catches every outbound email locally so the verification flow
+  # is end-to-end testable without a real SMTP relay. UI lives at :8025.
+  # Configure config.yaml: email.provider=smtp, email.smtp.host=localhost,
+  # email.smtp.port=1025, email.smtp.allow_insecure=true.
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - 1025:1025 # SMTP
+      - 8025:8025 # Web UI
+    restart: unless-stopped
+
 volumes:
   postgres_data:

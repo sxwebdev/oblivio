@@ -54,10 +54,18 @@ const (
 	// AuthServiceRecoveryCompleteProcedure is the fully-qualified name of the AuthService's
 	// RecoveryComplete RPC.
 	AuthServiceRecoveryCompleteProcedure = "/oblivio.v1.AuthService/RecoveryComplete"
+	// AuthServiceVerifyEmailProcedure is the fully-qualified name of the AuthService's VerifyEmail RPC.
+	AuthServiceVerifyEmailProcedure = "/oblivio.v1.AuthService/VerifyEmail"
+	// AuthServiceResendVerificationProcedure is the fully-qualified name of the AuthService's
+	// ResendVerification RPC.
+	AuthServiceResendVerificationProcedure = "/oblivio.v1.AuthService/ResendVerification"
 	// AuthServiceLogoutProcedure is the fully-qualified name of the AuthService's Logout RPC.
 	AuthServiceLogoutProcedure = "/oblivio.v1.AuthService/Logout"
 	// AuthServiceGetMyKeysProcedure is the fully-qualified name of the AuthService's GetMyKeys RPC.
 	AuthServiceGetMyKeysProcedure = "/oblivio.v1.AuthService/GetMyKeys"
+	// AuthServiceChangeMasterPasswordProcedure is the fully-qualified name of the AuthService's
+	// ChangeMasterPassword RPC.
+	AuthServiceChangeMasterPasswordProcedure = "/oblivio.v1.AuthService/ChangeMasterPassword"
 )
 
 // AuthServiceClient is a client for the oblivio.v1.AuthService service.
@@ -72,9 +80,15 @@ type AuthServiceClient interface {
 	GetRecoveryParams(context.Context, *connect.Request[v1.GetRecoveryParamsRequest]) (*connect.Response[v1.GetRecoveryParamsResponse], error)
 	RecoveryStart(context.Context, *connect.Request[v1.RecoveryStartRequest]) (*connect.Response[v1.RecoveryStartResponse], error)
 	RecoveryComplete(context.Context, *connect.Request[v1.RecoveryCompleteRequest]) (*connect.Response[v1.RecoveryCompleteResponse], error)
+	// Email verification (anonymous). VerifyEmail consumes the token from
+	// the user's clicked link; ResendVerification re-issues the link when
+	// the previous one expired or was lost.
+	VerifyEmail(context.Context, *connect.Request[v1.VerifyEmailRequest]) (*connect.Response[v1.VerifyEmailResponse], error)
+	ResendVerification(context.Context, *connect.Request[v1.ResendVerificationRequest]) (*connect.Response[v1.ResendVerificationResponse], error)
 	// Authenticated endpoints.
 	Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error)
 	GetMyKeys(context.Context, *connect.Request[v1.GetMyKeysRequest]) (*connect.Response[v1.GetMyKeysResponse], error)
+	ChangeMasterPassword(context.Context, *connect.Request[v1.ChangeMasterPasswordRequest]) (*connect.Response[v1.ChangeMasterPasswordResponse], error)
 }
 
 // NewAuthServiceClient constructs a client for the oblivio.v1.AuthService service. By default, it
@@ -136,6 +150,18 @@ func NewAuthServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(authServiceMethods.ByName("RecoveryComplete")),
 			connect.WithClientOptions(opts...),
 		),
+		verifyEmail: connect.NewClient[v1.VerifyEmailRequest, v1.VerifyEmailResponse](
+			httpClient,
+			baseURL+AuthServiceVerifyEmailProcedure,
+			connect.WithSchema(authServiceMethods.ByName("VerifyEmail")),
+			connect.WithClientOptions(opts...),
+		),
+		resendVerification: connect.NewClient[v1.ResendVerificationRequest, v1.ResendVerificationResponse](
+			httpClient,
+			baseURL+AuthServiceResendVerificationProcedure,
+			connect.WithSchema(authServiceMethods.ByName("ResendVerification")),
+			connect.WithClientOptions(opts...),
+		),
 		logout: connect.NewClient[v1.LogoutRequest, v1.LogoutResponse](
 			httpClient,
 			baseURL+AuthServiceLogoutProcedure,
@@ -148,21 +174,30 @@ func NewAuthServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(authServiceMethods.ByName("GetMyKeys")),
 			connect.WithClientOptions(opts...),
 		),
+		changeMasterPassword: connect.NewClient[v1.ChangeMasterPasswordRequest, v1.ChangeMasterPasswordResponse](
+			httpClient,
+			baseURL+AuthServiceChangeMasterPasswordProcedure,
+			connect.WithSchema(authServiceMethods.ByName("ChangeMasterPassword")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // authServiceClient implements AuthServiceClient.
 type authServiceClient struct {
-	register          *connect.Client[v1.RegisterRequest, v1.RegisterResponse]
-	getKDFParams      *connect.Client[v1.GetKDFParamsRequest, v1.GetKDFParamsResponse]
-	authorize         *connect.Client[v1.AuthorizeRequest, v1.AuthorizeResponse]
-	completeMFA       *connect.Client[v1.CompleteMFARequest, v1.CompleteMFAResponse]
-	refreshToken      *connect.Client[v1.RefreshTokenRequest, v1.RefreshTokenResponse]
-	getRecoveryParams *connect.Client[v1.GetRecoveryParamsRequest, v1.GetRecoveryParamsResponse]
-	recoveryStart     *connect.Client[v1.RecoveryStartRequest, v1.RecoveryStartResponse]
-	recoveryComplete  *connect.Client[v1.RecoveryCompleteRequest, v1.RecoveryCompleteResponse]
-	logout            *connect.Client[v1.LogoutRequest, v1.LogoutResponse]
-	getMyKeys         *connect.Client[v1.GetMyKeysRequest, v1.GetMyKeysResponse]
+	register             *connect.Client[v1.RegisterRequest, v1.RegisterResponse]
+	getKDFParams         *connect.Client[v1.GetKDFParamsRequest, v1.GetKDFParamsResponse]
+	authorize            *connect.Client[v1.AuthorizeRequest, v1.AuthorizeResponse]
+	completeMFA          *connect.Client[v1.CompleteMFARequest, v1.CompleteMFAResponse]
+	refreshToken         *connect.Client[v1.RefreshTokenRequest, v1.RefreshTokenResponse]
+	getRecoveryParams    *connect.Client[v1.GetRecoveryParamsRequest, v1.GetRecoveryParamsResponse]
+	recoveryStart        *connect.Client[v1.RecoveryStartRequest, v1.RecoveryStartResponse]
+	recoveryComplete     *connect.Client[v1.RecoveryCompleteRequest, v1.RecoveryCompleteResponse]
+	verifyEmail          *connect.Client[v1.VerifyEmailRequest, v1.VerifyEmailResponse]
+	resendVerification   *connect.Client[v1.ResendVerificationRequest, v1.ResendVerificationResponse]
+	logout               *connect.Client[v1.LogoutRequest, v1.LogoutResponse]
+	getMyKeys            *connect.Client[v1.GetMyKeysRequest, v1.GetMyKeysResponse]
+	changeMasterPassword *connect.Client[v1.ChangeMasterPasswordRequest, v1.ChangeMasterPasswordResponse]
 }
 
 // Register calls oblivio.v1.AuthService.Register.
@@ -205,6 +240,16 @@ func (c *authServiceClient) RecoveryComplete(ctx context.Context, req *connect.R
 	return c.recoveryComplete.CallUnary(ctx, req)
 }
 
+// VerifyEmail calls oblivio.v1.AuthService.VerifyEmail.
+func (c *authServiceClient) VerifyEmail(ctx context.Context, req *connect.Request[v1.VerifyEmailRequest]) (*connect.Response[v1.VerifyEmailResponse], error) {
+	return c.verifyEmail.CallUnary(ctx, req)
+}
+
+// ResendVerification calls oblivio.v1.AuthService.ResendVerification.
+func (c *authServiceClient) ResendVerification(ctx context.Context, req *connect.Request[v1.ResendVerificationRequest]) (*connect.Response[v1.ResendVerificationResponse], error) {
+	return c.resendVerification.CallUnary(ctx, req)
+}
+
 // Logout calls oblivio.v1.AuthService.Logout.
 func (c *authServiceClient) Logout(ctx context.Context, req *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error) {
 	return c.logout.CallUnary(ctx, req)
@@ -213,6 +258,11 @@ func (c *authServiceClient) Logout(ctx context.Context, req *connect.Request[v1.
 // GetMyKeys calls oblivio.v1.AuthService.GetMyKeys.
 func (c *authServiceClient) GetMyKeys(ctx context.Context, req *connect.Request[v1.GetMyKeysRequest]) (*connect.Response[v1.GetMyKeysResponse], error) {
 	return c.getMyKeys.CallUnary(ctx, req)
+}
+
+// ChangeMasterPassword calls oblivio.v1.AuthService.ChangeMasterPassword.
+func (c *authServiceClient) ChangeMasterPassword(ctx context.Context, req *connect.Request[v1.ChangeMasterPasswordRequest]) (*connect.Response[v1.ChangeMasterPasswordResponse], error) {
+	return c.changeMasterPassword.CallUnary(ctx, req)
 }
 
 // AuthServiceHandler is an implementation of the oblivio.v1.AuthService service.
@@ -227,9 +277,15 @@ type AuthServiceHandler interface {
 	GetRecoveryParams(context.Context, *connect.Request[v1.GetRecoveryParamsRequest]) (*connect.Response[v1.GetRecoveryParamsResponse], error)
 	RecoveryStart(context.Context, *connect.Request[v1.RecoveryStartRequest]) (*connect.Response[v1.RecoveryStartResponse], error)
 	RecoveryComplete(context.Context, *connect.Request[v1.RecoveryCompleteRequest]) (*connect.Response[v1.RecoveryCompleteResponse], error)
+	// Email verification (anonymous). VerifyEmail consumes the token from
+	// the user's clicked link; ResendVerification re-issues the link when
+	// the previous one expired or was lost.
+	VerifyEmail(context.Context, *connect.Request[v1.VerifyEmailRequest]) (*connect.Response[v1.VerifyEmailResponse], error)
+	ResendVerification(context.Context, *connect.Request[v1.ResendVerificationRequest]) (*connect.Response[v1.ResendVerificationResponse], error)
 	// Authenticated endpoints.
 	Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error)
 	GetMyKeys(context.Context, *connect.Request[v1.GetMyKeysRequest]) (*connect.Response[v1.GetMyKeysResponse], error)
+	ChangeMasterPassword(context.Context, *connect.Request[v1.ChangeMasterPasswordRequest]) (*connect.Response[v1.ChangeMasterPasswordResponse], error)
 }
 
 // NewAuthServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -287,6 +343,18 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(authServiceMethods.ByName("RecoveryComplete")),
 		connect.WithHandlerOptions(opts...),
 	)
+	authServiceVerifyEmailHandler := connect.NewUnaryHandler(
+		AuthServiceVerifyEmailProcedure,
+		svc.VerifyEmail,
+		connect.WithSchema(authServiceMethods.ByName("VerifyEmail")),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceResendVerificationHandler := connect.NewUnaryHandler(
+		AuthServiceResendVerificationProcedure,
+		svc.ResendVerification,
+		connect.WithSchema(authServiceMethods.ByName("ResendVerification")),
+		connect.WithHandlerOptions(opts...),
+	)
 	authServiceLogoutHandler := connect.NewUnaryHandler(
 		AuthServiceLogoutProcedure,
 		svc.Logout,
@@ -297,6 +365,12 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 		AuthServiceGetMyKeysProcedure,
 		svc.GetMyKeys,
 		connect.WithSchema(authServiceMethods.ByName("GetMyKeys")),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceChangeMasterPasswordHandler := connect.NewUnaryHandler(
+		AuthServiceChangeMasterPasswordProcedure,
+		svc.ChangeMasterPassword,
+		connect.WithSchema(authServiceMethods.ByName("ChangeMasterPassword")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/oblivio.v1.AuthService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -317,10 +391,16 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 			authServiceRecoveryStartHandler.ServeHTTP(w, r)
 		case AuthServiceRecoveryCompleteProcedure:
 			authServiceRecoveryCompleteHandler.ServeHTTP(w, r)
+		case AuthServiceVerifyEmailProcedure:
+			authServiceVerifyEmailHandler.ServeHTTP(w, r)
+		case AuthServiceResendVerificationProcedure:
+			authServiceResendVerificationHandler.ServeHTTP(w, r)
 		case AuthServiceLogoutProcedure:
 			authServiceLogoutHandler.ServeHTTP(w, r)
 		case AuthServiceGetMyKeysProcedure:
 			authServiceGetMyKeysHandler.ServeHTTP(w, r)
+		case AuthServiceChangeMasterPasswordProcedure:
+			authServiceChangeMasterPasswordHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -362,10 +442,22 @@ func (UnimplementedAuthServiceHandler) RecoveryComplete(context.Context, *connec
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.AuthService.RecoveryComplete is not implemented"))
 }
 
+func (UnimplementedAuthServiceHandler) VerifyEmail(context.Context, *connect.Request[v1.VerifyEmailRequest]) (*connect.Response[v1.VerifyEmailResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.AuthService.VerifyEmail is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) ResendVerification(context.Context, *connect.Request[v1.ResendVerificationRequest]) (*connect.Response[v1.ResendVerificationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.AuthService.ResendVerification is not implemented"))
+}
+
 func (UnimplementedAuthServiceHandler) Logout(context.Context, *connect.Request[v1.LogoutRequest]) (*connect.Response[v1.LogoutResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.AuthService.Logout is not implemented"))
 }
 
 func (UnimplementedAuthServiceHandler) GetMyKeys(context.Context, *connect.Request[v1.GetMyKeysRequest]) (*connect.Response[v1.GetMyKeysResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.AuthService.GetMyKeys is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) ChangeMasterPassword(context.Context, *connect.Request[v1.ChangeMasterPasswordRequest]) (*connect.Response[v1.ChangeMasterPasswordResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.AuthService.ChangeMasterPassword is not implemented"))
 }

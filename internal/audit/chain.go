@@ -47,20 +47,44 @@ type Event struct {
 // production code (other than recovery tooling).
 type Writer struct {
 	pool *pgxpool.Pool
+	log  Logger
 }
 
-// NewWriter constructs a Writer bound to a pgx pool.
-func NewWriter(pool *pgxpool.Pool) *Writer { return &Writer{pool: pool} }
+// Logger is the small subset of the structured logger interface the
+// Writer needs. Avoids pulling tkcrm/mx into the audit package.
+type Logger interface {
+	Errorw(msg string, kv ...any)
+}
+
+// NewWriter constructs a Writer bound to a pgx pool. Pass a logger so the
+// writer can surface chain-append failures — silent drops break the
+// integrity guarantee.
+func NewWriter(pool *pgxpool.Pool, log Logger) *Writer { return &Writer{pool: pool, log: log} }
+
+// AppendOrLog wraps Append: any error is logged via the writer's logger
+// (instead of bubbling up). Used by interceptors and handlers that can't
+// fail the user's request just because the audit row didn't make it.
+func (w *Writer) AppendOrLog(ctx context.Context, ev Event) {
+	if _, err := w.Append(ctx, ev); err != nil && w.log != nil {
+		w.log.Errorw("audit append failed", "err", err, "action", string(ev.Action))
+	}
+}
 
 // Append serialises a new event into the chain. It opens a short
 // transaction that takes a row-level lock on system_state to prevent
-// concurrent appends from racing on prev_hash.
+// concurrent appends from racing on prev_hash. The system bypass GUC is
+// set so the writer satisfies the audit_log RLS policy without depending
+// on a per-user context.
 func (w *Writer) Append(ctx context.Context, ev Event) (*models.AuditLog, error) {
 	tx, err := w.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return nil, fmt.Errorf("audit: begin tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, "SET LOCAL app.bypass_rls = 'true'"); err != nil {
+		return nil, fmt.Errorf("audit: set bypass: %w", err)
+	}
 
 	var headRaw []byte
 	if err := tx.QueryRow(ctx,
@@ -168,11 +192,15 @@ type canonicalDoc struct {
 	UserID    string          `json:"user_id"`
 }
 
-// canonicalJSON serialises an arbitrary map with keys in sorted order. nil
-// input becomes JSON null so the canonical form is well-defined.
+// canonicalJSON serialises an arbitrary map with keys in sorted order. A
+// nil input is normalised to "{}" so it round-trips through Postgres JSONB
+// (which doesn't preserve a nil-vs-empty distinction). Originally this
+// returned "null" for nil — leading to a hash mismatch on verify because
+// metadataBytes() persists nil as "{}" and the verifier reads "{}" back
+// into a non-nil empty map.
 func canonicalJSON(m map[string]any) ([]byte, error) {
-	if m == nil {
-		return []byte("null"), nil
+	if len(m) == 0 {
+		return []byte("{}"), nil
 	}
 	return marshalSorted(m)
 }

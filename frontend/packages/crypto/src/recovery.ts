@@ -9,22 +9,31 @@ import { hkdfSha256 } from "./kdf"
 import { randomBytes } from "./util"
 import { HKDF_AUTH_INFO, RECOVERY_WRAP_AAD } from "./types"
 
-// 25 base32 characters in 5 groups of 5: ~125 bits of entropy.
+// 25 base32 characters in 5 groups of 5 packed from 16 random bytes via a
+// 5-bit-stream → 125 bits of usable entropy. The previous implementation
+// indexed bytes[i % 16] which made characters 16..24 deterministic copies
+// of characters 0..8 — only 80 bits of real entropy.
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567" // RFC 4648 base32
 
 export function generateRecoveryCode(): string {
-  const bytes = randomBytes(16) // 128 random bits → 26 base32 chars
-  let s = ""
-  for (let i = 0; i < 25; i++) {
-    s += ALPHABET[bytes[i % bytes.length] & 0x1f]
+  const bytes = randomBytes(16) // 128 random bits
+  let buf = 0
+  let bits = 0
+  let out = ""
+  for (let i = 0; i < bytes.length && out.length < 25; i++) {
+    buf = (buf << 8) | bytes[i]
+    bits += 8
+    while (bits >= 5 && out.length < 25) {
+      bits -= 5
+      out += ALPHABET[(buf >> bits) & 0x1f]
+    }
   }
-  // Group as XXXXX-XXXXX-XXXXX-XXXXX-XXXXX
   return [
-    s.slice(0, 5),
-    s.slice(5, 10),
-    s.slice(10, 15),
-    s.slice(15, 20),
-    s.slice(20, 25),
+    out.slice(0, 5),
+    out.slice(5, 10),
+    out.slice(10, 15),
+    out.slice(15, 20),
+    out.slice(20, 25),
   ].join("-")
 }
 

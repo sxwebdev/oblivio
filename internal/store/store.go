@@ -1,6 +1,10 @@
 package store
 
 import (
+	"context"
+	"fmt"
+
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sxwebdev/oblivio/internal/store/repos"
 	"github.com/sxwebdev/oblivio/pkg/postgres"
@@ -37,4 +41,24 @@ func NewForTest(pool *pgxpool.Pool) *Store {
 		Repos:    repos.New(pool),
 		testPool: pool,
 	}
+}
+
+// SystemDo runs fn inside a short transaction with the RLS bypass GUC set.
+// Use it from trusted backend paths (auth handlers, jobs, recovery) that
+// touch RLS-protected tables outside any per-user middleware tx. The
+// caller must explicitly filter rows by user_id — bypass disables RLS, it
+// does NOT widen authorization.
+func (s *Store) SystemDo(ctx context.Context, fn func(tx pgx.Tx) error) error {
+	tx, err := s.Pool().BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("system tx: begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, "SET LOCAL app.bypass_rls = 'true'"); err != nil {
+		return fmt.Errorf("system tx: set bypass: %w", err)
+	}
+	if err := fn(tx); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }

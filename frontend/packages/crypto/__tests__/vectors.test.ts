@@ -165,38 +165,32 @@ describe("cross-language vectors: hkdf-sha256", () => {
 })
 
 describe("cross-language vectors: aes-gcm", () => {
-  it.each(vectors.aes_gcm.map((v, i) => [i, v]))(
-    "case %i",
-    async (_i, c) => {
-      const cse = c as Vectors["aes_gcm"][number]
-      const ct = await aesGcmSeal(
-        hexToBytes(cse.key_hex),
-        hexToBytes(cse.nonce_hex),
-        hexToBytes(cse.plaintext_hex),
-        hexToBytes(cse.aad_hex)
-      )
-      expect(bytesToHex(ct)).toBe(cse.ciphertext_hex)
-    }
-  )
+  it.each(vectors.aes_gcm.map((v, i) => [i, v]))("case %i", async (_i, c) => {
+    const cse = c as Vectors["aes_gcm"][number]
+    const ct = await aesGcmSeal(
+      hexToBytes(cse.key_hex),
+      hexToBytes(cse.nonce_hex),
+      hexToBytes(cse.plaintext_hex),
+      hexToBytes(cse.aad_hex)
+    )
+    expect(bytesToHex(ct)).toBe(cse.ciphertext_hex)
+  })
 })
 
 describe("cross-language vectors: verifier", () => {
-  it.each(vectors.verifier.map((v, i) => [i, v]))(
-    "case %i",
-    async (_i, c) => {
-      const cse = c as Vectors["verifier"][number]
-      const ct = await aesGcmSeal(
-        hexToBytes(cse.master_key_hex),
-        hexToBytes(cse.nonce_hex),
-        utf8("oblivio-verify"),
-        utf8("vault-wrap")
-      )
-      const envelope = new Uint8Array(12 + ct.length)
-      envelope.set(hexToBytes(cse.nonce_hex), 0)
-      envelope.set(ct, 12)
-      expect(bytesToHex(envelope)).toBe(cse.verifier_hex)
-    }
-  )
+  it.each(vectors.verifier.map((v, i) => [i, v]))("case %i", async (_i, c) => {
+    const cse = c as Vectors["verifier"][number]
+    const ct = await aesGcmSeal(
+      hexToBytes(cse.master_key_hex),
+      hexToBytes(cse.nonce_hex),
+      utf8("oblivio-verify"),
+      utf8("vault-wrap")
+    )
+    const envelope = new Uint8Array(12 + ct.length)
+    envelope.set(hexToBytes(cse.nonce_hex), 0)
+    envelope.set(ct, 12)
+    expect(bytesToHex(envelope)).toBe(cse.verifier_hex)
+  })
 })
 
 describe("cross-language vectors: blind index", () => {
@@ -267,25 +261,20 @@ describe("cross-language vectors: recovery wrap", () => {
 })
 
 describe("cross-language vectors: item wrap", () => {
-  it.each(vectors.item_wrap.map((v, i) => [i, v]))(
-    "case %i",
-    async (_i, c) => {
-      const cse = c as Vectors["item_wrap"][number]
-      const aad = utf8(
-        `${cse.vault_id}|${cse.item_id}|${cse.version}|wrap`
-      )
-      const ct = await aesGcmSeal(
-        hexToBytes(cse.vault_key_hex),
-        hexToBytes(cse.nonce_hex),
-        hexToBytes(cse.item_key_hex),
-        aad
-      )
-      const envelope = new Uint8Array(12 + ct.length)
-      envelope.set(hexToBytes(cse.nonce_hex), 0)
-      envelope.set(ct, 12)
-      expect(bytesToHex(envelope)).toBe(cse.wrapped_hex)
-    }
-  )
+  it.each(vectors.item_wrap.map((v, i) => [i, v]))("case %i", async (_i, c) => {
+    const cse = c as Vectors["item_wrap"][number]
+    const aad = utf8(`${cse.vault_id}|${cse.item_id}|${cse.version}|wrap`)
+    const ct = await aesGcmSeal(
+      hexToBytes(cse.vault_key_hex),
+      hexToBytes(cse.nonce_hex),
+      hexToBytes(cse.item_key_hex),
+      aad
+    )
+    const envelope = new Uint8Array(12 + ct.length)
+    envelope.set(hexToBytes(cse.nonce_hex), 0)
+    envelope.set(ct, 12)
+    expect(bytesToHex(envelope)).toBe(cse.wrapped_hex)
+  })
 })
 
 // Sanity: a couple of cross-checks using the *public* API of the package.

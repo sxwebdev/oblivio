@@ -12,7 +12,11 @@
 //     (chi-squared sanity, conservative threshold).
 
 import { describe, expect, it } from "vitest"
-import { deriveMasterKey, importMasterKey, deriveBlindIndexKey } from "../src/kdf"
+import {
+  deriveMasterKey,
+  importMasterKey,
+  deriveBlindIndexKey,
+} from "../src/kdf"
 import { encryptBlob, decryptBlob } from "../src/aead"
 import {
   generateVaultKey,
@@ -122,7 +126,9 @@ describe("wrap tree: master → vault → item round-trip", () => {
       "00000000-0000-0000-0000-000000000011",
       version
     )
-    await expect(unwrapItemKey(vaultKey, wrappedItem, fakeAAD)).rejects.toThrow()
+    await expect(
+      unwrapItemKey(vaultKey, wrappedItem, fakeAAD)
+    ).rejects.toThrow()
 
     // Rollback attack: try to unwrap under a previous version.
     const oldAAD = buildItemWrapAAD(vaultId, itemId, 0n)
@@ -202,9 +208,7 @@ describe("recovery", () => {
       String.fromCharCode(c.charCodeAt(0) === 65 ? 66 : 65)
     )
     const fakeKey = await deriveRecoveryKey(broken, salt)
-    await expect(
-      unwrapVaultKeyFromRecovery(fakeKey, wrapped)
-    ).rejects.toThrow()
+    await expect(unwrapVaultKeyFromRecovery(fakeKey, wrapped)).rejects.toThrow()
   })
 
   it("normalization strips dashes, spaces and lower-cases", () => {
@@ -240,7 +244,7 @@ describe("password gen", () => {
     let chi = 0
     for (const ch of alphabet) {
       const obs = counts.get(ch) ?? 0
-      chi += ((obs - exp) ** 2) / exp
+      chi += (obs - exp) ** 2 / exp
     }
     // df = alphabet.length - 1. For alphabet=62, 99.9% critical value is
     // ~108. We use 150 — very loose — because flakes here trash CI without

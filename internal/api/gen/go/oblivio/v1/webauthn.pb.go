@@ -465,6 +465,97 @@ func (*RemoveCredentialResponse) Descriptor() ([]byte, []int) {
 	return file_oblivio_v1_webauthn_proto_rawDescGZIP(), []int{8}
 }
 
+type BeginAssertionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BeginAssertionRequest) Reset() {
+	*x = BeginAssertionRequest{}
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BeginAssertionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BeginAssertionRequest) ProtoMessage() {}
+
+func (x *BeginAssertionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BeginAssertionRequest.ProtoReflect.Descriptor instead.
+func (*BeginAssertionRequest) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_webauthn_proto_rawDescGZIP(), []int{9}
+}
+
+type BeginAssertionResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Session identifier the caller passes to the service that consumes the
+	// assertion (e.g. LoginTOTPService.Disable.mfa_session_id).
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// JSON-encoded CredentialRequestOptions per WebAuthn level 2.
+	OptionsJson   []byte `protobuf:"bytes,2,opt,name=options_json,json=optionsJson,proto3" json:"options_json,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BeginAssertionResponse) Reset() {
+	*x = BeginAssertionResponse{}
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BeginAssertionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BeginAssertionResponse) ProtoMessage() {}
+
+func (x *BeginAssertionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BeginAssertionResponse.ProtoReflect.Descriptor instead.
+func (*BeginAssertionResponse) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_webauthn_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *BeginAssertionResponse) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *BeginAssertionResponse) GetOptionsJson() []byte {
+	if x != nil {
+		return x.OptionsJson
+	}
+	return nil
+}
+
 var File_oblivio_v1_webauthn_proto protoreflect.FileDescriptor
 
 const file_oblivio_v1_webauthn_proto_rawDesc = "" +
@@ -499,12 +590,18 @@ const file_oblivio_v1_webauthn_proto_rawDesc = "" +
 	"transports\">\n" +
 	"\x17RemoveCredentialRequest\x12#\n" +
 	"\rcredential_id\x18\x01 \x01(\tR\fcredentialId\"\x1a\n" +
-	"\x18RemoveCredentialResponse2\xfb\x02\n" +
+	"\x18RemoveCredentialResponse\"\x17\n" +
+	"\x15BeginAssertionRequest\"Z\n" +
+	"\x16BeginAssertionResponse\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12!\n" +
+	"\foptions_json\x18\x02 \x01(\fR\voptionsJson2\xd4\x03\n" +
 	"\x0fWebAuthnService\x12T\n" +
 	"\rRegisterBegin\x12 .oblivio.v1.RegisterBeginRequest\x1a!.oblivio.v1.RegisterBeginResponse\x12W\n" +
 	"\x0eRegisterFinish\x12!.oblivio.v1.RegisterFinishRequest\x1a\".oblivio.v1.RegisterFinishResponse\x12Z\n" +
 	"\x0fListCredentials\x12\".oblivio.v1.ListCredentialsRequest\x1a#.oblivio.v1.ListCredentialsResponse\x12]\n" +
-	"\x10RemoveCredential\x12#.oblivio.v1.RemoveCredentialRequest\x1a$.oblivio.v1.RemoveCredentialResponseB\xae\x01\n" +
+	"\x10RemoveCredential\x12#.oblivio.v1.RemoveCredentialRequest\x1a$.oblivio.v1.RemoveCredentialResponse\x12W\n" +
+	"\x0eBeginAssertion\x12!.oblivio.v1.BeginAssertionRequest\x1a\".oblivio.v1.BeginAssertionResponseB\xae\x01\n" +
 	"\x0ecom.oblivio.v1B\rWebauthnProtoP\x01ZDgithub.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1;obliviov1\xa2\x02\x03OXX\xaa\x02\n" +
 	"Oblivio.V1\xca\x02\n" +
 	"Oblivio\\V1\xe2\x02\x16Oblivio\\V1\\GPBMetadata\xea\x02\vOblivio::V1b\x06proto3"
@@ -521,7 +618,7 @@ func file_oblivio_v1_webauthn_proto_rawDescGZIP() []byte {
 	return file_oblivio_v1_webauthn_proto_rawDescData
 }
 
-var file_oblivio_v1_webauthn_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_oblivio_v1_webauthn_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_oblivio_v1_webauthn_proto_goTypes = []any{
 	(*RegisterBeginRequest)(nil),     // 0: oblivio.v1.RegisterBeginRequest
 	(*RegisterBeginResponse)(nil),    // 1: oblivio.v1.RegisterBeginResponse
@@ -532,25 +629,29 @@ var file_oblivio_v1_webauthn_proto_goTypes = []any{
 	(*WebAuthnCredential)(nil),       // 6: oblivio.v1.WebAuthnCredential
 	(*RemoveCredentialRequest)(nil),  // 7: oblivio.v1.RemoveCredentialRequest
 	(*RemoveCredentialResponse)(nil), // 8: oblivio.v1.RemoveCredentialResponse
-	(*timestamppb.Timestamp)(nil),    // 9: google.protobuf.Timestamp
+	(*BeginAssertionRequest)(nil),    // 9: oblivio.v1.BeginAssertionRequest
+	(*BeginAssertionResponse)(nil),   // 10: oblivio.v1.BeginAssertionResponse
+	(*timestamppb.Timestamp)(nil),    // 11: google.protobuf.Timestamp
 }
 var file_oblivio_v1_webauthn_proto_depIdxs = []int32{
-	6, // 0: oblivio.v1.ListCredentialsResponse.credentials:type_name -> oblivio.v1.WebAuthnCredential
-	9, // 1: oblivio.v1.WebAuthnCredential.created_at:type_name -> google.protobuf.Timestamp
-	9, // 2: oblivio.v1.WebAuthnCredential.last_used_at:type_name -> google.protobuf.Timestamp
-	0, // 3: oblivio.v1.WebAuthnService.RegisterBegin:input_type -> oblivio.v1.RegisterBeginRequest
-	2, // 4: oblivio.v1.WebAuthnService.RegisterFinish:input_type -> oblivio.v1.RegisterFinishRequest
-	4, // 5: oblivio.v1.WebAuthnService.ListCredentials:input_type -> oblivio.v1.ListCredentialsRequest
-	7, // 6: oblivio.v1.WebAuthnService.RemoveCredential:input_type -> oblivio.v1.RemoveCredentialRequest
-	1, // 7: oblivio.v1.WebAuthnService.RegisterBegin:output_type -> oblivio.v1.RegisterBeginResponse
-	3, // 8: oblivio.v1.WebAuthnService.RegisterFinish:output_type -> oblivio.v1.RegisterFinishResponse
-	5, // 9: oblivio.v1.WebAuthnService.ListCredentials:output_type -> oblivio.v1.ListCredentialsResponse
-	8, // 10: oblivio.v1.WebAuthnService.RemoveCredential:output_type -> oblivio.v1.RemoveCredentialResponse
-	7, // [7:11] is the sub-list for method output_type
-	3, // [3:7] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	6,  // 0: oblivio.v1.ListCredentialsResponse.credentials:type_name -> oblivio.v1.WebAuthnCredential
+	11, // 1: oblivio.v1.WebAuthnCredential.created_at:type_name -> google.protobuf.Timestamp
+	11, // 2: oblivio.v1.WebAuthnCredential.last_used_at:type_name -> google.protobuf.Timestamp
+	0,  // 3: oblivio.v1.WebAuthnService.RegisterBegin:input_type -> oblivio.v1.RegisterBeginRequest
+	2,  // 4: oblivio.v1.WebAuthnService.RegisterFinish:input_type -> oblivio.v1.RegisterFinishRequest
+	4,  // 5: oblivio.v1.WebAuthnService.ListCredentials:input_type -> oblivio.v1.ListCredentialsRequest
+	7,  // 6: oblivio.v1.WebAuthnService.RemoveCredential:input_type -> oblivio.v1.RemoveCredentialRequest
+	9,  // 7: oblivio.v1.WebAuthnService.BeginAssertion:input_type -> oblivio.v1.BeginAssertionRequest
+	1,  // 8: oblivio.v1.WebAuthnService.RegisterBegin:output_type -> oblivio.v1.RegisterBeginResponse
+	3,  // 9: oblivio.v1.WebAuthnService.RegisterFinish:output_type -> oblivio.v1.RegisterFinishResponse
+	5,  // 10: oblivio.v1.WebAuthnService.ListCredentials:output_type -> oblivio.v1.ListCredentialsResponse
+	8,  // 11: oblivio.v1.WebAuthnService.RemoveCredential:output_type -> oblivio.v1.RemoveCredentialResponse
+	10, // 12: oblivio.v1.WebAuthnService.BeginAssertion:output_type -> oblivio.v1.BeginAssertionResponse
+	8,  // [8:13] is the sub-list for method output_type
+	3,  // [3:8] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_oblivio_v1_webauthn_proto_init() }
@@ -564,7 +665,7 @@ func file_oblivio_v1_webauthn_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_oblivio_v1_webauthn_proto_rawDesc), len(file_oblivio_v1_webauthn_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

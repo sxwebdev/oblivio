@@ -2,29 +2,17 @@
 // @generated from file oblivio/v1/projects.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import type {
-  GenFile,
-  GenMessage,
-  GenService,
-} from "@bufbuild/protobuf/codegenv2"
-import {
-  fileDesc,
-  messageDesc,
-  serviceDesc,
-} from "@bufbuild/protobuf/codegenv2"
-import type { Timestamp } from "@bufbuild/protobuf/wkt"
-import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt"
-import type { Message } from "@bufbuild/protobuf"
+import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
+import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file oblivio/v1/projects.proto.
  */
-export const file_oblivio_v1_projects: GenFile =
-  /*@__PURE__*/
-  fileDesc(
-    "ChlvYmxpdmlvL3YxL3Byb2plY3RzLnByb3RvEgpvYmxpdmlvLnYxIt8BCgdQcm9qZWN0EgoKAmlkGAEgASgJEhYKDmVuY3J5cHRlZF9ibG9iGAIgASgMEhgKEHdyYXBwZWRfaXRlbV9rZXkYAyABKAwSEQoJbmFtZV9oYXNoGAQgASgMEg8KB3ZlcnNpb24YBSABKA0SEgoKc29ydF9vcmRlchgGIAEoBRIuCgpjcmVhdGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCIVChNMaXN0UHJvamVjdHNSZXF1ZXN0Ij0KFExpc3RQcm9qZWN0c1Jlc3BvbnNlEiUKCHByb2plY3RzGAEgAygLMhMub2JsaXZpby52MS5Qcm9qZWN0Ih8KEUdldFByb2plY3RSZXF1ZXN0EgoKAmlkGAEgASgJIjoKEkdldFByb2plY3RSZXNwb25zZRIkCgdwcm9qZWN0GAEgASgLMhMub2JsaXZpby52MS5Qcm9qZWN0Im8KFENyZWF0ZVByb2plY3RSZXF1ZXN0EhYKDmVuY3J5cHRlZF9ibG9iGAEgASgMEhgKEHdyYXBwZWRfaXRlbV9rZXkYAiABKAwSEQoJbmFtZV9oYXNoGAMgASgMEhIKCnNvcnRfb3JkZXIYBCABKAUiPQoVQ3JlYXRlUHJvamVjdFJlc3BvbnNlEiQKB3Byb2plY3QYASABKAsyEy5vYmxpdmlvLnYxLlByb2plY3QigQEKFFVwZGF0ZVByb2plY3RSZXF1ZXN0EgoKAmlkGAEgASgJEhgKEGV4cGVjdGVkX3ZlcnNpb24YAiABKA0SFgoOZW5jcnlwdGVkX2Jsb2IYAyABKAwSGAoQd3JhcHBlZF9pdGVtX2tleRgEIAEoDBIRCgluYW1lX2hhc2gYBSABKAwiPQoVVXBkYXRlUHJvamVjdFJlc3BvbnNlEiQKB3Byb2plY3QYASABKAsyEy5vYmxpdmlvLnYxLlByb2plY3QiPAoURGVsZXRlUHJvamVjdFJlcXVlc3QSCgoCaWQYASABKAkSGAoQZXhwZWN0ZWRfdmVyc2lvbhgCIAEoDSIXChVEZWxldGVQcm9qZWN0UmVzcG9uc2UiLQoWUmVvcmRlclByb2plY3RzUmVxdWVzdBITCgtvcmRlcmVkX2lkcxgBIAMoCSIZChdSZW9yZGVyUHJvamVjdHNSZXNwb25zZTKPBAoPUHJvamVjdHNTZXJ2aWNlElEKDExpc3RQcm9qZWN0cxIfLm9ibGl2aW8udjEuTGlzdFByb2plY3RzUmVxdWVzdBogLm9ibGl2aW8udjEuTGlzdFByb2plY3RzUmVzcG9uc2USSwoKR2V0UHJvamVjdBIdLm9ibGl2aW8udjEuR2V0UHJvamVjdFJlcXVlc3QaHi5vYmxpdmlvLnYxLkdldFByb2plY3RSZXNwb25zZRJUCg1DcmVhdGVQcm9qZWN0EiAub2JsaXZpby52MS5DcmVhdGVQcm9qZWN0UmVxdWVzdBohLm9ibGl2aW8udjEuQ3JlYXRlUHJvamVjdFJlc3BvbnNlElQKDVVwZGF0ZVByb2plY3QSIC5vYmxpdmlvLnYxLlVwZGF0ZVByb2plY3RSZXF1ZXN0GiEub2JsaXZpby52MS5VcGRhdGVQcm9qZWN0UmVzcG9uc2USVAoNRGVsZXRlUHJvamVjdBIgLm9ibGl2aW8udjEuRGVsZXRlUHJvamVjdFJlcXVlc3QaIS5vYmxpdmlvLnYxLkRlbGV0ZVByb2plY3RSZXNwb25zZRJaCg9SZW9yZGVyUHJvamVjdHMSIi5vYmxpdmlvLnYxLlJlb3JkZXJQcm9qZWN0c1JlcXVlc3QaIy5vYmxpdmlvLnYxLlJlb3JkZXJQcm9qZWN0c1Jlc3BvbnNlQq4BCg5jb20ub2JsaXZpby52MUINUHJvamVjdHNQcm90b1ABWkRnaXRodWIuY29tL3N4d2ViZGV2L29ibGl2aW8vaW50ZXJuYWwvYXBpL2dlbi9nby9vYmxpdmlvL3YxO29ibGl2aW92MaICA09YWKoCCk9ibGl2aW8uVjHKAgpPYmxpdmlvXFYx4gIWT2JsaXZpb1xWMVxHUEJNZXRhZGF0YeoCC09ibGl2aW86OlYxYgZwcm90bzM",
-    [file_google_protobuf_timestamp]
-  )
+export const file_oblivio_v1_projects: GenFile = /*@__PURE__*/
+  fileDesc("ChlvYmxpdmlvL3YxL3Byb2plY3RzLnByb3RvEgpvYmxpdmlvLnYxIt8BCgdQcm9qZWN0EgoKAmlkGAEgASgJEhYKDmVuY3J5cHRlZF9ibG9iGAIgASgMEhgKEHdyYXBwZWRfaXRlbV9rZXkYAyABKAwSEQoJbmFtZV9oYXNoGAQgASgMEg8KB3ZlcnNpb24YBSABKA0SEgoKc29ydF9vcmRlchgGIAEoBRIuCgpjcmVhdGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCIVChNMaXN0UHJvamVjdHNSZXF1ZXN0Ij0KFExpc3RQcm9qZWN0c1Jlc3BvbnNlEiUKCHByb2plY3RzGAEgAygLMhMub2JsaXZpby52MS5Qcm9qZWN0Ih8KEUdldFByb2plY3RSZXF1ZXN0EgoKAmlkGAEgASgJIjoKEkdldFByb2plY3RSZXNwb25zZRIkCgdwcm9qZWN0GAEgASgLMhMub2JsaXZpby52MS5Qcm9qZWN0Im8KFENyZWF0ZVByb2plY3RSZXF1ZXN0EhYKDmVuY3J5cHRlZF9ibG9iGAEgASgMEhgKEHdyYXBwZWRfaXRlbV9rZXkYAiABKAwSEQoJbmFtZV9oYXNoGAMgASgMEhIKCnNvcnRfb3JkZXIYBCABKAUiPQoVQ3JlYXRlUHJvamVjdFJlc3BvbnNlEiQKB3Byb2plY3QYASABKAsyEy5vYmxpdmlvLnYxLlByb2plY3QigQEKFFVwZGF0ZVByb2plY3RSZXF1ZXN0EgoKAmlkGAEgASgJEhgKEGV4cGVjdGVkX3ZlcnNpb24YAiABKA0SFgoOZW5jcnlwdGVkX2Jsb2IYAyABKAwSGAoQd3JhcHBlZF9pdGVtX2tleRgEIAEoDBIRCgluYW1lX2hhc2gYBSABKAwiPQoVVXBkYXRlUHJvamVjdFJlc3BvbnNlEiQKB3Byb2plY3QYASABKAsyEy5vYmxpdmlvLnYxLlByb2plY3QiPAoURGVsZXRlUHJvamVjdFJlcXVlc3QSCgoCaWQYASABKAkSGAoQZXhwZWN0ZWRfdmVyc2lvbhgCIAEoDSIXChVEZWxldGVQcm9qZWN0UmVzcG9uc2UiLQoWUmVvcmRlclByb2plY3RzUmVxdWVzdBITCgtvcmRlcmVkX2lkcxgBIAMoCSIZChdSZW9yZGVyUHJvamVjdHNSZXNwb25zZTKPBAoPUHJvamVjdHNTZXJ2aWNlElEKDExpc3RQcm9qZWN0cxIfLm9ibGl2aW8udjEuTGlzdFByb2plY3RzUmVxdWVzdBogLm9ibGl2aW8udjEuTGlzdFByb2plY3RzUmVzcG9uc2USSwoKR2V0UHJvamVjdBIdLm9ibGl2aW8udjEuR2V0UHJvamVjdFJlcXVlc3QaHi5vYmxpdmlvLnYxLkdldFByb2plY3RSZXNwb25zZRJUCg1DcmVhdGVQcm9qZWN0EiAub2JsaXZpby52MS5DcmVhdGVQcm9qZWN0UmVxdWVzdBohLm9ibGl2aW8udjEuQ3JlYXRlUHJvamVjdFJlc3BvbnNlElQKDVVwZGF0ZVByb2plY3QSIC5vYmxpdmlvLnYxLlVwZGF0ZVByb2plY3RSZXF1ZXN0GiEub2JsaXZpby52MS5VcGRhdGVQcm9qZWN0UmVzcG9uc2USVAoNRGVsZXRlUHJvamVjdBIgLm9ibGl2aW8udjEuRGVsZXRlUHJvamVjdFJlcXVlc3QaIS5vYmxpdmlvLnYxLkRlbGV0ZVByb2plY3RSZXNwb25zZRJaCg9SZW9yZGVyUHJvamVjdHMSIi5vYmxpdmlvLnYxLlJlb3JkZXJQcm9qZWN0c1JlcXVlc3QaIy5vYmxpdmlvLnYxLlJlb3JkZXJQcm9qZWN0c1Jlc3BvbnNlQq4BCg5jb20ub2JsaXZpby52MUINUHJvamVjdHNQcm90b1ABWkRnaXRodWIuY29tL3N4d2ViZGV2L29ibGl2aW8vaW50ZXJuYWwvYXBpL2dlbi9nby9vYmxpdmlvL3YxO29ibGl2aW92MaICA09YWKoCCk9ibGl2aW8uVjHKAgpPYmxpdmlvXFYx4gIWT2JsaXZpb1xWMVxHUEJNZXRhZGF0YeoCC09ibGl2aW86OlYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
 
 /**
  * Project is the server-visible representation: identifiers, ciphertext,
@@ -36,83 +24,80 @@ export type Project = Message<"oblivio.v1.Project"> & {
   /**
    * @generated from field: string id = 1;
    */
-  id: string
+  id: string;
 
   /**
    * @generated from field: bytes encrypted_blob = 2;
    */
-  encryptedBlob: Uint8Array
+  encryptedBlob: Uint8Array;
 
   /**
    * @generated from field: bytes wrapped_item_key = 3;
    */
-  wrappedItemKey: Uint8Array
+  wrappedItemKey: Uint8Array;
 
   /**
    * @generated from field: bytes name_hash = 4;
    */
-  nameHash: Uint8Array
+  nameHash: Uint8Array;
 
   /**
    * @generated from field: uint32 version = 5;
    */
-  version: number
+  version: number;
 
   /**
    * @generated from field: int32 sort_order = 6;
    */
-  sortOrder: number
+  sortOrder: number;
 
   /**
    * @generated from field: google.protobuf.Timestamp created_at = 7;
    */
-  createdAt?: Timestamp | undefined
+  createdAt?: Timestamp | undefined;
 
   /**
    * @generated from field: google.protobuf.Timestamp updated_at = 8;
    */
-  updatedAt?: Timestamp | undefined
-}
+  updatedAt?: Timestamp | undefined;
+};
 
 /**
  * Describes the message oblivio.v1.Project.
  * Use `create(ProjectSchema)` to create a new message.
  */
-export const ProjectSchema: GenMessage<Project> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_projects, 0)
+export const ProjectSchema: GenMessage<Project> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_projects, 0);
 
 /**
  * @generated from message oblivio.v1.ListProjectsRequest
  */
-export type ListProjectsRequest = Message<"oblivio.v1.ListProjectsRequest"> & {}
+export type ListProjectsRequest = Message<"oblivio.v1.ListProjectsRequest"> & {
+};
 
 /**
  * Describes the message oblivio.v1.ListProjectsRequest.
  * Use `create(ListProjectsRequestSchema)` to create a new message.
  */
-export const ListProjectsRequestSchema: GenMessage<ListProjectsRequest> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_projects, 1)
+export const ListProjectsRequestSchema: GenMessage<ListProjectsRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_projects, 1);
 
 /**
  * @generated from message oblivio.v1.ListProjectsResponse
  */
-export type ListProjectsResponse =
-  Message<"oblivio.v1.ListProjectsResponse"> & {
-    /**
-     * @generated from field: repeated oblivio.v1.Project projects = 1;
-     */
-    projects: Project[]
-  }
+export type ListProjectsResponse = Message<"oblivio.v1.ListProjectsResponse"> & {
+  /**
+   * @generated from field: repeated oblivio.v1.Project projects = 1;
+   */
+  projects: Project[];
+};
 
 /**
  * Describes the message oblivio.v1.ListProjectsResponse.
  * Use `create(ListProjectsResponseSchema)` to create a new message.
  */
-export const ListProjectsResponseSchema: GenMessage<ListProjectsResponse> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_projects, 2)
+export const ListProjectsResponseSchema: GenMessage<ListProjectsResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_projects, 2);
 
 /**
  * @generated from message oblivio.v1.GetProjectRequest
@@ -121,16 +106,15 @@ export type GetProjectRequest = Message<"oblivio.v1.GetProjectRequest"> & {
   /**
    * @generated from field: string id = 1;
    */
-  id: string
-}
+  id: string;
+};
 
 /**
  * Describes the message oblivio.v1.GetProjectRequest.
  * Use `create(GetProjectRequestSchema)` to create a new message.
  */
-export const GetProjectRequestSchema: GenMessage<GetProjectRequest> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_projects, 3)
+export const GetProjectRequestSchema: GenMessage<GetProjectRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_projects, 3);
 
 /**
  * @generated from message oblivio.v1.GetProjectResponse
@@ -139,200 +123,185 @@ export type GetProjectResponse = Message<"oblivio.v1.GetProjectResponse"> & {
   /**
    * @generated from field: oblivio.v1.Project project = 1;
    */
-  project?: Project | undefined
-}
+  project?: Project | undefined;
+};
 
 /**
  * Describes the message oblivio.v1.GetProjectResponse.
  * Use `create(GetProjectResponseSchema)` to create a new message.
  */
-export const GetProjectResponseSchema: GenMessage<GetProjectResponse> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_projects, 4)
+export const GetProjectResponseSchema: GenMessage<GetProjectResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_projects, 4);
 
 /**
  * @generated from message oblivio.v1.CreateProjectRequest
  */
-export type CreateProjectRequest =
-  Message<"oblivio.v1.CreateProjectRequest"> & {
-    /**
-     * @generated from field: bytes encrypted_blob = 1;
-     */
-    encryptedBlob: Uint8Array
+export type CreateProjectRequest = Message<"oblivio.v1.CreateProjectRequest"> & {
+  /**
+   * @generated from field: bytes encrypted_blob = 1;
+   */
+  encryptedBlob: Uint8Array;
 
-    /**
-     * @generated from field: bytes wrapped_item_key = 2;
-     */
-    wrappedItemKey: Uint8Array
+  /**
+   * @generated from field: bytes wrapped_item_key = 2;
+   */
+  wrappedItemKey: Uint8Array;
 
-    /**
-     * @generated from field: bytes name_hash = 3;
-     */
-    nameHash: Uint8Array
+  /**
+   * @generated from field: bytes name_hash = 3;
+   */
+  nameHash: Uint8Array;
 
-    /**
-     * @generated from field: int32 sort_order = 4;
-     */
-    sortOrder: number
-  }
+  /**
+   * @generated from field: int32 sort_order = 4;
+   */
+  sortOrder: number;
+};
 
 /**
  * Describes the message oblivio.v1.CreateProjectRequest.
  * Use `create(CreateProjectRequestSchema)` to create a new message.
  */
-export const CreateProjectRequestSchema: GenMessage<CreateProjectRequest> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_projects, 5)
+export const CreateProjectRequestSchema: GenMessage<CreateProjectRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_projects, 5);
 
 /**
  * @generated from message oblivio.v1.CreateProjectResponse
  */
-export type CreateProjectResponse =
-  Message<"oblivio.v1.CreateProjectResponse"> & {
-    /**
-     * @generated from field: oblivio.v1.Project project = 1;
-     */
-    project?: Project | undefined
-  }
+export type CreateProjectResponse = Message<"oblivio.v1.CreateProjectResponse"> & {
+  /**
+   * @generated from field: oblivio.v1.Project project = 1;
+   */
+  project?: Project | undefined;
+};
 
 /**
  * Describes the message oblivio.v1.CreateProjectResponse.
  * Use `create(CreateProjectResponseSchema)` to create a new message.
  */
-export const CreateProjectResponseSchema: GenMessage<CreateProjectResponse> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_projects, 6)
+export const CreateProjectResponseSchema: GenMessage<CreateProjectResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_projects, 6);
 
 /**
  * @generated from message oblivio.v1.UpdateProjectRequest
  */
-export type UpdateProjectRequest =
-  Message<"oblivio.v1.UpdateProjectRequest"> & {
-    /**
-     * @generated from field: string id = 1;
-     */
-    id: string
+export type UpdateProjectRequest = Message<"oblivio.v1.UpdateProjectRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
 
-    /**
-     * @generated from field: uint32 expected_version = 2;
-     */
-    expectedVersion: number
+  /**
+   * @generated from field: uint32 expected_version = 2;
+   */
+  expectedVersion: number;
 
-    /**
-     * @generated from field: bytes encrypted_blob = 3;
-     */
-    encryptedBlob: Uint8Array
+  /**
+   * @generated from field: bytes encrypted_blob = 3;
+   */
+  encryptedBlob: Uint8Array;
 
-    /**
-     * @generated from field: bytes wrapped_item_key = 4;
-     */
-    wrappedItemKey: Uint8Array
+  /**
+   * @generated from field: bytes wrapped_item_key = 4;
+   */
+  wrappedItemKey: Uint8Array;
 
-    /**
-     * @generated from field: bytes name_hash = 5;
-     */
-    nameHash: Uint8Array
-  }
+  /**
+   * @generated from field: bytes name_hash = 5;
+   */
+  nameHash: Uint8Array;
+};
 
 /**
  * Describes the message oblivio.v1.UpdateProjectRequest.
  * Use `create(UpdateProjectRequestSchema)` to create a new message.
  */
-export const UpdateProjectRequestSchema: GenMessage<UpdateProjectRequest> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_projects, 7)
+export const UpdateProjectRequestSchema: GenMessage<UpdateProjectRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_projects, 7);
 
 /**
  * @generated from message oblivio.v1.UpdateProjectResponse
  */
-export type UpdateProjectResponse =
-  Message<"oblivio.v1.UpdateProjectResponse"> & {
-    /**
-     * @generated from field: oblivio.v1.Project project = 1;
-     */
-    project?: Project | undefined
-  }
+export type UpdateProjectResponse = Message<"oblivio.v1.UpdateProjectResponse"> & {
+  /**
+   * @generated from field: oblivio.v1.Project project = 1;
+   */
+  project?: Project | undefined;
+};
 
 /**
  * Describes the message oblivio.v1.UpdateProjectResponse.
  * Use `create(UpdateProjectResponseSchema)` to create a new message.
  */
-export const UpdateProjectResponseSchema: GenMessage<UpdateProjectResponse> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_projects, 8)
+export const UpdateProjectResponseSchema: GenMessage<UpdateProjectResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_projects, 8);
 
 /**
  * @generated from message oblivio.v1.DeleteProjectRequest
  */
-export type DeleteProjectRequest =
-  Message<"oblivio.v1.DeleteProjectRequest"> & {
-    /**
-     * @generated from field: string id = 1;
-     */
-    id: string
+export type DeleteProjectRequest = Message<"oblivio.v1.DeleteProjectRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
 
-    /**
-     * @generated from field: uint32 expected_version = 2;
-     */
-    expectedVersion: number
-  }
+  /**
+   * @generated from field: uint32 expected_version = 2;
+   */
+  expectedVersion: number;
+};
 
 /**
  * Describes the message oblivio.v1.DeleteProjectRequest.
  * Use `create(DeleteProjectRequestSchema)` to create a new message.
  */
-export const DeleteProjectRequestSchema: GenMessage<DeleteProjectRequest> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_projects, 9)
+export const DeleteProjectRequestSchema: GenMessage<DeleteProjectRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_projects, 9);
 
 /**
  * @generated from message oblivio.v1.DeleteProjectResponse
  */
-export type DeleteProjectResponse =
-  Message<"oblivio.v1.DeleteProjectResponse"> & {}
+export type DeleteProjectResponse = Message<"oblivio.v1.DeleteProjectResponse"> & {
+};
 
 /**
  * Describes the message oblivio.v1.DeleteProjectResponse.
  * Use `create(DeleteProjectResponseSchema)` to create a new message.
  */
-export const DeleteProjectResponseSchema: GenMessage<DeleteProjectResponse> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_projects, 10)
+export const DeleteProjectResponseSchema: GenMessage<DeleteProjectResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_projects, 10);
 
 /**
  * @generated from message oblivio.v1.ReorderProjectsRequest
  */
-export type ReorderProjectsRequest =
-  Message<"oblivio.v1.ReorderProjectsRequest"> & {
-    /**
-     * Ordered list of project IDs. The first id receives sort_order=0, etc.
-     *
-     * @generated from field: repeated string ordered_ids = 1;
-     */
-    orderedIds: string[]
-  }
+export type ReorderProjectsRequest = Message<"oblivio.v1.ReorderProjectsRequest"> & {
+  /**
+   * Ordered list of project IDs. The first id receives sort_order=0, etc.
+   *
+   * @generated from field: repeated string ordered_ids = 1;
+   */
+  orderedIds: string[];
+};
 
 /**
  * Describes the message oblivio.v1.ReorderProjectsRequest.
  * Use `create(ReorderProjectsRequestSchema)` to create a new message.
  */
-export const ReorderProjectsRequestSchema: GenMessage<ReorderProjectsRequest> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_projects, 11)
+export const ReorderProjectsRequestSchema: GenMessage<ReorderProjectsRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_projects, 11);
 
 /**
  * @generated from message oblivio.v1.ReorderProjectsResponse
  */
-export type ReorderProjectsResponse =
-  Message<"oblivio.v1.ReorderProjectsResponse"> & {}
+export type ReorderProjectsResponse = Message<"oblivio.v1.ReorderProjectsResponse"> & {
+};
 
 /**
  * Describes the message oblivio.v1.ReorderProjectsResponse.
  * Use `create(ReorderProjectsResponseSchema)` to create a new message.
  */
-export const ReorderProjectsResponseSchema: GenMessage<ReorderProjectsResponse> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_projects, 12)
+export const ReorderProjectsResponseSchema: GenMessage<ReorderProjectsResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_projects, 12);
 
 /**
  * ProjectsService manages encrypted project groupings inside a user's vault.
@@ -346,48 +315,50 @@ export const ProjectsService: GenService<{
    * @generated from rpc oblivio.v1.ProjectsService.ListProjects
    */
   listProjects: {
-    methodKind: "unary"
-    input: typeof ListProjectsRequestSchema
-    output: typeof ListProjectsResponseSchema
-  }
+    methodKind: "unary";
+    input: typeof ListProjectsRequestSchema;
+    output: typeof ListProjectsResponseSchema;
+  },
   /**
    * @generated from rpc oblivio.v1.ProjectsService.GetProject
    */
   getProject: {
-    methodKind: "unary"
-    input: typeof GetProjectRequestSchema
-    output: typeof GetProjectResponseSchema
-  }
+    methodKind: "unary";
+    input: typeof GetProjectRequestSchema;
+    output: typeof GetProjectResponseSchema;
+  },
   /**
    * @generated from rpc oblivio.v1.ProjectsService.CreateProject
    */
   createProject: {
-    methodKind: "unary"
-    input: typeof CreateProjectRequestSchema
-    output: typeof CreateProjectResponseSchema
-  }
+    methodKind: "unary";
+    input: typeof CreateProjectRequestSchema;
+    output: typeof CreateProjectResponseSchema;
+  },
   /**
    * @generated from rpc oblivio.v1.ProjectsService.UpdateProject
    */
   updateProject: {
-    methodKind: "unary"
-    input: typeof UpdateProjectRequestSchema
-    output: typeof UpdateProjectResponseSchema
-  }
+    methodKind: "unary";
+    input: typeof UpdateProjectRequestSchema;
+    output: typeof UpdateProjectResponseSchema;
+  },
   /**
    * @generated from rpc oblivio.v1.ProjectsService.DeleteProject
    */
   deleteProject: {
-    methodKind: "unary"
-    input: typeof DeleteProjectRequestSchema
-    output: typeof DeleteProjectResponseSchema
-  }
+    methodKind: "unary";
+    input: typeof DeleteProjectRequestSchema;
+    output: typeof DeleteProjectResponseSchema;
+  },
   /**
    * @generated from rpc oblivio.v1.ProjectsService.ReorderProjects
    */
   reorderProjects: {
-    methodKind: "unary"
-    input: typeof ReorderProjectsRequestSchema
-    output: typeof ReorderProjectsResponseSchema
-  }
-}> = /*@__PURE__*/ serviceDesc(file_oblivio_v1_projects, 0)
+    methodKind: "unary";
+    input: typeof ReorderProjectsRequestSchema;
+    output: typeof ReorderProjectsResponseSchema;
+  },
+}> = /*@__PURE__*/
+  serviceDesc(file_oblivio_v1_projects, 0);
+

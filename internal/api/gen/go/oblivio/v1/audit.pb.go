@@ -46,6 +46,8 @@ const (
 	AuditAction_AUDIT_ACTION_ENTRY_DELETE      AuditAction = 18
 	AuditAction_AUDIT_ACTION_SESSION_TERMINATE AuditAction = 19
 	AuditAction_AUDIT_ACTION_ACCOUNT_DELETE    AuditAction = 20
+	AuditAction_AUDIT_ACTION_EMAIL_VERIFY      AuditAction = 21
+	AuditAction_AUDIT_ACTION_EMAIL_RESEND      AuditAction = 22
 )
 
 // Enum value maps for AuditAction.
@@ -72,6 +74,8 @@ var (
 		18: "AUDIT_ACTION_ENTRY_DELETE",
 		19: "AUDIT_ACTION_SESSION_TERMINATE",
 		20: "AUDIT_ACTION_ACCOUNT_DELETE",
+		21: "AUDIT_ACTION_EMAIL_VERIFY",
+		22: "AUDIT_ACTION_EMAIL_RESEND",
 	}
 	AuditAction_value = map[string]int32{
 		"AUDIT_ACTION_UNSPECIFIED":       0,
@@ -95,6 +99,8 @@ var (
 		"AUDIT_ACTION_ENTRY_DELETE":      18,
 		"AUDIT_ACTION_SESSION_TERMINATE": 19,
 		"AUDIT_ACTION_ACCOUNT_DELETE":    20,
+		"AUDIT_ACTION_EMAIL_VERIFY":      21,
+		"AUDIT_ACTION_EMAIL_RESEND":      22,
 	}
 )
 
@@ -398,7 +404,7 @@ const file_oblivio_v1_audit_proto_rawDesc = "" +
 	"\x11ListAuditResponse\x120\n" +
 	"\aentries\x18\x01 \x03(\v2\x16.oblivio.v1.AuditEntryR\aentries\x12)\n" +
 	"\x0enext_cursor_id\x18\x02 \x01(\x03H\x00R\fnextCursorId\x88\x01\x01B\x11\n" +
-	"\x0f_next_cursor_id*\x9d\x05\n" +
+	"\x0f_next_cursor_id*\xdb\x05\n" +
 	"\vAuditAction\x12\x1c\n" +
 	"\x18AUDIT_ACTION_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15AUDIT_ACTION_REGISTER\x10\x01\x12\x16\n" +
@@ -421,7 +427,9 @@ const file_oblivio_v1_audit_proto_rawDesc = "" +
 	"\x17AUDIT_ACTION_ENTRY_VIEW\x10\x11\x12\x1d\n" +
 	"\x19AUDIT_ACTION_ENTRY_DELETE\x10\x12\x12\"\n" +
 	"\x1eAUDIT_ACTION_SESSION_TERMINATE\x10\x13\x12\x1f\n" +
-	"\x1bAUDIT_ACTION_ACCOUNT_DELETE\x10\x142X\n" +
+	"\x1bAUDIT_ACTION_ACCOUNT_DELETE\x10\x14\x12\x1d\n" +
+	"\x19AUDIT_ACTION_EMAIL_VERIFY\x10\x15\x12\x1d\n" +
+	"\x19AUDIT_ACTION_EMAIL_RESEND\x10\x162X\n" +
 	"\fAuditService\x12H\n" +
 	"\tListAudit\x12\x1c.oblivio.v1.ListAuditRequest\x1a\x1d.oblivio.v1.ListAuditResponseB\xab\x01\n" +
 	"\x0ecom.oblivio.v1B\n" +

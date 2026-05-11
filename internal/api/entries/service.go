@@ -90,8 +90,18 @@ func (s *Service) GetEntriesByIds(ctx context.Context, req *connect.Request[pb.G
 	for _, r := range rows {
 		out = append(out, toEntry(r))
 	}
-	if len(rows) == 1 {
+	// Set the audit target. For a single-id batch the target_id column is
+	// authoritative; for multi-id batches we still pin the first id (the
+	// audit interceptor records one row per call) and stash the full id
+	// list in metadata via the audit-extra slot. The plan called this out
+	// explicitly: silent target loss for batch reads is bad for forensics.
+	if len(rows) > 0 {
 		middleware.SetAuditTarget(ctx, rows[0].ID)
+		ids := make([]string, 0, len(rows))
+		for _, r := range rows {
+			ids = append(ids, r.ID.String())
+		}
+		middleware.SetAuditMetadata(ctx, map[string]any{"target_ids": ids})
 	}
 	metrics.EntryViewsTotal.Add(float64(len(rows)))
 	return connect.NewResponse(&pb.GetEntriesByIdsResponse{Entries: out}), nil

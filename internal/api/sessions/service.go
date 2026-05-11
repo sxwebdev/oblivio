@@ -2,7 +2,10 @@
 //
 // Sessions are stored in auth_sessions and managed by internal/auth.Manager.
 // This package only owns the user-facing list/terminate surface — the token
-// issuance path lives in the auth service.
+// issuance path lives in the auth service. Termination delegates to the
+// Manager so the underlying access/refresh tokens in auth_tokens are
+// deleted alongside the session row, otherwise revocation would only flip
+// a DB flag that nobody consults.
 package sessions
 
 import (
@@ -18,6 +21,7 @@ import (
 	"github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1/obliviov1connect"
 	"github.com/sxwebdev/oblivio/internal/api/middleware"
 	"github.com/sxwebdev/oblivio/internal/audit"
+	"github.com/sxwebdev/oblivio/internal/auth"
 	"github.com/sxwebdev/oblivio/internal/metrics"
 	"github.com/sxwebdev/oblivio/internal/models"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_auth_sessions"
@@ -27,11 +31,12 @@ import (
 type Service struct {
 	obliviov1connect.UnimplementedSessionsServiceHandler
 	auditWriter *audit.Writer
+	authManager *auth.Manager
 }
 
 // NewService builds the handler.
-func NewService(auditWriter *audit.Writer) *Service {
-	return &Service{auditWriter: auditWriter}
+func NewService(auditWriter *audit.Writer, am *auth.Manager) *Service {
+	return &Service{auditWriter: auditWriter, authManager: am}
 }
 
 // ListSessions returns every non-revoked session that belongs to the
@@ -64,6 +69,9 @@ func (s *Service) TerminateSession(ctx context.Context, req *connect.Request[pb.
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid session_id"))
 	}
 
+	// Ownership check first: GetSessionByID is RLS-scoped through the tx,
+	// so a foreign session_id is invisible. Defence in depth — if RLS were
+	// disabled the check below would still gate the revoke.
 	repo := repo_auth_sessions.New(tx)
 	row, err := repo.GetSessionByID(ctx, id)
 	if err != nil {
@@ -73,11 +81,13 @@ func (s *Service) TerminateSession(ctx context.Context, req *connect.Request[pb.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	if row.UserID != uc.UserID {
-		// RLS should have masked this anyway; defence in depth.
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("session not found"))
 	}
 
-	if err := repo.RevokeSession(ctx, id); err != nil {
+	// Authoritative revoke: drops the access+refresh rows from auth_tokens
+	// AND flips the auth_sessions row revoked_at. Without the token-side
+	// delete the access token would stay valid until natural expiry.
+	if err := s.authManager.RevokeSession(ctx, id); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	metrics.SessionsTerminatedTotal.WithLabelValues("self").Inc()
@@ -89,10 +99,18 @@ func (s *Service) TerminateSession(ctx context.Context, req *connect.Request[pb.
 
 // TerminateAllExceptCurrent revokes every other session belonging to the
 // caller. Useful as the "I think I was compromised" big red button.
+//
+// Two parallel sweeps run: the token store (auth_tokens) drops every token
+// row except those bound to the current session, and auth_sessions flips
+// revoked_at on every row except the current one.
 func (s *Service) TerminateAllExceptCurrent(ctx context.Context, req *connect.Request[pb.TerminateAllExceptCurrentRequest]) (*connect.Response[pb.TerminateAllExceptCurrentResponse], error) {
 	uc := middleware.MustFromContext(ctx)
 	tx := middleware.MustTxFromContext(ctx)
 
+	// Drop every token for the user except the current session's pair.
+	if err := s.authManager.RevokeUserTokensExceptSession(ctx, uc.UserID, uc.SessionID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	n, err := repo_auth_sessions.New(tx).RevokeAllUserSessionsExcept(ctx,
 		repo_auth_sessions.RevokeAllUserSessionsExceptParams{
 			UserID: uc.UserID,
@@ -122,7 +140,7 @@ func (s *Service) writeAudit(ctx context.Context, userID, target uuid.UUID, ua, 
 	if target != uuid.Nil {
 		ev.TargetID = uuid.NullUUID{UUID: target, Valid: true}
 	}
-	_, _ = s.auditWriter.Append(ctx, ev)
+	s.auditWriter.AppendOrLog(ctx, ev)
 }
 
 func toPBSession(r *models.AuthSession, current bool) *pb.Session {

@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.31.1
 
-package repo_rate_limit_buckets
+package repo_email_verification_tokens
 
 import (
 	"context"

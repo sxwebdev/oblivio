@@ -39,9 +39,16 @@ message LoginTOTPServiceEnableRequest {
 }
 message LoginTOTPServiceEnableResponse {}
 
+// Disable accepts EITHER totp_code OR a webauthn assertion. The webauthn
+// path is for users who lost access to their authenticator app but still
+// have a passkey enrolled. mfa_session_id pairs with WebAuthnService.
+// BeginAssertion (which seeds the challenge) and webauthn_assertion_json
+// is the response from `navigator.credentials.get` serialised as JSON.
 message LoginTOTPServiceDisableRequest {
   bytes auth_key = 1;
   string totp_code = 2;
+  bytes webauthn_assertion_json = 3;
+  string mfa_session_id = 4;
 }
 message LoginTOTPServiceDisableResponse {}
 

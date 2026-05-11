@@ -16,7 +16,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -131,16 +130,11 @@ func (m *IdempotencyMiddleware) Wrap(next http.Handler) http.Handler {
 	})
 }
 
-// procedureFromPath turns "/oblivio.v1.ProjectsService/CreateProject" into
-// itself, with the leading slash preserved (matches Spec.Procedure).
-func procedureFromPath(p string) string {
-	idx := strings.LastIndex(p, "/")
-	if idx < 0 {
-		return p
-	}
-	// strip query params (if any) — http.Request.URL.Path already does this.
-	return p
-}
+// procedureFromPath returns the request path unchanged. ConnectRPC's
+// Spec.Procedure format already matches r.URL.Path for our routes (we
+// don't mount a sub-prefix on the inner mux), so this exists only as a
+// single point to extend if a future router prepends a prefix.
+func procedureFromPath(p string) string { return p }
 
 type captureWriter struct {
 	http.ResponseWriter

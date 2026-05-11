@@ -46,3 +46,16 @@ CREATE TABLE user_login_totp (
     enabled             BOOLEAN NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Email verification tokens. Generated at Register and ResendVerification;
+-- consumed at VerifyEmail. The token itself is sent by email; only its
+-- SHA-256 lives in the DB so a backup leak doesn't grant verification.
+CREATE TABLE email_verification_tokens (
+    token_hash  BYTEA       PRIMARY KEY,        -- SHA-256(token)
+    user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    purpose     TEXT        NOT NULL,           -- 'verify_email' (extensible)
+    expires_at  TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ
+);
+CREATE INDEX idx_evt_user   ON email_verification_tokens(user_id);
+CREATE INDEX idx_evt_expiry ON email_verification_tokens(expires_at);

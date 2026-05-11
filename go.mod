@@ -23,6 +23,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 	github.com/tkcrm/mx v0.5.0
 	github.com/urfave/cli/v3 v3.8.0
+	github.com/wneessen/go-mail v0.7.2
 	golang.org/x/crypto v0.51.0
 	golang.org/x/text v0.37.0
 	golang.org/x/time v0.15.0

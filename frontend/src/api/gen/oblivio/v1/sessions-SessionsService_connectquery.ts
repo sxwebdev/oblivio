@@ -2,20 +2,19 @@
 // @generated from file oblivio/v1/sessions.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import { SessionsService } from "./sessions_pb"
+import { SessionsService } from "./sessions_pb";
 
 /**
  * @generated from rpc oblivio.v1.SessionsService.ListSessions
  */
-export const listSessions = SessionsService.method.listSessions
+export const listSessions = SessionsService.method.listSessions;
 
 /**
  * @generated from rpc oblivio.v1.SessionsService.TerminateSession
  */
-export const terminateSession = SessionsService.method.terminateSession
+export const terminateSession = SessionsService.method.terminateSession;
 
 /**
  * @generated from rpc oblivio.v1.SessionsService.TerminateAllExceptCurrent
  */
-export const terminateAllExceptCurrent =
-  SessionsService.method.terminateAllExceptCurrent
+export const terminateAllExceptCurrent = SessionsService.method.terminateAllExceptCurrent;

@@ -4,15 +4,22 @@ CREATE TYPE audit_action AS ENUM (
     'webauthn_register','webauthn_remove','totp_enable','totp_disable',
     'project_create','project_update','project_delete',
     'entry_create','entry_update','entry_view','entry_delete',
-    'session_terminate','account_delete'
+    'session_terminate','account_delete',
+    -- Sprint F: email verification flow.
+    'email_verify','email_resend'
 );
 
 -- Append-only hash-chained audit log. The chain head is mirrored into
 -- system_state.audit_chain_head; a periodic job re-walks the chain and
 -- alarms on mismatch (Sprint 4).
+-- audit_log.user_id is intentionally NOT a foreign key. The hash chain's
+-- self_hash includes user_id as part of canonical row data, so an
+-- ON DELETE SET NULL would silently break the chain at the moment of
+-- account deletion. The column stays as an attribution UUID without
+-- referential integrity (validated only at write time by the writer).
 CREATE TABLE audit_log (
     id          BIGSERIAL PRIMARY KEY,
-    user_id     UUID REFERENCES users(id) ON DELETE SET NULL,
+    user_id     UUID,
     action      audit_action NOT NULL,
     target_id   UUID,
     ip          INET,

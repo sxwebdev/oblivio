@@ -1,10 +1,10 @@
 // Settings · Security.
 //
-// Two cards live here:
-//   1. Active sessions — list and remote-terminate any device. The current
-//      session is flagged so the user can see "this is me".
-//   2. Danger zone — DeleteMe (crypto-shred). Triggers a confirm dialog
-//      with explicit text typing (mistake-proofing).
+// Cards:
+//   1. Email verification — current status + Resend button.
+//   2. Change master password — re-derive keys, rewrap vault_key.
+//   3. Active sessions — list and remote-terminate any device.
+//   4. Danger zone — DeleteMe (crypto-shred).
 //
 // All mutations attach a fresh Idempotency-Key so a double-click never
 // duplicates a side-effect.
@@ -13,9 +13,22 @@ import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { toast } from "sonner"
-import { Lock, ShieldAlert, Trash2 } from "lucide-react"
+import { Lock, Mail, ShieldAlert, Trash2 } from "lucide-react"
+import {
+  deriveAuthKey,
+  deriveMasterKey,
+  importMasterKey,
+  makeVerifier,
+  randomBytes,
+  wrapVaultKey,
+} from "@oblivio/crypto"
 
-import { idempotencyHeaders, sessionsClient, vaultClient } from "@/api/client"
+import {
+  authClient,
+  idempotencyHeaders,
+  sessionsClient,
+  vaultClient,
+} from "@/api/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -56,9 +69,196 @@ export default function SecurityPage() {
           Manage where you are signed in and delete your account.
         </p>
       </header>
+      <EmailVerificationCard />
+      <ChangePasswordCard />
       <SessionsCard />
       <DangerCard />
     </div>
+  )
+}
+
+// ---- Email verification ----------------------------------------------
+
+function EmailVerificationCard() {
+  const meQ = useQuery({
+    queryKey: ["vault", "me"],
+    queryFn: () => vaultClient.getMe({}),
+  })
+  const email = useAuthStore((s) => s.email) ?? ""
+  const resend = useMutation({
+    mutationFn: () => authClient.resendVerification({ email }),
+    onSuccess: () =>
+      toast.success("If your email is registered, a fresh link is on the way"),
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Resend failed"),
+  })
+  const verified = meQ.data?.emailVerified === true
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="size-5 text-primary" />
+            Email verification
+          </CardTitle>
+          <CardDescription>
+            Verifying your email lets us send recovery alerts and security
+            notifications.
+          </CardDescription>
+        </div>
+        <Badge variant={verified ? "default" : "secondary"}>
+          {meQ.isLoading ? "…" : verified ? "Verified" : "Unverified"}
+        </Badge>
+      </CardHeader>
+      <CardContent>
+        {!verified && (
+          <Button
+            variant="outline"
+            disabled={resend.isPending || !email}
+            onClick={() => resend.mutate()}
+          >
+            {resend.isPending ? "Sending…" : "Resend verification email"}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ---- Change master password ------------------------------------------
+
+const KDF = { t: 3, mKib: 131072, p: 1, algo: "argon2id" } as const
+
+function ChangePasswordCard() {
+  const email = useAuthStore((s) => s.email) ?? ""
+  const vaultKey = useVaultStore((s) => s.vaultKey)
+
+  const [oldPwd, setOldPwd] = useState("")
+  const [newPwd, setNewPwd] = useState("")
+  const [confirmPwd, setConfirmPwd] = useState("")
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!vaultKey) {
+      toast.error("Vault locked — unlock first")
+      return
+    }
+    if (newPwd.length < 8) {
+      toast.error("New password must be at least 8 characters")
+      return
+    }
+    if (newPwd !== confirmPwd) {
+      toast.error("New password does not match the confirmation")
+      return
+    }
+    setBusy(true)
+    let oldMasterKeyRaw: Uint8Array | null = null
+    let newMasterKeyRaw: Uint8Array | null = null
+    try {
+      // Re-derive the old auth_key under the user's CURRENT KDF params so
+      // the server can verify possession of the old password.
+      const params = await authClient.getKDFParams({ email })
+      const oldKdf = params.kdfParams!
+      oldMasterKeyRaw = await deriveMasterKey(oldPwd, params.saltUser, {
+        t: oldKdf.t,
+        mKib: oldKdf.mKib,
+        p: oldKdf.p,
+      })
+      const oldAuthKey = await deriveAuthKey(oldMasterKeyRaw, email)
+
+      // Derive the new master_key, re-wrap the vault_key under it.
+      const newSalt = randomBytes(16)
+      newMasterKeyRaw = await deriveMasterKey(newPwd, newSalt, KDF)
+      const newMasterKey = await importMasterKey(newMasterKeyRaw)
+      const newAuthKey = await deriveAuthKey(newMasterKeyRaw, email)
+      const newWrappedVaultKey = await wrapVaultKey(newMasterKey, vaultKey)
+      const newVerifier = await makeVerifier(newMasterKey)
+
+      await authClient.changeMasterPassword(
+        {
+          oldAuthKey,
+          newAuthKey,
+          newSaltUser: newSalt,
+          newKdfParams: {
+            t: KDF.t,
+            mKib: KDF.mKib,
+            p: KDF.p,
+            algo: KDF.algo,
+          },
+          newVerifier,
+          newWrappedVaultKey,
+        },
+        { headers: idempotencyHeaders() }
+      )
+      toast.success(
+        "Master password changed. Other sessions have been signed out."
+      )
+      setOldPwd("")
+      setNewPwd("")
+      setConfirmPwd("")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Change failed")
+    } finally {
+      if (oldMasterKeyRaw) oldMasterKeyRaw.fill(0)
+      if (newMasterKeyRaw) newMasterKeyRaw.fill(0)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Lock className="size-5 text-primary" />
+          Change master password
+        </CardTitle>
+        <CardDescription>
+          Items themselves are not re-encrypted — only the wrapper around your
+          vault key. All other sessions are signed out.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={submit} className="space-y-3">
+          <div>
+            <Label htmlFor="cmp-old">Current password</Label>
+            <Input
+              id="cmp-old"
+              type="password"
+              autoComplete="current-password"
+              value={oldPwd}
+              onChange={(e) => setOldPwd(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="cmp-new">New password</Label>
+            <Input
+              id="cmp-new"
+              type="password"
+              autoComplete="new-password"
+              value={newPwd}
+              onChange={(e) => setNewPwd(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="cmp-confirm">Confirm new password</Label>
+            <Input
+              id="cmp-confirm"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPwd}
+              onChange={(e) => setConfirmPwd(e.target.value)}
+              required
+            />
+          </div>
+          <Button type="submit" disabled={busy || !vaultKey}>
+            {busy ? "Changing…" : "Change password"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
 

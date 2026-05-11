@@ -13,6 +13,11 @@ import { utf8 } from "./util"
 
 // Derive a 32-byte master_key from password using Argon2id.
 // Returns raw bytes; the caller wraps it into a CryptoKey when needed.
+//
+// Multi-thread Argon2 only works when the page is crossOriginIsolated
+// (COOP/COEP set to same-origin/require-corp). When isolation is missing
+// hash-wasm silently falls back; we force p=1 explicitly so the timing
+// stays predictable and the user doesn't get a surprise stall.
 export async function deriveMasterKey(
   password: string,
   salt: Uint8Array,
@@ -20,16 +25,39 @@ export async function deriveMasterKey(
 ): Promise<Uint8Array> {
   if (!password) throw new Error("master password required")
   if (salt.length < 16) throw new Error("salt too short")
+
+  let parallelism = params.p
+  if (params.forceSingleThread || !pageSupportsMultiThread()) {
+    parallelism = 1
+  }
+
   const hash = await argon2id({
     password,
     salt,
     iterations: params.t,
     memorySize: params.mKib,
-    parallelism: params.p,
+    parallelism,
     hashLength: 32,
     outputType: "binary",
   })
   return hash as Uint8Array
+}
+
+// pageSupportsMultiThread returns true only when the page is
+// crossOriginIsolated AND SharedArrayBuffer is available — both required
+// for hash-wasm's WASM threads. Server already ships COOP/COEP headers;
+// this guard catches the dev or proxy case where they got stripped.
+function pageSupportsMultiThread(): boolean {
+  try {
+    if (typeof globalThis === "undefined") return false
+    const g = globalThis as unknown as {
+      crossOriginIsolated?: boolean
+      SharedArrayBuffer?: unknown
+    }
+    return Boolean(g.crossOriginIsolated && g.SharedArrayBuffer)
+  } catch {
+    return false
+  }
 }
 
 // Promote raw key material into a non-extractable CryptoKey suitable for

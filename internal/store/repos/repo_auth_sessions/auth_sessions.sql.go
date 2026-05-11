@@ -32,35 +32,8 @@ func (q *Queries) DeleteExpiredSessions(ctx context.Context, refreshExpiresAt pg
 	return result.RowsAffected(), nil
 }
 
-const getSessionByAccessHash = `-- name: GetSessionByAccessHash :one
-SELECT id, user_id, device_id, device_type, device_name, ip, country, access_token_hash, refresh_token_hash, access_expires_at, refresh_expires_at, revoked_at, created_at, last_seen_at FROM auth_sessions
-WHERE access_token_hash = $1 AND revoked_at IS NULL
-`
-
-func (q *Queries) GetSessionByAccessHash(ctx context.Context, accessTokenHash []byte) (*models.AuthSession, error) {
-	row := q.db.QueryRow(ctx, getSessionByAccessHash, accessTokenHash)
-	var i models.AuthSession
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.DeviceID,
-		&i.DeviceType,
-		&i.DeviceName,
-		&i.Ip,
-		&i.Country,
-		&i.AccessTokenHash,
-		&i.RefreshTokenHash,
-		&i.AccessExpiresAt,
-		&i.RefreshExpiresAt,
-		&i.RevokedAt,
-		&i.CreatedAt,
-		&i.LastSeenAt,
-	)
-	return &i, err
-}
-
 const getSessionByID = `-- name: GetSessionByID :one
-SELECT id, user_id, device_id, device_type, device_name, ip, country, access_token_hash, refresh_token_hash, access_expires_at, refresh_expires_at, revoked_at, created_at, last_seen_at FROM auth_sessions WHERE id = $1 AND revoked_at IS NULL
+SELECT id, user_id, device_id, device_type, device_name, ip, country, access_token_hash, refresh_token_hash, current_refresh_key, access_expires_at, refresh_expires_at, revoked_at, created_at, last_seen_at FROM auth_sessions WHERE id = $1 AND revoked_at IS NULL
 `
 
 func (q *Queries) GetSessionByID(ctx context.Context, id uuid.UUID) (*models.AuthSession, error) {
@@ -76,6 +49,7 @@ func (q *Queries) GetSessionByID(ctx context.Context, id uuid.UUID) (*models.Aut
 		&i.Country,
 		&i.AccessTokenHash,
 		&i.RefreshTokenHash,
+		&i.CurrentRefreshKey,
 		&i.AccessExpiresAt,
 		&i.RefreshExpiresAt,
 		&i.RevokedAt,
@@ -85,35 +59,19 @@ func (q *Queries) GetSessionByID(ctx context.Context, id uuid.UUID) (*models.Aut
 	return &i, err
 }
 
-const getSessionByRefreshHash = `-- name: GetSessionByRefreshHash :one
-SELECT id, user_id, device_id, device_type, device_name, ip, country, access_token_hash, refresh_token_hash, access_expires_at, refresh_expires_at, revoked_at, created_at, last_seen_at FROM auth_sessions
-WHERE refresh_token_hash = $1 AND revoked_at IS NULL
+const getSessionCurrentRefreshKey = `-- name: GetSessionCurrentRefreshKey :one
+SELECT current_refresh_key FROM auth_sessions WHERE id = $1
 `
 
-func (q *Queries) GetSessionByRefreshHash(ctx context.Context, refreshTokenHash []byte) (*models.AuthSession, error) {
-	row := q.db.QueryRow(ctx, getSessionByRefreshHash, refreshTokenHash)
-	var i models.AuthSession
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.DeviceID,
-		&i.DeviceType,
-		&i.DeviceName,
-		&i.Ip,
-		&i.Country,
-		&i.AccessTokenHash,
-		&i.RefreshTokenHash,
-		&i.AccessExpiresAt,
-		&i.RefreshExpiresAt,
-		&i.RevokedAt,
-		&i.CreatedAt,
-		&i.LastSeenAt,
-	)
-	return &i, err
+func (q *Queries) GetSessionCurrentRefreshKey(ctx context.Context, id uuid.UUID) ([]byte, error) {
+	row := q.db.QueryRow(ctx, getSessionCurrentRefreshKey, id)
+	var current_refresh_key []byte
+	err := row.Scan(&current_refresh_key)
+	return current_refresh_key, err
 }
 
 const listUserSessions = `-- name: ListUserSessions :many
-SELECT id, user_id, device_id, device_type, device_name, ip, country, access_token_hash, refresh_token_hash, access_expires_at, refresh_expires_at, revoked_at, created_at, last_seen_at FROM auth_sessions
+SELECT id, user_id, device_id, device_type, device_name, ip, country, access_token_hash, refresh_token_hash, current_refresh_key, access_expires_at, refresh_expires_at, revoked_at, created_at, last_seen_at FROM auth_sessions
 WHERE user_id = $1 AND revoked_at IS NULL
 ORDER BY last_seen_at DESC
 `
@@ -137,6 +95,7 @@ func (q *Queries) ListUserSessions(ctx context.Context, userID uuid.UUID) ([]*mo
 			&i.Country,
 			&i.AccessTokenHash,
 			&i.RefreshTokenHash,
+			&i.CurrentRefreshKey,
 			&i.AccessExpiresAt,
 			&i.RefreshExpiresAt,
 			&i.RevokedAt,
@@ -189,32 +148,35 @@ func (q *Queries) RevokeSession(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-const rotateSession = `-- name: RotateSession :exec
+const setSessionCurrentRefreshKey = `-- name: SetSessionCurrentRefreshKey :exec
 UPDATE auth_sessions
-SET access_token_hash  = $2,
-    refresh_token_hash = $3,
-    access_expires_at  = $4,
-    refresh_expires_at = $5,
-    last_seen_at       = now()
+SET current_refresh_key = $2,
+    last_seen_at        = now()
 WHERE id = $1
 `
 
-type RotateSessionParams struct {
-	ID               uuid.UUID          `db:"id" json:"id"`
-	AccessTokenHash  []byte             `db:"access_token_hash" json:"access_token_hash"`
-	RefreshTokenHash []byte             `db:"refresh_token_hash" json:"refresh_token_hash"`
-	AccessExpiresAt  pgtype.Timestamptz `db:"access_expires_at" json:"access_expires_at"`
-	RefreshExpiresAt pgtype.Timestamptz `db:"refresh_expires_at" json:"refresh_expires_at"`
+type SetSessionCurrentRefreshKeyParams struct {
+	ID                uuid.UUID `db:"id" json:"id"`
+	CurrentRefreshKey []byte    `db:"current_refresh_key" json:"current_refresh_key"`
 }
 
-func (q *Queries) RotateSession(ctx context.Context, arg RotateSessionParams) error {
-	_, err := q.db.Exec(ctx, rotateSession,
-		arg.ID,
-		arg.AccessTokenHash,
-		arg.RefreshTokenHash,
-		arg.AccessExpiresAt,
-		arg.RefreshExpiresAt,
-	)
+func (q *Queries) SetSessionCurrentRefreshKey(ctx context.Context, arg SetSessionCurrentRefreshKeyParams) error {
+	_, err := q.db.Exec(ctx, setSessionCurrentRefreshKey, arg.ID, arg.CurrentRefreshKey)
+	return err
+}
+
+const touchSession = `-- name: TouchSession :exec
+
+UPDATE auth_sessions SET last_seen_at = now() WHERE id = $1
+`
+
+// The legacy GetSessionByAccessHash / GetSessionByRefreshHash queries were
+// removed: the auth_tokens table is now the source of truth for token
+// validity, and auth_sessions.{access,refresh}_token_hash are no longer
+// written.
+// Drives the "recently active" UI sort.
+func (q *Queries) TouchSession(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, touchSession, id)
 	return err
 }
 
@@ -222,21 +184,18 @@ const upsertSession = `-- name: UpsertSession :one
 INSERT INTO auth_sessions (
     user_id, device_id, device_type, device_name,
     ip, country,
-    access_token_hash, refresh_token_hash,
     access_expires_at, refresh_expires_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (user_id, device_id) DO UPDATE
 SET device_type        = EXCLUDED.device_type,
     device_name        = EXCLUDED.device_name,
     ip                 = EXCLUDED.ip,
     country            = EXCLUDED.country,
-    access_token_hash  = EXCLUDED.access_token_hash,
-    refresh_token_hash = EXCLUDED.refresh_token_hash,
     access_expires_at  = EXCLUDED.access_expires_at,
     refresh_expires_at = EXCLUDED.refresh_expires_at,
     revoked_at         = NULL,
     last_seen_at       = now()
-RETURNING id, user_id, device_id, device_type, device_name, ip, country, access_token_hash, refresh_token_hash, access_expires_at, refresh_expires_at, revoked_at, created_at, last_seen_at
+RETURNING id, user_id, device_id, device_type, device_name, ip, country, access_token_hash, refresh_token_hash, current_refresh_key, access_expires_at, refresh_expires_at, revoked_at, created_at, last_seen_at
 `
 
 type UpsertSessionParams struct {
@@ -246,12 +205,13 @@ type UpsertSessionParams struct {
 	DeviceName       pgtype.Text        `db:"device_name" json:"device_name"`
 	Ip               *netip.Addr        `db:"ip" json:"ip"`
 	Country          pgtype.Text        `db:"country" json:"country"`
-	AccessTokenHash  []byte             `db:"access_token_hash" json:"access_token_hash"`
-	RefreshTokenHash []byte             `db:"refresh_token_hash" json:"refresh_token_hash"`
 	AccessExpiresAt  pgtype.Timestamptz `db:"access_expires_at" json:"access_expires_at"`
 	RefreshExpiresAt pgtype.Timestamptz `db:"refresh_expires_at" json:"refresh_expires_at"`
 }
 
+// access_token_hash / refresh_token_hash are nullable since the source of
+// truth for token validity moved to the auth_tokens table. We no longer
+// write them.
 func (q *Queries) UpsertSession(ctx context.Context, arg UpsertSessionParams) (*models.AuthSession, error) {
 	row := q.db.QueryRow(ctx, upsertSession,
 		arg.UserID,
@@ -260,8 +220,6 @@ func (q *Queries) UpsertSession(ctx context.Context, arg UpsertSessionParams) (*
 		arg.DeviceName,
 		arg.Ip,
 		arg.Country,
-		arg.AccessTokenHash,
-		arg.RefreshTokenHash,
 		arg.AccessExpiresAt,
 		arg.RefreshExpiresAt,
 	)
@@ -276,6 +234,7 @@ func (q *Queries) UpsertSession(ctx context.Context, arg UpsertSessionParams) (*
 		&i.Country,
 		&i.AccessTokenHash,
 		&i.RefreshTokenHash,
+		&i.CurrentRefreshKey,
 		&i.AccessExpiresAt,
 		&i.RefreshExpiresAt,
 		&i.RevokedAt,

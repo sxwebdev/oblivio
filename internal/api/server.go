@@ -15,6 +15,7 @@ import (
 	"github.com/tkcrm/mx/logger"
 
 	oblivio "github.com/sxwebdev/oblivio"
+	emailpkg "github.com/sxwebdev/oblivio/internal/email"
 	apiaudit "github.com/sxwebdev/oblivio/internal/api/audit"
 	apiauth "github.com/sxwebdev/oblivio/internal/api/auth"
 	apientries "github.com/sxwebdev/oblivio/internal/api/entries"
@@ -33,21 +34,26 @@ import (
 
 // Server hosts the ConnectRPC API and the embedded WebUI on a single port.
 type Server struct {
-	log      logger.ExtendedLogger
-	cfg      config.ServerConfig
-	auth     config.AuthConfig
-	store    *store.Store
-	am       *auth.Manager
-	wa       *wa.WebAuthn
-	mfaStore *auth.MFAStore
-	recovery *auth.RecoveryStore
-	srv      *http.Server
-	errCh    chan error
+	log       logger.ExtendedLogger
+	cfg       config.ServerConfig
+	auth      config.AuthConfig
+	store     *store.Store
+	am        *auth.Manager
+	wa        *wa.WebAuthn
+	mfaStore  *auth.MFAStore
+	recovery  *auth.RecoveryStore
+	emailer   emailpkg.Sender
+	publicURL string
+	appName   string
+	srv       *http.Server
+	errCh     chan error
 }
 
 // Deps groups the constructor arguments. mfaStore and recovery may be nil —
 // in that case the server starts the 2FA / recovery features in a degraded
-// state (Authorize will still work for users without 2FA).
+// state (Authorize will still work for users without 2FA). Email is a
+// noop sender by default; configure provider="smtp" or "log" in EmailConfig
+// to enable verification emails.
 type Deps struct {
 	Log           logger.ExtendedLogger
 	Cfg           config.ServerConfig
@@ -57,20 +63,30 @@ type Deps struct {
 	WebAuthn      *wa.WebAuthn
 	MFAStore      *auth.MFAStore
 	RecoveryStore *auth.RecoveryStore
+	Email         emailpkg.Sender
+	PublicURL     string
+	AppName       string
 }
 
 // New constructs the API server. It does not start listening — call Start.
 func New(d Deps) *Server {
+	emailer := d.Email
+	if emailer == nil {
+		emailer = emailpkg.NewNoopSender()
+	}
 	return &Server{
-		log:      d.Log,
-		cfg:      d.Cfg,
-		auth:     d.Auth,
-		store:    d.Store,
-		am:       d.AuthManager,
-		wa:       d.WebAuthn,
-		mfaStore: d.MFAStore,
-		recovery: d.RecoveryStore,
-		errCh:    make(chan error, 1),
+		log:       d.Log,
+		cfg:       d.Cfg,
+		auth:      d.Auth,
+		store:     d.Store,
+		am:        d.AuthManager,
+		wa:        d.WebAuthn,
+		mfaStore:  d.MFAStore,
+		recovery:  d.RecoveryStore,
+		emailer:   emailer,
+		publicURL: d.PublicURL,
+		appName:   d.AppName,
+		errCh:     make(chan error, 1),
 	}
 }
 
@@ -94,11 +110,17 @@ var idempotentProcedures = map[string]struct{}{
 
 // Start binds the HTTP listener and serves until Stop is called.
 func (s *Server) Start(ctx context.Context) error {
-	auditWriter := audit.NewWriter(s.store.Pool())
+	auditWriter := audit.NewWriter(s.store.Pool(), s.log)
 
 	rlsInterceptor := middleware.NewRLSInterceptor(s.store.Pool())
 	auditInterceptor := middleware.NewAuditInterceptor(auditWriter, middleware.DefaultAuditProcedures)
 	interceptors := connect.WithInterceptors(rlsInterceptor, auditInterceptor)
+
+	// Email-side rate limiter for AuthService — runs after deserialisation
+	// so it can read req.Email regardless of content-type framing.
+	rateLimitMW := middleware.NewRateLimitMiddleware(s.auth.RateLimits)
+	emailRateInterceptor := middleware.NewEmailRateLimitInterceptor(rateLimitMW)
+	authInterceptors := connect.WithInterceptors(emailRateInterceptor)
 
 	rpcMux := http.NewServeMux()
 
@@ -110,8 +132,11 @@ func (s *Server) Start(ctx context.Context) error {
 		WebAuthn:      s.wa,
 		MFAStore:      s.mfaStore,
 		RecoveryStore: s.recovery,
+		Email:         s.emailer,
+		PublicURL:     s.publicURL,
+		AppName:       s.appName,
 	})
-	rpcMux.Handle(obliviov1connect.NewAuthServiceHandler(authSvc))
+	rpcMux.Handle(obliviov1connect.NewAuthServiceHandler(authSvc, authInterceptors))
 
 	projectsSvc := apiprojects.NewService()
 	rpcMux.Handle(obliviov1connect.NewProjectsServiceHandler(projectsSvc, interceptors))
@@ -128,10 +153,10 @@ func (s *Server) Start(ctx context.Context) error {
 	})
 	rpcMux.Handle(obliviov1connect.NewVaultServiceHandler(vaultSvc, interceptors))
 
-	sessionsSvc := apisessions.NewService(auditWriter)
+	sessionsSvc := apisessions.NewService(auditWriter, s.am)
 	rpcMux.Handle(obliviov1connect.NewSessionsServiceHandler(sessionsSvc, interceptors))
 
-	loginTOTPSvc := apilogintotp.NewService()
+	loginTOTPSvc := apilogintotp.NewService(s.wa, s.mfaStore)
 	rpcMux.Handle(obliviov1connect.NewLoginTOTPServiceHandler(loginTOTPSvc, interceptors))
 
 	if s.wa != nil {
@@ -145,7 +170,6 @@ func (s *Server) Start(ctx context.Context) error {
 	idempotencyMW := middleware.NewIdempotencyMiddleware(s.store, middleware.IdempotencyConfig{
 		Procedures: idempotentProcedures,
 	})
-	rateLimitMW := middleware.NewRateLimitMiddleware(s.auth.RateLimits)
 
 	// Order matters:
 	//   rate-limit (outer)   — kill abusive traffic before any work.

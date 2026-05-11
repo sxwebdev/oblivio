@@ -30,17 +30,17 @@ ops:
     write_timeout: 60
 server:
   addr: :8080
-  allowed_origins: []
   tls:
     cert_file: ""
     key_file: ""
+  public_url: ""
 postgres:
   host: localhost
   port: "5432"
   database: ""
   username: ""
   password: ""
-  ssl_mode: disable
+  ssl_mode: verify-full
 auth:
   access_token_ttl: 20m0s
   refresh_token_ttl: 720h0m0s
@@ -60,9 +60,10 @@ webauthn:
   rp_name: Oblivio
   rp_origin: ""
 jobs:
-  audit_chain_verify_cron: 0 3 * * *
-  rate_limit_gc_interval: 1h0m0s
+  audit_chain_verify_interval: 24h0m0s
   sessions_gc_interval: 1h0m0s
+  auth_tokens_gc_interval: 1h0m0s
+  idempotency_gc_interval: 1h0m0s
 email:
   provider: ""
   from: ""
@@ -71,3 +72,4 @@ email:
     port: 587
     username: ""
     password: ""
+    allow_insecure: false

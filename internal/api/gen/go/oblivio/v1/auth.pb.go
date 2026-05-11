@@ -1184,6 +1184,296 @@ func (*RecoveryCompleteResponse) Descriptor() ([]byte, []int) {
 	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{20}
 }
 
+type VerifyEmailRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Raw token from the verification link. Server checks SHA-256(token).
+	Token         string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VerifyEmailRequest) Reset() {
+	*x = VerifyEmailRequest{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VerifyEmailRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VerifyEmailRequest) ProtoMessage() {}
+
+func (x *VerifyEmailRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VerifyEmailRequest.ProtoReflect.Descriptor instead.
+func (*VerifyEmailRequest) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *VerifyEmailRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+type VerifyEmailResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VerifyEmailResponse) Reset() {
+	*x = VerifyEmailResponse{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VerifyEmailResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VerifyEmailResponse) ProtoMessage() {}
+
+func (x *VerifyEmailResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VerifyEmailResponse.ProtoReflect.Descriptor instead.
+func (*VerifyEmailResponse) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{22}
+}
+
+type ResendVerificationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResendVerificationRequest) Reset() {
+	*x = ResendVerificationRequest{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResendVerificationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResendVerificationRequest) ProtoMessage() {}
+
+func (x *ResendVerificationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResendVerificationRequest.ProtoReflect.Descriptor instead.
+func (*ResendVerificationRequest) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *ResendVerificationRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+type ResendVerificationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResendVerificationResponse) Reset() {
+	*x = ResendVerificationResponse{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResendVerificationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResendVerificationResponse) ProtoMessage() {}
+
+func (x *ResendVerificationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResendVerificationResponse.ProtoReflect.Descriptor instead.
+func (*ResendVerificationResponse) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{24}
+}
+
+// --- ChangeMasterPassword (plan §7.2) ----------------------------------
+//
+// Re-derives the user's KDF params, auth_key, verifier and wrapped_vault_key
+// under a freshly-chosen master_password. Records and item ciphertexts are
+// NOT touched — only the wrapper around vault_key is rotated. All other
+// sessions are revoked; the calling session continues so the user doesn't
+// get logged out of the tab they just typed the new password in.
+type ChangeMasterPasswordRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Proves possession of the OLD master_password.
+	OldAuthKey []byte `protobuf:"bytes,1,opt,name=old_auth_key,json=oldAuthKey,proto3" json:"old_auth_key,omitempty"`
+	// Fresh artefacts derived from the NEW master_password.
+	NewAuthKey         []byte        `protobuf:"bytes,2,opt,name=new_auth_key,json=newAuthKey,proto3" json:"new_auth_key,omitempty"`
+	NewSaltUser        []byte        `protobuf:"bytes,3,opt,name=new_salt_user,json=newSaltUser,proto3" json:"new_salt_user,omitempty"`
+	NewKdfParams       *Argon2Params `protobuf:"bytes,4,opt,name=new_kdf_params,json=newKdfParams,proto3" json:"new_kdf_params,omitempty"`
+	NewVerifier        []byte        `protobuf:"bytes,5,opt,name=new_verifier,json=newVerifier,proto3" json:"new_verifier,omitempty"`
+	NewWrappedVaultKey []byte        `protobuf:"bytes,6,opt,name=new_wrapped_vault_key,json=newWrappedVaultKey,proto3" json:"new_wrapped_vault_key,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ChangeMasterPasswordRequest) Reset() {
+	*x = ChangeMasterPasswordRequest{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangeMasterPasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangeMasterPasswordRequest) ProtoMessage() {}
+
+func (x *ChangeMasterPasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangeMasterPasswordRequest.ProtoReflect.Descriptor instead.
+func (*ChangeMasterPasswordRequest) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *ChangeMasterPasswordRequest) GetOldAuthKey() []byte {
+	if x != nil {
+		return x.OldAuthKey
+	}
+	return nil
+}
+
+func (x *ChangeMasterPasswordRequest) GetNewAuthKey() []byte {
+	if x != nil {
+		return x.NewAuthKey
+	}
+	return nil
+}
+
+func (x *ChangeMasterPasswordRequest) GetNewSaltUser() []byte {
+	if x != nil {
+		return x.NewSaltUser
+	}
+	return nil
+}
+
+func (x *ChangeMasterPasswordRequest) GetNewKdfParams() *Argon2Params {
+	if x != nil {
+		return x.NewKdfParams
+	}
+	return nil
+}
+
+func (x *ChangeMasterPasswordRequest) GetNewVerifier() []byte {
+	if x != nil {
+		return x.NewVerifier
+	}
+	return nil
+}
+
+func (x *ChangeMasterPasswordRequest) GetNewWrappedVaultKey() []byte {
+	if x != nil {
+		return x.NewWrappedVaultKey
+	}
+	return nil
+}
+
+type ChangeMasterPasswordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChangeMasterPasswordResponse) Reset() {
+	*x = ChangeMasterPasswordResponse{}
+	mi := &file_oblivio_v1_auth_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangeMasterPasswordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangeMasterPasswordResponse) ProtoMessage() {}
+
+func (x *ChangeMasterPasswordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_auth_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangeMasterPasswordResponse.ProtoReflect.Descriptor instead.
+func (*ChangeMasterPasswordResponse) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_auth_proto_rawDescGZIP(), []int{26}
+}
+
 var File_oblivio_v1_auth_proto protoreflect.FileDescriptor
 
 const file_oblivio_v1_auth_proto_rawDesc = "" +
@@ -1269,7 +1559,23 @@ const file_oblivio_v1_auth_proto_rawDesc = "" +
 	"\bauth_key\x18\x04 \x01(\fR\aauthKey\x12\x1a\n" +
 	"\bverifier\x18\x05 \x01(\fR\bverifier\x12*\n" +
 	"\x11wrapped_vault_key\x18\x06 \x01(\fR\x0fwrappedVaultKey\"\x1a\n" +
-	"\x18RecoveryCompleteResponse2\xb6\x06\n" +
+	"\x18RecoveryCompleteResponse\"*\n" +
+	"\x12VerifyEmailRequest\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"\x15\n" +
+	"\x13VerifyEmailResponse\"1\n" +
+	"\x19ResendVerificationRequest\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\"\x1c\n" +
+	"\x1aResendVerificationResponse\"\x9b\x02\n" +
+	"\x1bChangeMasterPasswordRequest\x12 \n" +
+	"\fold_auth_key\x18\x01 \x01(\fR\n" +
+	"oldAuthKey\x12 \n" +
+	"\fnew_auth_key\x18\x02 \x01(\fR\n" +
+	"newAuthKey\x12\"\n" +
+	"\rnew_salt_user\x18\x03 \x01(\fR\vnewSaltUser\x12>\n" +
+	"\x0enew_kdf_params\x18\x04 \x01(\v2\x18.oblivio.v1.Argon2ParamsR\fnewKdfParams\x12!\n" +
+	"\fnew_verifier\x18\x05 \x01(\fR\vnewVerifier\x121\n" +
+	"\x15new_wrapped_vault_key\x18\x06 \x01(\fR\x12newWrappedVaultKey\"\x1e\n" +
+	"\x1cChangeMasterPasswordResponse2\xd6\b\n" +
 	"\vAuthService\x12E\n" +
 	"\bRegister\x12\x1b.oblivio.v1.RegisterRequest\x1a\x1c.oblivio.v1.RegisterResponse\x12Q\n" +
 	"\fGetKDFParams\x12\x1f.oblivio.v1.GetKDFParamsRequest\x1a .oblivio.v1.GetKDFParamsResponse\x12H\n" +
@@ -1278,9 +1584,12 @@ const file_oblivio_v1_auth_proto_rawDesc = "" +
 	"\fRefreshToken\x12\x1f.oblivio.v1.RefreshTokenRequest\x1a .oblivio.v1.RefreshTokenResponse\x12`\n" +
 	"\x11GetRecoveryParams\x12$.oblivio.v1.GetRecoveryParamsRequest\x1a%.oblivio.v1.GetRecoveryParamsResponse\x12T\n" +
 	"\rRecoveryStart\x12 .oblivio.v1.RecoveryStartRequest\x1a!.oblivio.v1.RecoveryStartResponse\x12]\n" +
-	"\x10RecoveryComplete\x12#.oblivio.v1.RecoveryCompleteRequest\x1a$.oblivio.v1.RecoveryCompleteResponse\x12?\n" +
+	"\x10RecoveryComplete\x12#.oblivio.v1.RecoveryCompleteRequest\x1a$.oblivio.v1.RecoveryCompleteResponse\x12N\n" +
+	"\vVerifyEmail\x12\x1e.oblivio.v1.VerifyEmailRequest\x1a\x1f.oblivio.v1.VerifyEmailResponse\x12c\n" +
+	"\x12ResendVerification\x12%.oblivio.v1.ResendVerificationRequest\x1a&.oblivio.v1.ResendVerificationResponse\x12?\n" +
 	"\x06Logout\x12\x19.oblivio.v1.LogoutRequest\x1a\x1a.oblivio.v1.LogoutResponse\x12H\n" +
-	"\tGetMyKeys\x12\x1c.oblivio.v1.GetMyKeysRequest\x1a\x1d.oblivio.v1.GetMyKeysResponseB\xaa\x01\n" +
+	"\tGetMyKeys\x12\x1c.oblivio.v1.GetMyKeysRequest\x1a\x1d.oblivio.v1.GetMyKeysResponse\x12i\n" +
+	"\x14ChangeMasterPassword\x12'.oblivio.v1.ChangeMasterPasswordRequest\x1a(.oblivio.v1.ChangeMasterPasswordResponseB\xaa\x01\n" +
 	"\x0ecom.oblivio.v1B\tAuthProtoP\x01ZDgithub.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1;obliviov1\xa2\x02\x03OXX\xaa\x02\n" +
 	"Oblivio.V1\xca\x02\n" +
 	"Oblivio\\V1\xe2\x02\x16Oblivio\\V1\\GPBMetadata\xea\x02\vOblivio::V1b\x06proto3"
@@ -1297,72 +1606,85 @@ func file_oblivio_v1_auth_proto_rawDescGZIP() []byte {
 	return file_oblivio_v1_auth_proto_rawDescData
 }
 
-var file_oblivio_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_oblivio_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_oblivio_v1_auth_proto_goTypes = []any{
-	(*RegisterRequest)(nil),           // 0: oblivio.v1.RegisterRequest
-	(*RegisterResponse)(nil),          // 1: oblivio.v1.RegisterResponse
-	(*GetKDFParamsRequest)(nil),       // 2: oblivio.v1.GetKDFParamsRequest
-	(*GetKDFParamsResponse)(nil),      // 3: oblivio.v1.GetKDFParamsResponse
-	(*AuthorizeRequest)(nil),          // 4: oblivio.v1.AuthorizeRequest
-	(*AuthorizeResponse)(nil),         // 5: oblivio.v1.AuthorizeResponse
-	(*MFAChallenge)(nil),              // 6: oblivio.v1.MFAChallenge
-	(*CompleteMFARequest)(nil),        // 7: oblivio.v1.CompleteMFARequest
-	(*CompleteMFAResponse)(nil),       // 8: oblivio.v1.CompleteMFAResponse
-	(*RefreshTokenRequest)(nil),       // 9: oblivio.v1.RefreshTokenRequest
-	(*RefreshTokenResponse)(nil),      // 10: oblivio.v1.RefreshTokenResponse
-	(*LogoutRequest)(nil),             // 11: oblivio.v1.LogoutRequest
-	(*LogoutResponse)(nil),            // 12: oblivio.v1.LogoutResponse
-	(*GetMyKeysRequest)(nil),          // 13: oblivio.v1.GetMyKeysRequest
-	(*GetMyKeysResponse)(nil),         // 14: oblivio.v1.GetMyKeysResponse
-	(*GetRecoveryParamsRequest)(nil),  // 15: oblivio.v1.GetRecoveryParamsRequest
-	(*GetRecoveryParamsResponse)(nil), // 16: oblivio.v1.GetRecoveryParamsResponse
-	(*RecoveryStartRequest)(nil),      // 17: oblivio.v1.RecoveryStartRequest
-	(*RecoveryStartResponse)(nil),     // 18: oblivio.v1.RecoveryStartResponse
-	(*RecoveryCompleteRequest)(nil),   // 19: oblivio.v1.RecoveryCompleteRequest
-	(*RecoveryCompleteResponse)(nil),  // 20: oblivio.v1.RecoveryCompleteResponse
-	(*Argon2Params)(nil),              // 21: oblivio.v1.Argon2Params
-	(*DeviceInfo)(nil),                // 22: oblivio.v1.DeviceInfo
-	(*AuthPayload)(nil),               // 23: oblivio.v1.AuthPayload
+	(*RegisterRequest)(nil),              // 0: oblivio.v1.RegisterRequest
+	(*RegisterResponse)(nil),             // 1: oblivio.v1.RegisterResponse
+	(*GetKDFParamsRequest)(nil),          // 2: oblivio.v1.GetKDFParamsRequest
+	(*GetKDFParamsResponse)(nil),         // 3: oblivio.v1.GetKDFParamsResponse
+	(*AuthorizeRequest)(nil),             // 4: oblivio.v1.AuthorizeRequest
+	(*AuthorizeResponse)(nil),            // 5: oblivio.v1.AuthorizeResponse
+	(*MFAChallenge)(nil),                 // 6: oblivio.v1.MFAChallenge
+	(*CompleteMFARequest)(nil),           // 7: oblivio.v1.CompleteMFARequest
+	(*CompleteMFAResponse)(nil),          // 8: oblivio.v1.CompleteMFAResponse
+	(*RefreshTokenRequest)(nil),          // 9: oblivio.v1.RefreshTokenRequest
+	(*RefreshTokenResponse)(nil),         // 10: oblivio.v1.RefreshTokenResponse
+	(*LogoutRequest)(nil),                // 11: oblivio.v1.LogoutRequest
+	(*LogoutResponse)(nil),               // 12: oblivio.v1.LogoutResponse
+	(*GetMyKeysRequest)(nil),             // 13: oblivio.v1.GetMyKeysRequest
+	(*GetMyKeysResponse)(nil),            // 14: oblivio.v1.GetMyKeysResponse
+	(*GetRecoveryParamsRequest)(nil),     // 15: oblivio.v1.GetRecoveryParamsRequest
+	(*GetRecoveryParamsResponse)(nil),    // 16: oblivio.v1.GetRecoveryParamsResponse
+	(*RecoveryStartRequest)(nil),         // 17: oblivio.v1.RecoveryStartRequest
+	(*RecoveryStartResponse)(nil),        // 18: oblivio.v1.RecoveryStartResponse
+	(*RecoveryCompleteRequest)(nil),      // 19: oblivio.v1.RecoveryCompleteRequest
+	(*RecoveryCompleteResponse)(nil),     // 20: oblivio.v1.RecoveryCompleteResponse
+	(*VerifyEmailRequest)(nil),           // 21: oblivio.v1.VerifyEmailRequest
+	(*VerifyEmailResponse)(nil),          // 22: oblivio.v1.VerifyEmailResponse
+	(*ResendVerificationRequest)(nil),    // 23: oblivio.v1.ResendVerificationRequest
+	(*ResendVerificationResponse)(nil),   // 24: oblivio.v1.ResendVerificationResponse
+	(*ChangeMasterPasswordRequest)(nil),  // 25: oblivio.v1.ChangeMasterPasswordRequest
+	(*ChangeMasterPasswordResponse)(nil), // 26: oblivio.v1.ChangeMasterPasswordResponse
+	(*Argon2Params)(nil),                 // 27: oblivio.v1.Argon2Params
+	(*DeviceInfo)(nil),                   // 28: oblivio.v1.DeviceInfo
+	(*AuthPayload)(nil),                  // 29: oblivio.v1.AuthPayload
 }
 var file_oblivio_v1_auth_proto_depIdxs = []int32{
-	21, // 0: oblivio.v1.RegisterRequest.kdf_params:type_name -> oblivio.v1.Argon2Params
-	22, // 1: oblivio.v1.RegisterRequest.device_info:type_name -> oblivio.v1.DeviceInfo
-	23, // 2: oblivio.v1.RegisterResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
-	21, // 3: oblivio.v1.GetKDFParamsResponse.kdf_params:type_name -> oblivio.v1.Argon2Params
-	22, // 4: oblivio.v1.AuthorizeRequest.device_info:type_name -> oblivio.v1.DeviceInfo
-	23, // 5: oblivio.v1.AuthorizeResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
+	27, // 0: oblivio.v1.RegisterRequest.kdf_params:type_name -> oblivio.v1.Argon2Params
+	28, // 1: oblivio.v1.RegisterRequest.device_info:type_name -> oblivio.v1.DeviceInfo
+	29, // 2: oblivio.v1.RegisterResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
+	27, // 3: oblivio.v1.GetKDFParamsResponse.kdf_params:type_name -> oblivio.v1.Argon2Params
+	28, // 4: oblivio.v1.AuthorizeRequest.device_info:type_name -> oblivio.v1.DeviceInfo
+	29, // 5: oblivio.v1.AuthorizeResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
 	6,  // 6: oblivio.v1.AuthorizeResponse.mfa_challenge:type_name -> oblivio.v1.MFAChallenge
-	22, // 7: oblivio.v1.CompleteMFARequest.device_info:type_name -> oblivio.v1.DeviceInfo
-	23, // 8: oblivio.v1.CompleteMFAResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
-	22, // 9: oblivio.v1.RefreshTokenRequest.device_info:type_name -> oblivio.v1.DeviceInfo
-	23, // 10: oblivio.v1.RefreshTokenResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
-	21, // 11: oblivio.v1.GetRecoveryParamsResponse.kdf_params:type_name -> oblivio.v1.Argon2Params
-	21, // 12: oblivio.v1.RecoveryCompleteRequest.kdf_params:type_name -> oblivio.v1.Argon2Params
-	0,  // 13: oblivio.v1.AuthService.Register:input_type -> oblivio.v1.RegisterRequest
-	2,  // 14: oblivio.v1.AuthService.GetKDFParams:input_type -> oblivio.v1.GetKDFParamsRequest
-	4,  // 15: oblivio.v1.AuthService.Authorize:input_type -> oblivio.v1.AuthorizeRequest
-	7,  // 16: oblivio.v1.AuthService.CompleteMFA:input_type -> oblivio.v1.CompleteMFARequest
-	9,  // 17: oblivio.v1.AuthService.RefreshToken:input_type -> oblivio.v1.RefreshTokenRequest
-	15, // 18: oblivio.v1.AuthService.GetRecoveryParams:input_type -> oblivio.v1.GetRecoveryParamsRequest
-	17, // 19: oblivio.v1.AuthService.RecoveryStart:input_type -> oblivio.v1.RecoveryStartRequest
-	19, // 20: oblivio.v1.AuthService.RecoveryComplete:input_type -> oblivio.v1.RecoveryCompleteRequest
-	11, // 21: oblivio.v1.AuthService.Logout:input_type -> oblivio.v1.LogoutRequest
-	13, // 22: oblivio.v1.AuthService.GetMyKeys:input_type -> oblivio.v1.GetMyKeysRequest
-	1,  // 23: oblivio.v1.AuthService.Register:output_type -> oblivio.v1.RegisterResponse
-	3,  // 24: oblivio.v1.AuthService.GetKDFParams:output_type -> oblivio.v1.GetKDFParamsResponse
-	5,  // 25: oblivio.v1.AuthService.Authorize:output_type -> oblivio.v1.AuthorizeResponse
-	8,  // 26: oblivio.v1.AuthService.CompleteMFA:output_type -> oblivio.v1.CompleteMFAResponse
-	10, // 27: oblivio.v1.AuthService.RefreshToken:output_type -> oblivio.v1.RefreshTokenResponse
-	16, // 28: oblivio.v1.AuthService.GetRecoveryParams:output_type -> oblivio.v1.GetRecoveryParamsResponse
-	18, // 29: oblivio.v1.AuthService.RecoveryStart:output_type -> oblivio.v1.RecoveryStartResponse
-	20, // 30: oblivio.v1.AuthService.RecoveryComplete:output_type -> oblivio.v1.RecoveryCompleteResponse
-	12, // 31: oblivio.v1.AuthService.Logout:output_type -> oblivio.v1.LogoutResponse
-	14, // 32: oblivio.v1.AuthService.GetMyKeys:output_type -> oblivio.v1.GetMyKeysResponse
-	23, // [23:33] is the sub-list for method output_type
-	13, // [13:23] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	28, // 7: oblivio.v1.CompleteMFARequest.device_info:type_name -> oblivio.v1.DeviceInfo
+	29, // 8: oblivio.v1.CompleteMFAResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
+	28, // 9: oblivio.v1.RefreshTokenRequest.device_info:type_name -> oblivio.v1.DeviceInfo
+	29, // 10: oblivio.v1.RefreshTokenResponse.auth_payload:type_name -> oblivio.v1.AuthPayload
+	27, // 11: oblivio.v1.GetRecoveryParamsResponse.kdf_params:type_name -> oblivio.v1.Argon2Params
+	27, // 12: oblivio.v1.RecoveryCompleteRequest.kdf_params:type_name -> oblivio.v1.Argon2Params
+	27, // 13: oblivio.v1.ChangeMasterPasswordRequest.new_kdf_params:type_name -> oblivio.v1.Argon2Params
+	0,  // 14: oblivio.v1.AuthService.Register:input_type -> oblivio.v1.RegisterRequest
+	2,  // 15: oblivio.v1.AuthService.GetKDFParams:input_type -> oblivio.v1.GetKDFParamsRequest
+	4,  // 16: oblivio.v1.AuthService.Authorize:input_type -> oblivio.v1.AuthorizeRequest
+	7,  // 17: oblivio.v1.AuthService.CompleteMFA:input_type -> oblivio.v1.CompleteMFARequest
+	9,  // 18: oblivio.v1.AuthService.RefreshToken:input_type -> oblivio.v1.RefreshTokenRequest
+	15, // 19: oblivio.v1.AuthService.GetRecoveryParams:input_type -> oblivio.v1.GetRecoveryParamsRequest
+	17, // 20: oblivio.v1.AuthService.RecoveryStart:input_type -> oblivio.v1.RecoveryStartRequest
+	19, // 21: oblivio.v1.AuthService.RecoveryComplete:input_type -> oblivio.v1.RecoveryCompleteRequest
+	21, // 22: oblivio.v1.AuthService.VerifyEmail:input_type -> oblivio.v1.VerifyEmailRequest
+	23, // 23: oblivio.v1.AuthService.ResendVerification:input_type -> oblivio.v1.ResendVerificationRequest
+	11, // 24: oblivio.v1.AuthService.Logout:input_type -> oblivio.v1.LogoutRequest
+	13, // 25: oblivio.v1.AuthService.GetMyKeys:input_type -> oblivio.v1.GetMyKeysRequest
+	25, // 26: oblivio.v1.AuthService.ChangeMasterPassword:input_type -> oblivio.v1.ChangeMasterPasswordRequest
+	1,  // 27: oblivio.v1.AuthService.Register:output_type -> oblivio.v1.RegisterResponse
+	3,  // 28: oblivio.v1.AuthService.GetKDFParams:output_type -> oblivio.v1.GetKDFParamsResponse
+	5,  // 29: oblivio.v1.AuthService.Authorize:output_type -> oblivio.v1.AuthorizeResponse
+	8,  // 30: oblivio.v1.AuthService.CompleteMFA:output_type -> oblivio.v1.CompleteMFAResponse
+	10, // 31: oblivio.v1.AuthService.RefreshToken:output_type -> oblivio.v1.RefreshTokenResponse
+	16, // 32: oblivio.v1.AuthService.GetRecoveryParams:output_type -> oblivio.v1.GetRecoveryParamsResponse
+	18, // 33: oblivio.v1.AuthService.RecoveryStart:output_type -> oblivio.v1.RecoveryStartResponse
+	20, // 34: oblivio.v1.AuthService.RecoveryComplete:output_type -> oblivio.v1.RecoveryCompleteResponse
+	22, // 35: oblivio.v1.AuthService.VerifyEmail:output_type -> oblivio.v1.VerifyEmailResponse
+	24, // 36: oblivio.v1.AuthService.ResendVerification:output_type -> oblivio.v1.ResendVerificationResponse
+	12, // 37: oblivio.v1.AuthService.Logout:output_type -> oblivio.v1.LogoutResponse
+	14, // 38: oblivio.v1.AuthService.GetMyKeys:output_type -> oblivio.v1.GetMyKeysResponse
+	26, // 39: oblivio.v1.AuthService.ChangeMasterPassword:output_type -> oblivio.v1.ChangeMasterPasswordResponse
+	27, // [27:40] is the sub-list for method output_type
+	14, // [14:27] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_oblivio_v1_auth_proto_init() }
@@ -1377,7 +1699,7 @@ func file_oblivio_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_oblivio_v1_auth_proto_rawDesc), len(file_oblivio_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   21,
+			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

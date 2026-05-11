@@ -26,7 +26,11 @@ describe("util", () => {
   })
 
   it("concat joins arbitrary chunks", () => {
-    const out = concat(new Uint8Array([1, 2]), new Uint8Array([3]), new Uint8Array([4, 5]))
+    const out = concat(
+      new Uint8Array([1, 2]),
+      new Uint8Array([3]),
+      new Uint8Array([4, 5])
+    )
     expect([...out]).toEqual([1, 2, 3, 4, 5])
     expect(concat().length).toBe(0)
   })

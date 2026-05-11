@@ -5,10 +5,11 @@ import (
 
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_audit_log"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_auth_sessions"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_auth_tokens"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_email_verification_tokens"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_entries"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_idempotency_keys"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_projects"
-	"github.com/sxwebdev/oblivio/internal/store/repos/repo_rate_limit_buckets"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_system_state"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_auth"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_kdf_params"
@@ -27,12 +28,13 @@ type Repos struct {
 	userLoginTOTPRepo    *repo_user_login_totp.Queries
 	userWebAuthnRepo     *repo_user_webauthn_credentials.Queries
 	authSessionsRepo     *repo_auth_sessions.Queries
+	authTokensRepo       *repo_auth_tokens.Queries
+	emailVerifyRepo      *repo_email_verification_tokens.Queries
 	projectsRepo         *repo_projects.Queries
 	entriesRepo          *repo_entries.Queries
 	auditLogRepo         *repo_audit_log.Queries
 	systemStateRepo      *repo_system_state.Queries
 	idempotencyKeysRepo  *repo_idempotency_keys.Queries
-	rateLimitBucketsRepo *repo_rate_limit_buckets.Queries
 }
 
 // New creates a new Repos instance.
@@ -45,12 +47,13 @@ func New(pool *pgxpool.Pool) *Repos {
 		userLoginTOTPRepo:    repo_user_login_totp.New(pool),
 		userWebAuthnRepo:     repo_user_webauthn_credentials.New(pool),
 		authSessionsRepo:     repo_auth_sessions.New(pool),
+		authTokensRepo:       repo_auth_tokens.New(pool),
+		emailVerifyRepo:      repo_email_verification_tokens.New(pool),
 		projectsRepo:         repo_projects.New(pool),
 		entriesRepo:          repo_entries.New(pool),
 		auditLogRepo:         repo_audit_log.New(pool),
 		systemStateRepo:      repo_system_state.New(pool),
 		idempotencyKeysRepo:  repo_idempotency_keys.New(pool),
-		rateLimitBucketsRepo: repo_rate_limit_buckets.New(pool),
 	}
 }
 
@@ -117,6 +120,24 @@ func (r *Repos) AuthSessions(opts ...Option) *repo_auth_sessions.Queries {
 	return r.authSessionsRepo
 }
 
+// AuthTokens returns the auth_tokens repository (PG-backed token store).
+func (r *Repos) AuthTokens(opts ...Option) *repo_auth_tokens.Queries {
+	options := parseOptions(opts...)
+	if options.Tx != nil {
+		return r.authTokensRepo.WithTx(options.Tx)
+	}
+	return r.authTokensRepo
+}
+
+// EmailVerificationTokens returns the email_verification_tokens repository.
+func (r *Repos) EmailVerificationTokens(opts ...Option) *repo_email_verification_tokens.Queries {
+	options := parseOptions(opts...)
+	if options.Tx != nil {
+		return r.emailVerifyRepo.WithTx(options.Tx)
+	}
+	return r.emailVerifyRepo
+}
+
 // Projects returns the projects repository.
 func (r *Repos) Projects(opts ...Option) *repo_projects.Queries {
 	options := parseOptions(opts...)
@@ -162,11 +183,3 @@ func (r *Repos) IdempotencyKeys(opts ...Option) *repo_idempotency_keys.Queries {
 	return r.idempotencyKeysRepo
 }
 
-// RateLimitBuckets returns the rate_limit_buckets repository.
-func (r *Repos) RateLimitBuckets(opts ...Option) *repo_rate_limit_buckets.Queries {
-	options := parseOptions(opts...)
-	if options.Tx != nil {
-		return r.rateLimitBucketsRepo.WithTx(options.Tx)
-	}
-	return r.rateLimitBucketsRepo
-}

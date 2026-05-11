@@ -2,21 +2,17 @@
 // @generated from file oblivio/v1/common.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2"
-import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2"
-import type { Timestamp } from "@bufbuild/protobuf/wkt"
-import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt"
-import type { Message } from "@bufbuild/protobuf"
+import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file oblivio/v1/common.proto.
  */
-export const file_oblivio_v1_common: GenFile =
-  /*@__PURE__*/
-  fileDesc(
-    "ChdvYmxpdmlvL3YxL2NvbW1vbi5wcm90bxIKb2JsaXZpby52MSJBCgxBcmdvbjJQYXJhbXMSCQoBdBgBIAEoDRINCgVtX2tpYhgCIAEoDRIJCgFwGAMgASgNEgwKBGFsZ28YBCABKAkiSQoKRGV2aWNlSW5mbxIRCglkZXZpY2VfaWQYASABKAkSEwoLZGV2aWNlX3R5cGUYAiABKAkSEwoLZGV2aWNlX25hbWUYAyABKAkihAIKC0F1dGhQYXlsb2FkEhQKDGFjY2Vzc190b2tlbhgBIAEoCRIVCg1yZWZyZXNoX3Rva2VuGAIgASgJEjUKEWFjY2Vzc19leHBpcmVzX2F0GAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBI2ChJyZWZyZXNoX2V4cGlyZXNfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhEKCWRldmljZV9pZBgFIAEoCRIQCgh2ZXJpZmllchgGIAEoDBIZChF3cmFwcGVkX3ZhdWx0X2tleRgHIAEoDBIZChF2YXVsdF9rZXlfdmVyc2lvbhgIIAEoDUKsAQoOY29tLm9ibGl2aW8udjFCC0NvbW1vblByb3RvUAFaRGdpdGh1Yi5jb20vc3h3ZWJkZXYvb2JsaXZpby9pbnRlcm5hbC9hcGkvZ2VuL2dvL29ibGl2aW8vdjE7b2JsaXZpb3YxogIDT1hYqgIKT2JsaXZpby5WMcoCCk9ibGl2aW9cVjHiAhZPYmxpdmlvXFYxXEdQQk1ldGFkYXRh6gILT2JsaXZpbzo6VjFiBnByb3RvMw",
-    [file_google_protobuf_timestamp]
-  )
+export const file_oblivio_v1_common: GenFile = /*@__PURE__*/
+  fileDesc("ChdvYmxpdmlvL3YxL2NvbW1vbi5wcm90bxIKb2JsaXZpby52MSJBCgxBcmdvbjJQYXJhbXMSCQoBdBgBIAEoDRINCgVtX2tpYhgCIAEoDRIJCgFwGAMgASgNEgwKBGFsZ28YBCABKAkiSQoKRGV2aWNlSW5mbxIRCglkZXZpY2VfaWQYASABKAkSEwoLZGV2aWNlX3R5cGUYAiABKAkSEwoLZGV2aWNlX25hbWUYAyABKAkihAIKC0F1dGhQYXlsb2FkEhQKDGFjY2Vzc190b2tlbhgBIAEoCRIVCg1yZWZyZXNoX3Rva2VuGAIgASgJEjUKEWFjY2Vzc19leHBpcmVzX2F0GAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBI2ChJyZWZyZXNoX2V4cGlyZXNfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhEKCWRldmljZV9pZBgFIAEoCRIQCgh2ZXJpZmllchgGIAEoDBIZChF3cmFwcGVkX3ZhdWx0X2tleRgHIAEoDBIZChF2YXVsdF9rZXlfdmVyc2lvbhgIIAEoDUKsAQoOY29tLm9ibGl2aW8udjFCC0NvbW1vblByb3RvUAFaRGdpdGh1Yi5jb20vc3h3ZWJkZXYvb2JsaXZpby9pbnRlcm5hbC9hcGkvZ2VuL2dvL29ibGl2aW8vdjE7b2JsaXZpb3YxogIDT1hYqgIKT2JsaXZpby5WMcoCCk9ibGl2aW9cVjHiAhZPYmxpdmlvXFYxXEdQQk1ldGFkYXRh6gILT2JsaXZpbzo6VjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
 
 /**
  * Argon2Params describes Argon2id parameters used by the client to derive
@@ -31,37 +27,36 @@ export type Argon2Params = Message<"oblivio.v1.Argon2Params"> & {
    *
    * @generated from field: uint32 t = 1;
    */
-  t: number
+  t: number;
 
   /**
    * memory in KiB
    *
    * @generated from field: uint32 m_kib = 2;
    */
-  mKib: number
+  mKib: number;
 
   /**
    * parallelism
    *
    * @generated from field: uint32 p = 3;
    */
-  p: number
+  p: number;
 
   /**
    * "argon2id" (other values reserved for future)
    *
    * @generated from field: string algo = 4;
    */
-  algo: string
-}
+  algo: string;
+};
 
 /**
  * Describes the message oblivio.v1.Argon2Params.
  * Use `create(Argon2ParamsSchema)` to create a new message.
  */
-export const Argon2ParamsSchema: GenMessage<Argon2Params> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_common, 0)
+export const Argon2ParamsSchema: GenMessage<Argon2Params> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_common, 0);
 
 /**
  * DeviceInfo annotates a session with client-supplied identifiers.
@@ -76,30 +71,29 @@ export type DeviceInfo = Message<"oblivio.v1.DeviceInfo"> & {
    *
    * @generated from field: string device_id = 1;
    */
-  deviceId: string
+  deviceId: string;
 
   /**
    * web | ios | android | desktop | extension
    *
    * @generated from field: string device_type = 2;
    */
-  deviceType: string
+  deviceType: string;
 
   /**
    * human-readable name (browser/OS)
    *
    * @generated from field: string device_name = 3;
    */
-  deviceName: string
-}
+  deviceName: string;
+};
 
 /**
  * Describes the message oblivio.v1.DeviceInfo.
  * Use `create(DeviceInfoSchema)` to create a new message.
  */
-export const DeviceInfoSchema: GenMessage<DeviceInfo> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_common, 1)
+export const DeviceInfoSchema: GenMessage<DeviceInfo> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_common, 1);
 
 /**
  * AuthPayload is what the server returns after a successful authorization.
@@ -112,48 +106,48 @@ export type AuthPayload = Message<"oblivio.v1.AuthPayload"> & {
   /**
    * @generated from field: string access_token = 1;
    */
-  accessToken: string
+  accessToken: string;
 
   /**
    * @generated from field: string refresh_token = 2;
    */
-  refreshToken: string
+  refreshToken: string;
 
   /**
    * @generated from field: google.protobuf.Timestamp access_expires_at = 3;
    */
-  accessExpiresAt?: Timestamp | undefined
+  accessExpiresAt?: Timestamp | undefined;
 
   /**
    * @generated from field: google.protobuf.Timestamp refresh_expires_at = 4;
    */
-  refreshExpiresAt?: Timestamp | undefined
+  refreshExpiresAt?: Timestamp | undefined;
 
   /**
    * @generated from field: string device_id = 5;
    */
-  deviceId: string
+  deviceId: string;
 
   /**
    * @generated from field: bytes verifier = 6;
    */
-  verifier: Uint8Array
+  verifier: Uint8Array;
 
   /**
    * @generated from field: bytes wrapped_vault_key = 7;
    */
-  wrappedVaultKey: Uint8Array
+  wrappedVaultKey: Uint8Array;
 
   /**
    * @generated from field: uint32 vault_key_version = 8;
    */
-  vaultKeyVersion: number
-}
+  vaultKeyVersion: number;
+};
 
 /**
  * Describes the message oblivio.v1.AuthPayload.
  * Use `create(AuthPayloadSchema)` to create a new message.
  */
-export const AuthPayloadSchema: GenMessage<AuthPayload> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_common, 2)
+export const AuthPayloadSchema: GenMessage<AuthPayload> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_common, 2);
+

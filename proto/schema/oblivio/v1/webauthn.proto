@@ -22,6 +22,12 @@ service WebAuthnService {
   rpc ListCredentials(ListCredentialsRequest) returns (ListCredentialsResponse);
   // Remove a credential by its UUID.
   rpc RemoveCredential(RemoveCredentialRequest) returns (RemoveCredentialResponse);
+
+  // BeginAssertion seeds an authenticated user's challenge for a one-shot
+  // re-authentication via passkey. Used by LoginTOTPService.Disable when
+  // the user has lost their authenticator app and wants to fall back to
+  // their passkey to switch off TOTP.
+  rpc BeginAssertion(BeginAssertionRequest) returns (BeginAssertionResponse);
 }
 
 message RegisterBeginRequest {
@@ -64,3 +70,12 @@ message RemoveCredentialRequest {
   string credential_id = 1;
 }
 message RemoveCredentialResponse {}
+
+message BeginAssertionRequest {}
+message BeginAssertionResponse {
+  // Session identifier the caller passes to the service that consumes the
+  // assertion (e.g. LoginTOTPService.Disable.mfa_session_id).
+  string session_id = 1;
+  // JSON-encoded CredentialRequestOptions per WebAuthn level 2.
+  bytes options_json = 2;
+}

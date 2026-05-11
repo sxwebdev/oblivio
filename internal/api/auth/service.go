@@ -4,17 +4,25 @@ package auth
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	cryptoRand "crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
 	"strings"
+	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/go-webauthn/webauthn/protocol"
 	wa "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1"
@@ -23,10 +31,13 @@ import (
 	"github.com/sxwebdev/oblivio/internal/audit"
 	"github.com/sxwebdev/oblivio/internal/auth"
 	"github.com/sxwebdev/oblivio/internal/config"
+	"github.com/sxwebdev/oblivio/internal/email"
 	"github.com/sxwebdev/oblivio/internal/metrics"
 	"github.com/sxwebdev/oblivio/internal/models"
 	"github.com/sxwebdev/oblivio/internal/store"
 	"github.com/sxwebdev/oblivio/internal/store/repos"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_auth_sessions"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_email_verification_tokens"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_auth"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_kdf_params"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_vault"
@@ -45,6 +56,9 @@ type Service struct {
 	wa                *wa.WebAuthn
 	mfa               *auth.MFAStore
 	recovery          *auth.RecoveryStore
+	emailer           email.Sender
+	publicURL         string
+	appName           string
 }
 
 // Deps bundles the dependencies required to build the AuthService handler.
@@ -56,6 +70,9 @@ type Deps struct {
 	WebAuthn      *wa.WebAuthn
 	MFAStore      *auth.MFAStore
 	RecoveryStore *auth.RecoveryStore
+	Email         email.Sender
+	PublicURL     string
+	AppName       string
 }
 
 // NewService constructs the AuthService handler. AuthService procedures are
@@ -76,6 +93,9 @@ func NewService(d Deps) *Service {
 		wa:                d.WebAuthn,
 		mfa:               d.MFAStore,
 		recovery:          d.RecoveryStore,
+		emailer:           d.Email,
+		publicURL:         d.PublicURL,
+		appName:           d.AppName,
 	}
 }
 
@@ -96,7 +116,7 @@ func (s *Service) logAudit(ctx context.Context, userID uuid.UUID, action models.
 		ev.UserID = uuid.NullUUID{UUID: userID, Valid: true}
 		ev.TargetID = uuid.NullUUID{UUID: userID, Valid: true}
 	}
-	_, _ = s.auditWriter.Append(ctx, ev)
+	s.auditWriter.AppendOrLog(ctx, ev)
 }
 
 // Register provisions a new user from the client-supplied artefacts.
@@ -173,9 +193,19 @@ func (s *Service) Register(ctx context.Context, req *connect.Request[pb.Register
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	s.logAudit(ctx, newUser.ID, models.AuditActionRegister, req, map[string]any{
-		"device_id": deviceID(r.DeviceInfo),
-	})
+	// Fire-and-log the verification email. Failure is non-fatal: the user
+	// is registered, can use the app, and can request a resend later. The
+	// emailer is a NoopSender when the operator left provider="" in config.
+	if err := s.sendVerificationEmail(ctx, newUser.ID, newUser.Email); err != nil {
+		s.logAudit(ctx, newUser.ID, models.AuditActionRegister, req, map[string]any{
+			"device_id":     deviceID(r.DeviceInfo),
+			"email_warning": err.Error(),
+		})
+	} else {
+		s.logAudit(ctx, newUser.ID, models.AuditActionRegister, req, map[string]any{
+			"device_id": deviceID(r.DeviceInfo),
+		})
+	}
 
 	return connect.NewResponse(&pb.RegisterResponse{
 		UserId: newUser.ID.String(),
@@ -234,6 +264,11 @@ func (s *Service) Authorize(ctx context.Context, req *connect.Request[pb.Authori
 	u, err := s.st.Users().GetUserByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			// Anti-enumeration: hash a dummy auth_key against the canned
+			// dummy hash so the wall-clock cost matches a real verify.
+			// Without this an attacker can distinguish "user exists" from
+			// "user doesn't" by timing.
+			_, _ = auth.VerifyAuthKey(r.AuthKey, dummyAuthHash())
 			metrics.LoginAttemptsTotal.WithLabelValues("failure").Inc()
 			return nil, unauthenticated()
 		}
@@ -245,14 +280,26 @@ func (s *Service) Authorize(ctx context.Context, req *connect.Request[pb.Authori
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Lockout: refuse before doing the expensive Argon2 verify.
+	if ua.LockedUntil.Valid && ua.LockedUntil.Time.After(time.Now()) {
+		metrics.LoginAttemptsTotal.WithLabelValues("locked").Inc()
+		return nil, connect.NewError(connect.CodeResourceExhausted, errors.New("account temporarily locked, try again later"))
+	}
+
 	ok, err := auth.VerifyAuthKey(r.AuthKey, ua.AuthKeyHash)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	if !ok {
+		// RecordFailedLogin increments and locks at the threshold (5 → 15min).
+		_, _ = s.st.UserAuth().RecordFailedLogin(ctx, u.ID)
 		metrics.LoginAttemptsTotal.WithLabelValues("failure").Inc()
 		return nil, unauthenticated()
 	}
+	// Reset the counter on a clean credentials check — even though we may
+	// still gate on MFA below, a successful auth_key proves possession of
+	// the password and is what brute-force protection cares about.
+	_ = s.st.UserAuth().ResetFailedLogin(ctx, u.ID)
 
 	// Check 2FA state. Either TOTP enabled or registered passkeys triggers
 	// an MFA challenge.
@@ -261,9 +308,15 @@ func (s *Service) Authorize(ctx context.Context, req *connect.Request[pb.Authori
 
 	credCount := int64(0)
 	if s.wa != nil {
-		if c, err := s.st.UserWebAuthn().CountWebAuthnCredentials(ctx, u.ID); err == nil {
-			credCount = c
-		}
+		// user_webauthn_credentials is RLS-protected — bypass tx because
+		// Authorize is anonymous (no per-user GUC set by middleware).
+		_ = s.st.SystemDo(ctx, func(tx pgx.Tx) error {
+			c, err := s.st.UserWebAuthn(repos.WithTx(tx)).CountWebAuthnCredentials(ctx, u.ID)
+			if err == nil {
+				credCount = c
+			}
+			return nil
+		})
 	}
 
 	if totpEnabled || credCount > 0 {
@@ -281,8 +334,15 @@ func (s *Service) Authorize(ctx context.Context, req *connect.Request[pb.Authori
 			WebauthnRequired: credCount > 0,
 		}
 		if credCount > 0 {
-			creds, err := s.st.UserWebAuthn().ListWebAuthnCredentials(ctx, u.ID)
-			if err != nil {
+			var creds []*models.UserWebauthnCredential
+			if err := s.st.SystemDo(ctx, func(tx pgx.Tx) error {
+				c, err := s.st.UserWebAuthn(repos.WithTx(tx)).ListWebAuthnCredentials(ctx, u.ID)
+				if err != nil {
+					return err
+				}
+				creds = c
+				return nil
+			}); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			wuser := buildWebAuthnUser(u, creds)
@@ -349,12 +409,21 @@ func (s *Service) CompleteMFA(ctx context.Context, req *connect.Request[pb.Compl
 		if s.wa == nil || ch.WebAuthnState == nil {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("webauthn challenge not present"))
 		}
-		creds, err := s.st.UserWebAuthn().ListWebAuthnCredentials(ctx, ch.UserID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		u, err := s.st.Users().GetUserByID(ctx, ch.UserID)
-		if err != nil {
+		var creds []*models.UserWebauthnCredential
+		var u *models.User
+		if err := s.st.SystemDo(ctx, func(tx pgx.Tx) error {
+			c, err := s.st.UserWebAuthn(repos.WithTx(tx)).ListWebAuthnCredentials(ctx, ch.UserID)
+			if err != nil {
+				return err
+			}
+			creds = c
+			usr, err := s.st.Users(repos.WithTx(tx)).GetUserByID(ctx, ch.UserID)
+			if err != nil {
+				return err
+			}
+			u = usr
+			return nil
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		wuser := buildWebAuthnUser(u, creds)
@@ -369,13 +438,16 @@ func (s *Service) CompleteMFA(ctx context.Context, req *connect.Request[pb.Compl
 		}
 		metrics.MFAAttemptsTotal.WithLabelValues("webauthn", "success").Inc()
 		// Update sign_count for the touched credential.
-		matched, err := s.st.UserWebAuthn().GetWebAuthnCredentialByCredID(ctx, credential.ID)
-		if err == nil {
-			_ = s.st.UserWebAuthn().TouchWebAuthnCredential(ctx, repo_user_webauthn_credentials.TouchWebAuthnCredentialParams{
+		_ = s.st.SystemDo(ctx, func(tx pgx.Tx) error {
+			matched, err := s.st.UserWebAuthn(repos.WithTx(tx)).GetWebAuthnCredentialByCredID(ctx, credential.ID)
+			if err != nil {
+				return nil
+			}
+			return s.st.UserWebAuthn(repos.WithTx(tx)).TouchWebAuthnCredential(ctx, repo_user_webauthn_credentials.TouchWebAuthnCredentialParams{
 				ID:        matched.ID,
 				SignCount: int64(credential.Authenticator.SignCount),
 			})
-		}
+		})
 	}
 
 	// Consume the challenge only after successful validation.
@@ -463,6 +535,197 @@ func (s *Service) RefreshToken(ctx context.Context, req *connect.Request[pb.Refr
 	}), nil
 }
 
+// --- Email verification (plan §5.1) -----------------------------------
+
+const (
+	emailVerifyPurpose = "verify_email"
+	emailVerifyTTL     = 24 * time.Hour
+)
+
+// sendVerificationEmail mints a fresh token, persists its SHA-256 hash and
+// dispatches the verification message. Skips when no Sender is configured
+// or when the user has no email (shouldn't happen but defence-in-depth).
+func (s *Service) sendVerificationEmail(ctx context.Context, userID uuid.UUID, addr string) error {
+	if s.emailer == nil || addr == "" || s.publicURL == "" {
+		return nil
+	}
+	if _, ok := s.emailer.(*email.NoopSender); ok {
+		return nil
+	}
+	token, err := newVerificationToken()
+	if err != nil {
+		return err
+	}
+	hash := sha256Sum([]byte(token))
+	if err := s.st.EmailVerificationTokens().InsertEmailVerificationToken(ctx, repo_email_verification_tokens.InsertEmailVerificationTokenParams{
+		TokenHash: hash,
+		UserID:    userID,
+		Purpose:   emailVerifyPurpose,
+		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(emailVerifyTTL), Valid: true},
+	}); err != nil {
+		return fmt.Errorf("insert verify token: %w", err)
+	}
+	link := strings.TrimRight(s.publicURL, "/") + "/verify-email?token=" + token
+	subj, text, html, err := email.RenderVerifyEmail(email.VerifyEmailParams{VerifyURL: link, AppName: s.appName})
+	if err != nil {
+		return err
+	}
+	return s.emailer.Send(ctx, email.Message{To: addr, Subject: subj, TextBody: text, HTMLBody: html})
+}
+
+// VerifyEmail consumes a verification token and stamps users.email_verified_at.
+func (s *Service) VerifyEmail(ctx context.Context, req *connect.Request[pb.VerifyEmailRequest]) (*connect.Response[pb.VerifyEmailResponse], error) {
+	tok := strings.TrimSpace(req.Msg.Token)
+	if tok == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("token required"))
+	}
+	hash := sha256Sum([]byte(tok))
+	uid, err := s.st.EmailVerificationTokens().ConsumeEmailVerificationToken(ctx, hash)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("token invalid or expired"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if err := s.st.Users().MarkEmailVerified(ctx, uid); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	s.logAudit(ctx, uid, models.AuditActionEmailVerify, req, nil)
+	return connect.NewResponse(&pb.VerifyEmailResponse{}), nil
+}
+
+// ResendVerification invalidates outstanding tokens and emails a new one.
+// The response is intentionally generic so an attacker can't probe for
+// registered emails — we always return success.
+func (s *Service) ResendVerification(ctx context.Context, req *connect.Request[pb.ResendVerificationRequest]) (*connect.Response[pb.ResendVerificationResponse], error) {
+	addr := strings.ToLower(strings.TrimSpace(req.Msg.Email))
+	if addr == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("email required"))
+	}
+	u, err := s.st.Users().GetUserByEmail(ctx, addr)
+	if err != nil {
+		// Quiet success on unknown email (anti-enumeration).
+		if errors.Is(err, pgx.ErrNoRows) {
+			return connect.NewResponse(&pb.ResendVerificationResponse{}), nil
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if u.EmailVerifiedAt.Valid {
+		// Already verified; no point sending another link. Generic OK.
+		return connect.NewResponse(&pb.ResendVerificationResponse{}), nil
+	}
+	_, _ = s.st.EmailVerificationTokens().InvalidateActiveEmailVerificationTokens(ctx,
+		repo_email_verification_tokens.InvalidateActiveEmailVerificationTokensParams{
+			UserID:  u.ID,
+			Purpose: emailVerifyPurpose,
+		})
+	if err := s.sendVerificationEmail(ctx, u.ID, u.Email); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	s.logAudit(ctx, u.ID, models.AuditActionEmailResend, req, nil)
+	return connect.NewResponse(&pb.ResendVerificationResponse{}), nil
+}
+
+// newVerificationToken returns a 32-byte URL-safe base64 token.
+func newVerificationToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := readRandom(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+func sha256Sum(b []byte) []byte {
+	h := sha256.Sum256(b)
+	return h[:]
+}
+
+// ChangeMasterPassword rotates the user's KDF + verifier + wrapped_vault_key
+// under a freshly chosen master_password. Records and item ciphertexts are
+// untouched — only the wrapper around vault_key changes. All sessions
+// EXCEPT the calling one are revoked so a stolen password can't outlive
+// the rotation.
+func (s *Service) ChangeMasterPassword(ctx context.Context, req *connect.Request[pb.ChangeMasterPasswordRequest]) (*connect.Response[pb.ChangeMasterPasswordResponse], error) {
+	uc, ok := middleware.FromContext(ctx)
+	if !ok {
+		return nil, unauthenticated()
+	}
+	r := req.Msg
+	if len(r.OldAuthKey) < 16 || len(r.NewAuthKey) < 16 || len(r.NewSaltUser) < 16 ||
+		r.NewKdfParams == nil || len(r.NewVerifier) == 0 || len(r.NewWrappedVaultKey) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("missing change-password artefacts"))
+	}
+
+	ua, err := s.st.UserAuth().GetUserAuth(ctx, uc.UserID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	ok2, err := auth.VerifyAuthKey(r.OldAuthKey, ua.AuthKeyHash)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !ok2 {
+		// Treat a wrong old-password the same as a failed login: increment
+		// the lockout counter and return Unauthenticated.
+		_, _ = s.st.UserAuth().RecordFailedLogin(ctx, uc.UserID)
+		return nil, unauthenticated()
+	}
+
+	hashed, err := auth.HashAuthKey(r.NewAuthKey, s.argon2)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Rotate everything in a single transaction. SystemDo sets the bypass
+	// GUC so the auth_sessions revoke at the end satisfies RLS.
+	if err := s.st.SystemDo(ctx, func(tx pgx.Tx) error {
+		if err := s.st.UserKDFParams(repos.WithTx(tx)).UpsertUserKDFParams(ctx, repo_user_kdf_params.UpsertUserKDFParamsParams{
+			UserID:     uc.UserID,
+			SaltUser:   r.NewSaltUser,
+			Argon2T:    int32(r.NewKdfParams.GetT()),
+			Argon2MKib: int32(r.NewKdfParams.GetMKib()),
+			Argon2P:    int32(r.NewKdfParams.GetP()),
+			Algo:       firstNonEmpty(r.NewKdfParams.GetAlgo(), "argon2id"),
+		}); err != nil {
+			return err
+		}
+		if err := s.st.UserAuth(repos.WithTx(tx)).UpsertUserAuth(ctx, repo_user_auth.UpsertUserAuthParams{
+			UserID:      uc.UserID,
+			AuthKeyHash: hashed,
+		}); err != nil {
+			return err
+		}
+		return s.st.UserVault(repos.WithTx(tx)).UpdateUserVaultPassword(ctx, repo_user_vault.UpdateUserVaultPasswordParams{
+			UserID:          uc.UserID,
+			Verifier:        r.NewVerifier,
+			WrappedVaultKey: r.NewWrappedVaultKey,
+		})
+	}); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Revoke other sessions both at the DB level (auth_sessions row) and
+	// the token level (auth_tokens). The current session survives so the
+	// user keeps the tab they just typed the new password in.
+	if err := s.st.SystemDo(ctx, func(tx pgx.Tx) error {
+		_, err := s.st.AuthSessions(repos.WithTx(tx)).RevokeAllUserSessionsExcept(ctx, repo_auth_sessions.RevokeAllUserSessionsExceptParams{
+			UserID: uc.UserID,
+			ID:     uc.SessionID,
+		})
+		return err
+	}); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if err := s.am.RevokeUserTokensExceptSession(ctx, uc.UserID, uc.SessionID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	s.logAudit(ctx, uc.UserID, models.AuditActionPasswordChange, req, map[string]any{
+		"device_id": uc.DeviceID,
+	})
+	return connect.NewResponse(&pb.ChangeMasterPasswordResponse{}), nil
+}
+
 // Logout invalidates the caller's access token and the corresponding session row.
 func (s *Service) Logout(ctx context.Context, req *connect.Request[pb.LogoutRequest]) (*connect.Response[pb.LogoutResponse], error) {
 	uc, ok := middleware.FromContext(ctx)
@@ -546,6 +809,9 @@ func (s *Service) RecoveryStart(ctx context.Context, req *connect.Request[pb.Rec
 	u, err := s.st.Users().GetUserByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			// Anti-enumeration: pad timing with a dummy verify so the
+			// "no such email" branch matches the real path.
+			_, _ = auth.VerifyAuthKey(req.Msg.RecoveryProof, dummyAuthHash())
 			return nil, unauthenticated()
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -594,40 +860,34 @@ func (s *Service) RecoveryComplete(ctx context.Context, req *connect.Request[pb.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	pool := s.st.Pool()
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	if err := s.st.UserKDFParams(repos.WithTx(tx)).UpsertUserKDFParams(ctx, repo_user_kdf_params.UpsertUserKDFParamsParams{
-		UserID:     sess.UserID,
-		SaltUser:   r.SaltUser,
-		Argon2T:    int32(r.KdfParams.GetT()),
-		Argon2MKib: int32(r.KdfParams.GetMKib()),
-		Argon2P:    int32(r.KdfParams.GetP()),
-		Algo:       firstNonEmpty(r.KdfParams.GetAlgo(), "argon2id"),
+	if err := s.st.SystemDo(ctx, func(tx pgx.Tx) error {
+		// One transaction: rotate KDF/auth/vault, revoke all sessions.
+		// SystemDo sets app.bypass_rls so the auth_sessions write satisfies RLS.
+		if err := s.st.UserKDFParams(repos.WithTx(tx)).UpsertUserKDFParams(ctx, repo_user_kdf_params.UpsertUserKDFParamsParams{
+			UserID:     sess.UserID,
+			SaltUser:   r.SaltUser,
+			Argon2T:    int32(r.KdfParams.GetT()),
+			Argon2MKib: int32(r.KdfParams.GetMKib()),
+			Argon2P:    int32(r.KdfParams.GetP()),
+			Algo:       firstNonEmpty(r.KdfParams.GetAlgo(), "argon2id"),
+		}); err != nil {
+			return err
+		}
+		if err := s.st.UserAuth(repos.WithTx(tx)).UpsertUserAuth(ctx, repo_user_auth.UpsertUserAuthParams{
+			UserID:      sess.UserID,
+			AuthKeyHash: hashed,
+		}); err != nil {
+			return err
+		}
+		if err := s.st.UserVault(repos.WithTx(tx)).CompleteRecovery(ctx, repo_user_vault.CompleteRecoveryParams{
+			UserID:          sess.UserID,
+			Verifier:        r.Verifier,
+			WrappedVaultKey: r.WrappedVaultKey,
+		}); err != nil {
+			return err
+		}
+		return s.st.AuthSessions(repos.WithTx(tx)).RevokeAllUserSessions(ctx, sess.UserID)
 	}); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if err := s.st.UserAuth(repos.WithTx(tx)).UpsertUserAuth(ctx, repo_user_auth.UpsertUserAuthParams{
-		UserID:      sess.UserID,
-		AuthKeyHash: hashed,
-	}); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if err := s.st.UserVault(repos.WithTx(tx)).CompleteRecovery(ctx, repo_user_vault.CompleteRecoveryParams{
-		UserID:          sess.UserID,
-		Verifier:        r.Verifier,
-		WrappedVaultKey: r.WrappedVaultKey,
-	}); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if err := s.st.AuthSessions(repos.WithTx(tx)).RevokeAllUserSessions(ctx, sess.UserID); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if err := tx.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -728,15 +988,77 @@ func firstNonEmpty(s, def string) string {
 }
 
 func isUniqueViolation(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "23505")
+	if err == nil {
+		return false
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
 }
 
-func pseudoSalt(email string) []byte {
-	out := make([]byte, 16)
-	for i := 0; i < len(email) && i < 16; i++ {
-		out[i] = email[i] ^ 0x5c
+// pseudoSaltSecret is a process-local key used to derive stable but
+// unpredictable salts for unknown emails. Initialised at startup from a
+// random source so an attacker can't rederive the salt offline. Stable
+// across the lifetime of one process — and that's the only window that
+// matters for the timing-side-channel anti-enumeration goal.
+var pseudoSaltSecret = func() []byte {
+	b := make([]byte, 32)
+	if _, err := readRandom(b); err != nil {
+		// Falls back to all-zeros — the worst case is predictable salts,
+		// not a crash. Logged in start.go via memguard CatchInterrupt.
+		return b
 	}
-	return out
+	return b
+}()
+
+// pseudoSalt returns a stable 16-byte salt for unknown emails so the
+// "user does not exist" branch indistinguishable from the "user exists"
+// one at the kdf level. HMAC-SHA256(secret, lower(email))[:16] guarantees
+// a fixed length and hides the email content.
+func pseudoSalt(email string) []byte {
+	mac := hmac.New(sha256.New, pseudoSaltSecret)
+	mac.Write([]byte(strings.ToLower(strings.TrimSpace(email))))
+	return mac.Sum(nil)[:16]
+}
+
+// dummyAuthHash is a precomputed valid Argon2id PHC string derived from a
+// random key. Used to pad the time of "no such user" branches in Authorize
+// and RecoveryStart so the wall clock matches a real verify.
+//
+// Computed lazily via sync.Once because hashing is expensive (~50ms with
+// the server params) and we don't want to slow down process startup when
+// nobody is logging in yet.
+var (
+	dummyAuthHashOnce sync.Once
+	dummyAuthHashVal  string
+)
+
+func dummyAuthHash() string {
+	dummyAuthHashOnce.Do(func() {
+		seed := make([]byte, 32)
+		_, _ = readRandom(seed)
+		// Use a fixed-but-conservative server-side Argon2 parameter set so
+		// the timing matches real authentication. The exact params don't
+		// have to mirror per-user state — VerifyAuthKey reads them from the
+		// PHC string we hand it.
+		h, err := auth.HashAuthKey(seed, auth.Argon2Params{T: 3, MKiB: 65536, P: 1})
+		if err != nil {
+			// Fall back to a known-bad string; VerifyAuthKey will return
+			// false quickly. The anti-enumeration property degrades but
+			// nothing breaks.
+			dummyAuthHashVal = "$argon2id$v=19$m=65536,t=3,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+			return
+		}
+		dummyAuthHashVal = h
+	})
+	return dummyAuthHashVal
+}
+
+// readRandom is a small wrapper so tests can stub the source if needed.
+func readRandom(b []byte) (int, error) {
+	return cryptoRand.Read(b)
 }
 
 func defaultKDFParams() *pb.Argon2Params {

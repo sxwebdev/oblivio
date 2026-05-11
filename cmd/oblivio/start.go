@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/awnumar/memguard"
 	wa "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -15,6 +16,7 @@ import (
 	"github.com/sxwebdev/oblivio/internal/api"
 	"github.com/sxwebdev/oblivio/internal/auth"
 	"github.com/sxwebdev/oblivio/internal/config"
+	"github.com/sxwebdev/oblivio/internal/email"
 	"github.com/sxwebdev/oblivio/internal/jobs"
 	"github.com/sxwebdev/oblivio/internal/metrics"
 	"github.com/sxwebdev/oblivio/internal/store"
@@ -32,6 +34,12 @@ func startCMD() *cli.Command {
 		Usage: "start the oblivio service",
 		Flags: []cli.Flag{cfgPathsFlag()},
 		Action: func(ctx context.Context, cl *cli.Command) error {
+			// memguard wipes locked buffers (JWT signing keys, vault token)
+			// when the process catches SIGINT/SIGTERM — without this the
+			// keys leak into a coredump on abnormal exit.
+			memguard.CatchInterrupt()
+			defer memguard.Purge()
+
 			l := logger.NewExtended(defaultLoggerOpts()...)
 
 			conf := new(config.Config)
@@ -82,7 +90,8 @@ func startCMD() *cli.Command {
 			}
 			defer secrets.Close()
 
-			authManager := auth.NewManager(secrets, st, conf.Auth.AccessTokenTTL, conf.Auth.RefreshTokenTTL)
+			tokenStore := auth.NewPGTokenStore(pg.Pool())
+			authManager := auth.NewManager(secrets, st, tokenStore, conf.Auth.AccessTokenTTL, conf.Auth.RefreshTokenTTL)
 
 			// In-memory stores for short-lived multi-step flows (MFA challenge,
 			// recovery handshake). They live for the process lifetime; both
@@ -97,10 +106,12 @@ func startCMD() *cli.Command {
 				l.Warnf("webauthn disabled: %v", err)
 			}
 
-			jobService, err := jobs.NewService(l, conf.Jobs, pg.Pool(), st)
+			jobService, err := jobs.NewService(l, conf.Jobs, pg.Pool(), st, tokenStore)
 			if err != nil {
 				return fmt.Errorf("failed to create job service: %w", err)
 			}
+
+			emailer := buildEmailSender(l, conf.Email)
 
 			apiServer := api.New(api.Deps{
 				Log:           l,
@@ -111,6 +122,12 @@ func startCMD() *cli.Command {
 				WebAuthn:      waRP,
 				MFAStore:      mfaStore,
 				RecoveryStore: recoveryStore,
+				Email:         emailer,
+				PublicURL:     conf.Server.PublicURL,
+				// AppName is the user-facing product label used in email
+				// subjects and bodies. Kept separate from the binary
+				// `appName` (lowercase, used for log/metrics tagging).
+				AppName: "Oblivio",
 			})
 
 			lnc := launcher.New(
@@ -161,6 +178,28 @@ func (m migrateLogger) Printf(format string, v ...any) {
 }
 
 func (m migrateLogger) Verbose() bool { return true }
+
+// buildEmailSender wires the email backend chosen by EmailConfig.Provider:
+//   - "" → NoopSender (verification feature disabled).
+//   - "log" → LogSender (writes to logger; useful in dev/CI).
+//   - "smtp" → SMTPSender via wneessen/go-mail.
+func buildEmailSender(l logger.ExtendedLogger, cfg config.EmailConfig) email.Sender {
+	switch cfg.Provider {
+	case "smtp":
+		return email.NewSMTPSender(email.SMTPConfig{
+			Host:          cfg.SMTP.Host,
+			Port:          int(cfg.SMTP.Port),
+			Username:      cfg.SMTP.Username,
+			Password:      cfg.SMTP.Password,
+			From:          cfg.From,
+			AllowInsecure: cfg.SMTP.AllowInsecure,
+		})
+	case "log":
+		return email.NewLogSender(l)
+	default:
+		return email.NewNoopSender()
+	}
+}
 
 // buildWebAuthn constructs a WebAuthn relying party from config. Returns
 // (nil, err) when configuration is incomplete so the caller can surface a

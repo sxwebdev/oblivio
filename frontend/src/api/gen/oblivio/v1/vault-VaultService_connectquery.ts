@@ -2,14 +2,14 @@
 // @generated from file oblivio/v1/vault.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import { VaultService } from "./vault_pb"
+import { VaultService } from "./vault_pb";
 
 /**
  * @generated from rpc oblivio.v1.VaultService.GetMe
  */
-export const getMe = VaultService.method.getMe
+export const getMe = VaultService.method.getMe;
 
 /**
  * @generated from rpc oblivio.v1.VaultService.DeleteMe
  */
-export const deleteMe = VaultService.method.deleteMe
+export const deleteMe = VaultService.method.deleteMe;

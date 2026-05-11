@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/sxwebdev/oblivio/internal/auth"
 	"github.com/sxwebdev/oblivio/internal/config"
 	"github.com/sxwebdev/oblivio/internal/store"
 	"github.com/tkcrm/mx/logger"
@@ -33,16 +34,19 @@ func NewService(
 	cfg config.JobsConfig,
 	pool *pgxpool.Pool,
 	st *store.Store,
+	tokenStore *auth.PGTokenStore,
 ) (*Service, error) {
 	driver := riverpgxv5.New(pool)
 
 	workers := river.NewWorkers()
 	river.AddWorker(workers, NewAuditChainVerifyWorker(pool, log))
 	river.AddWorker(workers, NewSessionsGCWorker(st, log))
+	river.AddWorker(workers, NewAuthTokensGCWorker(tokenStore, log))
+	river.AddWorker(workers, NewIdempotencyGCWorker(st, log))
 
 	periodicJobs := []*river.PeriodicJob{
 		river.NewPeriodicJob(
-			river.PeriodicInterval(auditChainVerifySchedule()),
+			river.PeriodicInterval(auditChainVerifyInterval(cfg)),
 			func() (river.JobArgs, *river.InsertOpts) {
 				return AuditChainVerifyArgs{}, nil
 			},
@@ -52,6 +56,20 @@ func NewService(
 			river.PeriodicInterval(sessionsGCInterval(cfg)),
 			func() (river.JobArgs, *river.InsertOpts) {
 				return SessionsGCArgs{}, nil
+			},
+			&river.PeriodicJobOpts{RunOnStart: true},
+		),
+		river.NewPeriodicJob(
+			river.PeriodicInterval(authTokensGCInterval(cfg.AuthTokensGCInterval)),
+			func() (river.JobArgs, *river.InsertOpts) {
+				return AuthTokensGCArgs{}, nil
+			},
+			&river.PeriodicJobOpts{RunOnStart: true},
+		),
+		river.NewPeriodicJob(
+			river.PeriodicInterval(idempotencyGCInterval(cfg.IdempotencyGCInterval)),
+			func() (river.JobArgs, *river.InsertOpts) {
+				return IdempotencyGCArgs{}, nil
 			},
 			&river.PeriodicJobOpts{RunOnStart: true},
 		),

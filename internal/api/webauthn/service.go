@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/go-webauthn/webauthn/protocol"
@@ -68,9 +69,13 @@ func (s *Service) RegisterBegin(ctx context.Context, req *connect.Request[pb.Reg
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("begin registration: %w", err))
 	}
 
+	// Stash the user-supplied credential name in the MFA challenge's
+	// DeviceName slot so RegisterFinish can reach it without an extra
+	// DB roundtrip. chooseName() consumes it as the friendly label.
 	sessionID := s.mfa.Put(auth.MFAChallenge{
 		UserID:        uc.UserID,
 		Email:         u.Email,
+		DeviceName:    strings.TrimSpace(req.Msg.GetCredentialName()),
 		WebAuthnState: session,
 	})
 
@@ -119,7 +124,9 @@ func (s *Service) RegisterFinish(ctx context.Context, req *connect.Request[pb.Re
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("create credential: %w", err))
 	}
 
-	name := chooseName(req.Msg.GetSessionId(), parsed)
+	// Prefer the name the user typed at RegisterBegin (stashed in the
+	// MFA challenge's DeviceName slot). Fall back to AAGUID-based label.
+	name := chooseName(challenge.DeviceName, parsed)
 
 	transports := transportsAsStrings(cred.Transport)
 
@@ -171,6 +178,50 @@ func (s *Service) ListCredentials(ctx context.Context, _ *connect.Request[pb.Lis
 	return connect.NewResponse(&pb.ListCredentialsResponse{Credentials: out}), nil
 }
 
+// BeginAssertion seeds a re-authentication challenge for the calling user.
+// The returned session_id is later passed to whichever service consumes the
+// assertion (currently LoginTOTPService.Disable). The MFAStore entry holds
+// the WebAuthn SessionData so we can validate the assertion against the
+// original challenge.
+func (s *Service) BeginAssertion(ctx context.Context, _ *connect.Request[pb.BeginAssertionRequest]) (*connect.Response[pb.BeginAssertionResponse], error) {
+	if s.wa == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("webauthn not configured"))
+	}
+	uc := middleware.MustFromContext(ctx)
+	tx := middleware.MustTxFromContext(ctx)
+
+	u, err := repo_users.New(tx).GetUserByID(ctx, uc.UserID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	creds, err := repo_user_webauthn_credentials.New(tx).ListWebAuthnCredentials(ctx, uc.UserID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if len(creds) == 0 {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("no credentials enrolled"))
+	}
+	wuser := newUser(u, creds)
+
+	options, session, err := s.wa.BeginLogin(wuser)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("begin assertion: %w", err))
+	}
+	sid := s.mfa.Put(auth.MFAChallenge{
+		UserID:        uc.UserID,
+		Email:         u.Email,
+		WebAuthnState: session,
+	})
+	optBytes, err := json.Marshal(options)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&pb.BeginAssertionResponse{
+		SessionId:   sid.String(),
+		OptionsJson: optBytes,
+	}), nil
+}
+
 // RemoveCredential deletes a stored credential.
 func (s *Service) RemoveCredential(ctx context.Context, req *connect.Request[pb.RemoveCredentialRequest]) (*connect.Response[pb.RemoveCredentialResponse], error) {
 	uc := middleware.MustFromContext(ctx)
@@ -202,16 +253,14 @@ func (s *Service) RemoveCredential(ctx context.Context, req *connect.Request[pb.
 
 // --- helpers ---
 
-func chooseName(fallback string, attestation *protocol.ParsedCredentialCreationData) string {
-	// The CredentialName is shipped through the session; we plumb it
-	// through MFAStore in RegisterBegin via the DeviceName slot to keep
-	// the struct narrow. As a fallback (or when the caller didn't supply
-	// one) we use the attestation AAGUID hex.
+func chooseName(userSupplied string, attestation *protocol.ParsedCredentialCreationData) string {
+	// User-supplied label wins. Fall back to a short AAGUID-derived label
+	// so users still see something more meaningful than "passkey".
+	if s := strings.TrimSpace(userSupplied); s != "" {
+		return s
+	}
 	if attestation != nil {
 		return "passkey-" + shortHex(attestation.Response.AttestationObject.AuthData.AttData.AAGUID)
-	}
-	if fallback != "" {
-		return fallback
 	}
 	return "passkey"
 }

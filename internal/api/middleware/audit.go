@@ -36,6 +36,7 @@ var DefaultAuditProcedures = AuditProcedureMap{
 // we install a pointer once and let handlers write through it.
 type auditBox struct {
 	target uuid.UUID
+	extra  map[string]any
 }
 
 type auditBoxCtxKey struct{}
@@ -52,6 +53,21 @@ func withAuditBox(ctx context.Context) (context.Context, *auditBox) {
 func SetAuditTarget(ctx context.Context, id uuid.UUID) {
 	if box, ok := ctx.Value(auditBoxCtxKey{}).(*auditBox); ok {
 		box.target = id
+	}
+}
+
+// SetAuditMetadata adds opaque key/value pairs to the audit_log.metadata
+// JSONB for the current procedure. Used e.g. by EntriesService.GetEntriesByIds
+// to record the full id batch when the interceptor only writes a single
+// target_id. Repeated calls in one handler MERGE — later keys win.
+func SetAuditMetadata(ctx context.Context, kv map[string]any) {
+	if box, ok := ctx.Value(auditBoxCtxKey{}).(*auditBox); ok {
+		if box.extra == nil {
+			box.extra = make(map[string]any, len(kv))
+		}
+		for k, v := range kv {
+			box.extra[k] = v
+		}
 	}
 }
 
@@ -74,19 +90,23 @@ func NewAuditInterceptor(writer *audit.Writer, procedures AuditProcedureMap) con
 			if !ok {
 				return resp, nil
 			}
+			meta := map[string]any{
+				"procedure": req.Spec().Procedure,
+				"device_id": uc.DeviceID,
+			}
+			for k, v := range box.extra {
+				meta[k] = v
+			}
 			ev := audit.Event{
 				UserID:    uuid.NullUUID{UUID: uc.UserID, Valid: true},
 				Action:    action,
 				TargetID:  asNullUUID(box.target),
 				UserAgent: req.Header().Get("User-Agent"),
-				Metadata: map[string]any{
-					"procedure": req.Spec().Procedure,
-					"device_id": uc.DeviceID,
-				},
+				Metadata:  meta,
 			}
-			// Audit failures are logged elsewhere; we never poison a
-			// successful user-facing response with a chain bug.
-			_, _ = writer.Append(ctx, ev)
+			// Audit failures are logged via writer.AppendOrLog; we never
+			// poison a successful user-facing response with a chain bug.
+			writer.AppendOrLog(ctx, ev)
 			return resp, nil
 		}
 	}

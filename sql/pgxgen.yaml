@@ -55,6 +55,10 @@ schemas:
         primary_column: id
       auth_sessions:
         primary_column: id
+      auth_tokens:
+        primary_column: key
+      email_verification_tokens:
+        primary_column: token_hash
       projects:
         primary_column: id
       entries:
@@ -65,5 +69,3 @@ schemas:
         primary_column: key
       idempotency_keys:
         primary_column: key
-      rate_limit_buckets:
-        primary_column: bucket_key

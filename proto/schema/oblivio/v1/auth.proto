@@ -23,9 +23,16 @@ service AuthService {
   rpc RecoveryStart(RecoveryStartRequest) returns (RecoveryStartResponse);
   rpc RecoveryComplete(RecoveryCompleteRequest) returns (RecoveryCompleteResponse);
 
+  // Email verification (anonymous). VerifyEmail consumes the token from
+  // the user's clicked link; ResendVerification re-issues the link when
+  // the previous one expired or was lost.
+  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
+  rpc ResendVerification(ResendVerificationRequest) returns (ResendVerificationResponse);
+
   // Authenticated endpoints.
   rpc Logout(LogoutRequest) returns (LogoutResponse);
   rpc GetMyKeys(GetMyKeysRequest) returns (GetMyKeysResponse);
+  rpc ChangeMasterPassword(ChangeMasterPasswordRequest) returns (ChangeMasterPasswordResponse);
 }
 
 message RegisterRequest {
@@ -154,3 +161,35 @@ message RecoveryCompleteRequest {
   bytes wrapped_vault_key = 6;
 }
 message RecoveryCompleteResponse {}
+
+// --- Email verification ------------------------------------------------
+
+message VerifyEmailRequest {
+  // Raw token from the verification link. Server checks SHA-256(token).
+  string token = 1;
+}
+message VerifyEmailResponse {}
+
+message ResendVerificationRequest {
+  string email = 1;
+}
+message ResendVerificationResponse {}
+
+// --- ChangeMasterPassword (plan §7.2) ----------------------------------
+//
+// Re-derives the user's KDF params, auth_key, verifier and wrapped_vault_key
+// under a freshly-chosen master_password. Records and item ciphertexts are
+// NOT touched — only the wrapper around vault_key is rotated. All other
+// sessions are revoked; the calling session continues so the user doesn't
+// get logged out of the tab they just typed the new password in.
+message ChangeMasterPasswordRequest {
+  // Proves possession of the OLD master_password.
+  bytes old_auth_key = 1;
+  // Fresh artefacts derived from the NEW master_password.
+  bytes new_auth_key = 2;
+  bytes new_salt_user = 3;
+  Argon2Params new_kdf_params = 4;
+  bytes new_verifier = 5;
+  bytes new_wrapped_vault_key = 6;
+}
+message ChangeMasterPasswordResponse {}

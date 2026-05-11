@@ -9,28 +9,83 @@
 package login_totp
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"connectrpc.com/connect"
+	"github.com/go-webauthn/webauthn/protocol"
+	wa "github.com/go-webauthn/webauthn/webauthn"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	pb "github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1"
 	"github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1/obliviov1connect"
 	"github.com/sxwebdev/oblivio/internal/api/middleware"
 	"github.com/sxwebdev/oblivio/internal/auth"
+	"github.com/sxwebdev/oblivio/internal/auth/wauser"
 	srvcrypto "github.com/sxwebdev/oblivio/internal/crypto"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_login_totp"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_webauthn_credentials"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_users"
 )
 
 // Service implements LoginTOTPService.
 type Service struct {
 	obliviov1connect.UnimplementedLoginTOTPServiceHandler
+	wa  *wa.WebAuthn
+	mfa *auth.MFAStore
 }
 
-// NewService constructs the handler.
-func NewService() *Service {
-	return &Service{}
+// NewService constructs the handler. wa/mfa may be nil — Disable's
+// webauthn fallback path is then unavailable but the TOTP path still works.
+func NewService(rp *wa.WebAuthn, mfa *auth.MFAStore) *Service {
+	return &Service{wa: rp, mfa: mfa}
+}
+
+// consumeWebAuthnAssertion validates the assertion against the challenge
+// previously seeded by WebAuthnService.BeginAssertion and bumps sign_count.
+func (s *Service) consumeWebAuthnAssertion(ctx context.Context, tx pgx.Tx, userID uuid.UUID, sessionID string, assertion []byte) error {
+	sid, err := uuid.Parse(sessionID)
+	if err != nil {
+		return connect.NewError(connect.CodeInvalidArgument, errors.New("invalid mfa_session_id"))
+	}
+	ch, err := s.mfa.Take(sid)
+	if err != nil {
+		return connect.NewError(connect.CodeFailedPrecondition, errors.New("mfa challenge expired"))
+	}
+	if ch.UserID != userID || ch.WebAuthnState == nil {
+		return connect.NewError(connect.CodePermissionDenied, errors.New("session does not belong to caller"))
+	}
+
+	u, err := repo_users.New(tx).GetUserByID(ctx, userID)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+	creds, err := repo_user_webauthn_credentials.New(tx).ListWebAuthnCredentials(ctx, userID)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+	wuser := wauser.FromIdentity(u.ID, u.Email, creds)
+
+	parsed, err := protocol.ParseCredentialRequestResponseBody(bytes.NewReader(assertion))
+	if err != nil {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("parse assertion: %w", err))
+	}
+	credential, err := s.wa.ValidateLogin(wuser, *ch.WebAuthnState, parsed)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("webauthn validate: %w", err))
+	}
+	matched, err := repo_user_webauthn_credentials.New(tx).GetWebAuthnCredentialByCredID(ctx, credential.ID)
+	if err == nil {
+		_ = repo_user_webauthn_credentials.New(tx).TouchWebAuthnCredential(ctx, repo_user_webauthn_credentials.TouchWebAuthnCredentialParams{
+			ID:        matched.ID,
+			SignCount: int64(credential.Authenticator.SignCount),
+		})
+	}
+	return nil
 }
 
 // Setup uploads a freshly-encrypted secret. The server derives K_login_totp,
@@ -105,12 +160,16 @@ func (s *Service) Enable(ctx context.Context, req *connect.Request[pb.LoginTOTPS
 	return connect.NewResponse(&pb.LoginTOTPServiceEnableResponse{}), nil
 }
 
-// Disable removes the stored secret entirely.
+// Disable removes the stored secret entirely. Accepts EITHER a fresh TOTP
+// code OR a WebAuthn assertion (for users who lost their authenticator
+// app). The auth_key check is mandatory in both paths so a stolen access
+// token alone can't downgrade 2FA.
 func (s *Service) Disable(ctx context.Context, req *connect.Request[pb.LoginTOTPServiceDisableRequest]) (*connect.Response[pb.LoginTOTPServiceDisableResponse], error) {
 	uc := middleware.MustFromContext(ctx)
 	tx := middleware.MustTxFromContext(ctx)
+	r := req.Msg
 
-	if err := s.verifyAuthKey(ctx, tx, uc, req.Msg.AuthKey); err != nil {
+	if err := s.verifyAuthKey(ctx, tx, uc, r.AuthKey); err != nil {
 		return nil, err
 	}
 	row, err := repo_user_login_totp.New(tx).GetUserLoginTOTP(ctx, uc.UserID)
@@ -120,14 +179,31 @@ func (s *Service) Disable(ctx context.Context, req *connect.Request[pb.LoginTOTP
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	secret, err := decryptLoginTOTP(req.Msg.AuthKey, row.EncryptedSecret)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("totp secret corrupted"))
+
+	hasTOTP := strings.TrimSpace(r.TotpCode) != ""
+	hasWA := len(r.WebauthnAssertionJson) > 0 && strings.TrimSpace(r.MfaSessionId) != ""
+	if hasTOTP == hasWA {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("provide exactly one of totp_code or webauthn_assertion_json"))
 	}
-	defer func() { wipeString(&secret) }()
-	if err := auth.ValidateTOTPCode(secret, req.Msg.TotpCode); err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid totp code"))
+
+	if hasTOTP {
+		secret, err := decryptLoginTOTP(r.AuthKey, row.EncryptedSecret)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, errors.New("totp secret corrupted"))
+		}
+		defer func() { wipeString(&secret) }()
+		if err := auth.ValidateTOTPCode(secret, r.TotpCode); err != nil {
+			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid totp code"))
+		}
+	} else {
+		if s.wa == nil {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("webauthn not configured"))
+		}
+		if err := s.consumeWebAuthnAssertion(ctx, tx, uc.UserID, r.MfaSessionId, r.WebauthnAssertionJson); err != nil {
+			return nil, err
+		}
 	}
+
 	if err := repo_user_login_totp.New(tx).DeleteUserLoginTOTP(ctx, uc.UserID); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -191,9 +267,11 @@ func decryptLoginTOTP(authKey []byte, blob []byte) (string, error) {
 	return string(pt), nil
 }
 
-// wipeString best-effort scrubs the backing bytes of a string holding a
-// short-lived secret. Go strings are immutable so we go through an unsafe-ish
-// path here only when we own the memory.
+// wipeString sets the pointer to "" and zeroes a freshly-allocated copy of
+// the bytes. Strings in Go are immutable, so this is best-effort theatre —
+// the original string's backing bytes (if not already deallocated) survive
+// until GC. The reset of the pointer prevents accidental re-logging or
+// debugger inspection. For real wiping use memguard.
 func wipeString(s *string) {
 	if s == nil || *s == "" {
 		return

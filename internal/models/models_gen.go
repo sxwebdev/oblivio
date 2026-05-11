@@ -30,6 +30,8 @@ const (
 	AuditActionEntryDelete      AuditAction = "entry_delete"
 	AuditActionSessionTerminate AuditAction = "session_terminate"
 	AuditActionAccountDelete    AuditAction = "account_delete"
+	AuditActionEmailVerify      AuditAction = "email_verify"
+	AuditActionEmailResend      AuditAction = "email_resend"
 )
 
 func (e AuditAction) Valid() bool {
@@ -53,7 +55,9 @@ func (e AuditAction) Valid() bool {
 		AuditActionEntryView,
 		AuditActionEntryDelete,
 		AuditActionSessionTerminate,
-		AuditActionAccountDelete:
+		AuditActionAccountDelete,
+		AuditActionEmailVerify,
+		AuditActionEmailResend:
 		return true
 	}
 	return false
@@ -97,20 +101,39 @@ type AuditLog struct {
 }
 
 type AuthSession struct {
-	ID               uuid.UUID          `db:"id" json:"id"`
-	UserID           uuid.UUID          `db:"user_id" json:"user_id"`
-	DeviceID         string             `db:"device_id" json:"device_id"`
-	DeviceType       string             `db:"device_type" json:"device_type"`
-	DeviceName       pgtype.Text        `db:"device_name" json:"device_name"`
-	Ip               *netip.Addr        `db:"ip" json:"ip"`
-	Country          pgtype.Text        `db:"country" json:"country"`
-	AccessTokenHash  []byte             `db:"access_token_hash" json:"access_token_hash"`
-	RefreshTokenHash []byte             `db:"refresh_token_hash" json:"refresh_token_hash"`
-	AccessExpiresAt  pgtype.Timestamptz `db:"access_expires_at" json:"access_expires_at"`
-	RefreshExpiresAt pgtype.Timestamptz `db:"refresh_expires_at" json:"refresh_expires_at"`
-	RevokedAt        pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	LastSeenAt       pgtype.Timestamptz `db:"last_seen_at" json:"last_seen_at"`
+	ID                uuid.UUID          `db:"id" json:"id"`
+	UserID            uuid.UUID          `db:"user_id" json:"user_id"`
+	DeviceID          string             `db:"device_id" json:"device_id"`
+	DeviceType        string             `db:"device_type" json:"device_type"`
+	DeviceName        pgtype.Text        `db:"device_name" json:"device_name"`
+	Ip                *netip.Addr        `db:"ip" json:"ip"`
+	Country           pgtype.Text        `db:"country" json:"country"`
+	AccessTokenHash   []byte             `db:"access_token_hash" json:"access_token_hash"`
+	RefreshTokenHash  []byte             `db:"refresh_token_hash" json:"refresh_token_hash"`
+	CurrentRefreshKey []byte             `db:"current_refresh_key" json:"current_refresh_key"`
+	AccessExpiresAt   pgtype.Timestamptz `db:"access_expires_at" json:"access_expires_at"`
+	RefreshExpiresAt  pgtype.Timestamptz `db:"refresh_expires_at" json:"refresh_expires_at"`
+	RevokedAt         pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	LastSeenAt        pgtype.Timestamptz `db:"last_seen_at" json:"last_seen_at"`
+}
+
+type AuthToken struct {
+	Key       []byte             `db:"key" json:"key"`
+	Value     []byte             `db:"value" json:"value"`
+	UserID    uuid.NullUUID      `db:"user_id" json:"user_id"`
+	SessionID uuid.NullUUID      `db:"session_id" json:"session_id"`
+	TokenType string             `db:"token_type" json:"token_type"`
+	ExpiresAt pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type EmailVerificationToken struct {
+	TokenHash  []byte             `db:"token_hash" json:"token_hash"`
+	UserID     uuid.UUID          `db:"user_id" json:"user_id"`
+	Purpose    string             `db:"purpose" json:"purpose"`
+	ExpiresAt  pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
+	ConsumedAt pgtype.Timestamptz `db:"consumed_at" json:"consumed_at"`
 }
 
 type Entry struct {
@@ -150,12 +173,6 @@ type Project struct {
 	SortOrder      int32              `db:"sort_order" json:"sort_order"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-}
-
-type RateLimitBucket struct {
-	BucketKey    string             `db:"bucket_key" json:"bucket_key"`
-	Tokens       float32            `db:"tokens" json:"tokens"`
-	LastRefillAt pgtype.Timestamptz `db:"last_refill_at" json:"last_refill_at"`
 }
 
 type SystemState struct {

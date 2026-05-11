@@ -43,15 +43,15 @@
 | `OBLIVIO_OPS_PROFILER_PORT`                             | ✅           |            | `10000`           | allows to set custom profiler port                 | `10000`        |
 | `OBLIVIO_OPS_PROFILER_WRITE_TIMEOUT`                    |              |            | `60`              | HTTP server write timeout in seconds               | `60`           |
 | `OBLIVIO_SERVER_ADDR`                                   | ✅           |            | `:8080`           |                                                    |                |
-| `OBLIVIO_SERVER_ALLOWED_ORIGINS`                        |              |            | `[]`              |                                                    |                |
 | `OBLIVIO_SERVER_TLS_CERT_FILE`                          |              |            |                   |                                                    |                |
 | `OBLIVIO_SERVER_TLS_KEY_FILE`                           |              |            |                   |                                                    |                |
+| `OBLIVIO_SERVER_PUBLIC_URL`                             |              |            |                   |                                                    |                |
 | `OBLIVIO_POSTGRES_HOST`                                 | ✅           |            | `localhost`       |                                                    |                |
 | `OBLIVIO_POSTGRES_PORT`                                 | ✅           |            | `5432`            |                                                    |                |
 | `OBLIVIO_POSTGRES_DATABASE`                             | ✅           |            |                   |                                                    |                |
 | `OBLIVIO_POSTGRES_USERNAME`                             | ✅           | ✅         |                   |                                                    |                |
 | `OBLIVIO_POSTGRES_PASSWORD`                             | ✅           | ✅         |                   |                                                    |                |
-| `OBLIVIO_POSTGRES_SSL_MODE`                             |              |            | `disable`         |                                                    |                |
+| `OBLIVIO_POSTGRES_SSL_MODE`                             |              |            | `verify-full`     |                                                    |                |
 | `OBLIVIO_AUTH_ACCESS_TOKEN_TTL`                         |              |            | `20m0s`           |                                                    |                |
 | `OBLIVIO_AUTH_REFRESH_TOKEN_TTL`                        |              |            | `720h0m0s`        |                                                    |                |
 | `OBLIVIO_AUTH_ACCESS_TOKEN_SECRET_KEY`                  |              | ✅         |                   | signing key for access tokens; generated if empty  |                |
@@ -66,12 +66,14 @@
 | `OBLIVIO_WEB_AUTHN_RPID`                                |              |            |                   |                                                    |                |
 | `OBLIVIO_WEB_AUTHN_RP_NAME`                             |              |            | `Oblivio`         |                                                    |                |
 | `OBLIVIO_WEB_AUTHN_RP_ORIGIN`                           |              |            |                   |                                                    |                |
-| `OBLIVIO_JOBS_AUDIT_CHAIN_VERIFY_CRON`                  |              |            | `0 3 * * *`       |                                                    |                |
-| `OBLIVIO_JOBS_RATE_LIMIT_GC_INTERVAL`                   |              |            | `1h0m0s`          |                                                    |                |
+| `OBLIVIO_JOBS_AUDIT_CHAIN_VERIFY_INTERVAL`              |              |            | `24h0m0s`         |                                                    |                |
 | `OBLIVIO_JOBS_SESSIONS_GC_INTERVAL`                     |              |            | `1h0m0s`          |                                                    |                |
+| `OBLIVIO_JOBS_AUTH_TOKENS_GC_INTERVAL`                  |              |            | `1h0m0s`          |                                                    |                |
+| `OBLIVIO_JOBS_IDEMPOTENCY_GC_INTERVAL`                  |              |            | `1h0m0s`          |                                                    |                |
 | `OBLIVIO_EMAIL_PROVIDER`                                |              |            |                   |                                                    |                |
 | `OBLIVIO_EMAIL_FROM`                                    |              |            |                   |                                                    |                |
 | `OBLIVIO_EMAIL_SMTP_HOST`                               |              |            |                   |                                                    |                |
 | `OBLIVIO_EMAIL_SMTP_PORT`                               |              |            | `587`             |                                                    |                |
 | `OBLIVIO_EMAIL_SMTP_USERNAME`                           |              | ✅         |                   |                                                    |                |
 | `OBLIVIO_EMAIL_SMTP_PASSWORD`                           |              | ✅         |                   |                                                    |                |
+| `OBLIVIO_EMAIL_SMTP_ALLOW_INSECURE`                     |              |            | `false`           |                                                    |                |

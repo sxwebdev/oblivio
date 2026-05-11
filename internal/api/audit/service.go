@@ -129,6 +129,8 @@ var actionByProto = map[pb.AuditAction]models.AuditAction{
 	pb.AuditAction_AUDIT_ACTION_ENTRY_DELETE:      models.AuditActionEntryDelete,
 	pb.AuditAction_AUDIT_ACTION_SESSION_TERMINATE: models.AuditActionSessionTerminate,
 	pb.AuditAction_AUDIT_ACTION_ACCOUNT_DELETE:    models.AuditActionAccountDelete,
+	pb.AuditAction_AUDIT_ACTION_EMAIL_VERIFY:      models.AuditActionEmailVerify,
+	pb.AuditAction_AUDIT_ACTION_EMAIL_RESEND:      models.AuditActionEmailResend,
 }
 
 var protoByAction = func() map[models.AuditAction]pb.AuditAction {

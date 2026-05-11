@@ -45,6 +45,9 @@ const (
 	// WebAuthnServiceRemoveCredentialProcedure is the fully-qualified name of the WebAuthnService's
 	// RemoveCredential RPC.
 	WebAuthnServiceRemoveCredentialProcedure = "/oblivio.v1.WebAuthnService/RemoveCredential"
+	// WebAuthnServiceBeginAssertionProcedure is the fully-qualified name of the WebAuthnService's
+	// BeginAssertion RPC.
+	WebAuthnServiceBeginAssertionProcedure = "/oblivio.v1.WebAuthnService/BeginAssertion"
 )
 
 // WebAuthnServiceClient is a client for the oblivio.v1.WebAuthnService service.
@@ -58,6 +61,11 @@ type WebAuthnServiceClient interface {
 	ListCredentials(context.Context, *connect.Request[v1.ListCredentialsRequest]) (*connect.Response[v1.ListCredentialsResponse], error)
 	// Remove a credential by its UUID.
 	RemoveCredential(context.Context, *connect.Request[v1.RemoveCredentialRequest]) (*connect.Response[v1.RemoveCredentialResponse], error)
+	// BeginAssertion seeds an authenticated user's challenge for a one-shot
+	// re-authentication via passkey. Used by LoginTOTPService.Disable when
+	// the user has lost their authenticator app and wants to fall back to
+	// their passkey to switch off TOTP.
+	BeginAssertion(context.Context, *connect.Request[v1.BeginAssertionRequest]) (*connect.Response[v1.BeginAssertionResponse], error)
 }
 
 // NewWebAuthnServiceClient constructs a client for the oblivio.v1.WebAuthnService service. By
@@ -95,6 +103,12 @@ func NewWebAuthnServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(webAuthnServiceMethods.ByName("RemoveCredential")),
 			connect.WithClientOptions(opts...),
 		),
+		beginAssertion: connect.NewClient[v1.BeginAssertionRequest, v1.BeginAssertionResponse](
+			httpClient,
+			baseURL+WebAuthnServiceBeginAssertionProcedure,
+			connect.WithSchema(webAuthnServiceMethods.ByName("BeginAssertion")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -104,6 +118,7 @@ type webAuthnServiceClient struct {
 	registerFinish   *connect.Client[v1.RegisterFinishRequest, v1.RegisterFinishResponse]
 	listCredentials  *connect.Client[v1.ListCredentialsRequest, v1.ListCredentialsResponse]
 	removeCredential *connect.Client[v1.RemoveCredentialRequest, v1.RemoveCredentialResponse]
+	beginAssertion   *connect.Client[v1.BeginAssertionRequest, v1.BeginAssertionResponse]
 }
 
 // RegisterBegin calls oblivio.v1.WebAuthnService.RegisterBegin.
@@ -126,6 +141,11 @@ func (c *webAuthnServiceClient) RemoveCredential(ctx context.Context, req *conne
 	return c.removeCredential.CallUnary(ctx, req)
 }
 
+// BeginAssertion calls oblivio.v1.WebAuthnService.BeginAssertion.
+func (c *webAuthnServiceClient) BeginAssertion(ctx context.Context, req *connect.Request[v1.BeginAssertionRequest]) (*connect.Response[v1.BeginAssertionResponse], error) {
+	return c.beginAssertion.CallUnary(ctx, req)
+}
+
 // WebAuthnServiceHandler is an implementation of the oblivio.v1.WebAuthnService service.
 type WebAuthnServiceHandler interface {
 	// Begin a registration ceremony. Returns the CredentialCreationOptions
@@ -137,6 +157,11 @@ type WebAuthnServiceHandler interface {
 	ListCredentials(context.Context, *connect.Request[v1.ListCredentialsRequest]) (*connect.Response[v1.ListCredentialsResponse], error)
 	// Remove a credential by its UUID.
 	RemoveCredential(context.Context, *connect.Request[v1.RemoveCredentialRequest]) (*connect.Response[v1.RemoveCredentialResponse], error)
+	// BeginAssertion seeds an authenticated user's challenge for a one-shot
+	// re-authentication via passkey. Used by LoginTOTPService.Disable when
+	// the user has lost their authenticator app and wants to fall back to
+	// their passkey to switch off TOTP.
+	BeginAssertion(context.Context, *connect.Request[v1.BeginAssertionRequest]) (*connect.Response[v1.BeginAssertionResponse], error)
 }
 
 // NewWebAuthnServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -170,6 +195,12 @@ func NewWebAuthnServiceHandler(svc WebAuthnServiceHandler, opts ...connect.Handl
 		connect.WithSchema(webAuthnServiceMethods.ByName("RemoveCredential")),
 		connect.WithHandlerOptions(opts...),
 	)
+	webAuthnServiceBeginAssertionHandler := connect.NewUnaryHandler(
+		WebAuthnServiceBeginAssertionProcedure,
+		svc.BeginAssertion,
+		connect.WithSchema(webAuthnServiceMethods.ByName("BeginAssertion")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/oblivio.v1.WebAuthnService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case WebAuthnServiceRegisterBeginProcedure:
@@ -180,6 +211,8 @@ func NewWebAuthnServiceHandler(svc WebAuthnServiceHandler, opts ...connect.Handl
 			webAuthnServiceListCredentialsHandler.ServeHTTP(w, r)
 		case WebAuthnServiceRemoveCredentialProcedure:
 			webAuthnServiceRemoveCredentialHandler.ServeHTTP(w, r)
+		case WebAuthnServiceBeginAssertionProcedure:
+			webAuthnServiceBeginAssertionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -203,4 +236,8 @@ func (UnimplementedWebAuthnServiceHandler) ListCredentials(context.Context, *con
 
 func (UnimplementedWebAuthnServiceHandler) RemoveCredential(context.Context, *connect.Request[v1.RemoveCredentialRequest]) (*connect.Response[v1.RemoveCredentialResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.WebAuthnService.RemoveCredential is not implemented"))
+}
+
+func (UnimplementedWebAuthnServiceHandler) BeginAssertion(context.Context, *connect.Request[v1.BeginAssertionRequest]) (*connect.Response[v1.BeginAssertionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.WebAuthnService.BeginAssertion is not implemented"))
 }

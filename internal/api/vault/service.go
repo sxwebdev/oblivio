@@ -82,18 +82,21 @@ func (s *Service) GetMe(ctx context.Context, _ *connect.Request[pb.GetMeRequest]
 	}), nil
 }
 
-// DeleteMe wipes the caller's account and every row that references it via
-// CASCADE. After the row in user_vault disappears, the ciphertext that may
-// linger in backups is unrecoverable (no wrapped_vault_key, no recovery
-// proof). The audit row is written BEFORE the user delete so the event
-// survives in the chain (audit_log.user_id uses ON DELETE SET NULL).
+// DeleteMe wipes the caller's account. Every dependent row is removed via
+// FK CASCADE (auth_sessions, auth_tokens, projects, entries, vault key
+// wrappers, webauthn credentials, login_totp, idempotency). audit_log
+// keeps the row but its user_id stays as a bare UUID without referential
+// integrity (the chain hash includes user_id and ON DELETE SET NULL would
+// silently break verification — see migration 004).
+//
+// All side-effects ride the request's RLS transaction so a failure mid-
+// way rolls back atomically. The audit row is written via the writer's
+// own (system) tx so it survives even if the outer rollback wipes the
+// user — that's the desired behaviour for a tamper-evident chain.
 func (s *Service) DeleteMe(ctx context.Context, req *connect.Request[pb.DeleteMeRequest]) (*connect.Response[pb.DeleteMeResponse], error) {
 	uc := middleware.MustFromContext(ctx)
 	tx := middleware.MustTxFromContext(ctx)
 
-	// Audit must run before the cascade so the user_id is still valid on
-	// the FK lookup. Failure to write the audit row is fatal — silent
-	// account deletion is worse than aborting.
 	if s.auditWriter != nil {
 		ev := audit.Event{
 			UserID:    uuid.NullUUID{UUID: uc.UserID, Valid: true},
@@ -111,19 +114,8 @@ func (s *Service) DeleteMe(ctx context.Context, req *connect.Request[pb.DeleteMe
 		}
 	}
 
-	// CASCADE removes user_kdf_params, user_auth, user_vault,
-	// user_login_totp, user_webauthn_credentials, auth_sessions,
-	// projects, entries, idempotency_keys. audit_log.user_id is set to
-	// NULL (the chain row persists, but no longer attributable).
 	if err := repo_users.New(tx).DeleteUser(ctx, uc.UserID); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Burn the in-memory token store too. RLS-tx commit happens after
-	// the handler returns, but the in-memory map is independent of the
-	// DB transaction so it is safe to clear now.
-	if s.am != nil {
-		_ = s.am.RevokeAllUserTokens(ctx, uc.UserID)
 	}
 	metrics.SessionsTerminatedTotal.WithLabelValues("delete_me").Inc()
 
