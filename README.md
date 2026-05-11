@@ -10,13 +10,7 @@ USAGE:
    oblivio [global options] [command [command options]]
 
 VERSION:
-
-version: local
-revision: unknown
-branch: unknown
-pipeline ID: unknown
-build date: unknown
-go version: go1.26.3
+   version: local / revision: unknown / branch: unknown / pipeline ID: unknown / build date: unknown / go version: go1.26.3
 
 COMMANDS:
    start       start the oblivio service
