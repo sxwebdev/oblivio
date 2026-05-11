@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -93,12 +94,34 @@ func startCMD() *cli.Command {
 			tokenStore := auth.NewPGTokenStore(pg.Pool())
 			authManager := auth.NewManager(secrets, st, tokenStore, conf.Auth.AccessTokenTTL, conf.Auth.RefreshTokenTTL)
 
-			// In-memory stores for short-lived multi-step flows (MFA challenge,
-			// recovery handshake). They live for the process lifetime; both
-			// have GC goroutines we stop on shutdown via defer.
-			mfaStore := auth.NewMFAStore(5 * time.Minute)
+			// Postgres-backed stores for short-lived multi-step flows (MFA
+			// challenge, recovery handshake). Backing the state in the DB
+			// removes the sticky-session requirement for multi-instance
+			// deploys. Cleanup runs from the periodic GC jobs registered
+			// below via jobs.NewService.
+			mfaSeed, err := auth.DecodeKEKSeed(os.Getenv("OBLIVIO_MFA_KEK_SEED"))
+			if err != nil {
+				return fmt.Errorf("OBLIVIO_MFA_KEK_SEED: %w", err)
+			}
+			mfaKEK, err := auth.NewMFAKEK(mfaSeed)
+			if err != nil {
+				return fmt.Errorf("mfa kek: %w", err)
+			}
+			defer mfaKEK.Close()
+			if mfaKEK.IsInstanceLocal() {
+				l.Warnf("mfa kek: no shared seed (OBLIVIO_MFA_KEK_SEED unset); MFA challenges " +
+					"will only be valid on the instance that issued them — enable sticky " +
+					"sessions on your load balancer or set the env var")
+			}
+			mfaStore, err := auth.NewMFAStore(st.MFAChallenges(), mfaKEK, 5*time.Minute)
+			if err != nil {
+				return fmt.Errorf("mfa store: %w", err)
+			}
 			defer mfaStore.Close()
-			recoveryStore := auth.NewRecoveryStore(15 * time.Minute)
+			recoveryStore, err := auth.NewRecoveryStore(st.RecoverySessions(), 15*time.Minute)
+			if err != nil {
+				return fmt.Errorf("recovery store: %w", err)
+			}
 			defer recoveryStore.Close()
 
 			waRP, err := buildWebAuthn(conf.WebAuthn)

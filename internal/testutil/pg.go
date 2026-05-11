@@ -120,6 +120,8 @@ func (p *PG) Reset(ctx context.Context, t *testing.T) {
 		"audit_log",
 		"idempotency_keys",
 		"rate_limit_buckets",
+		"mfa_challenges",
+		"recovery_sessions",
 		"entries",
 		"projects",
 		"auth_sessions",
@@ -140,6 +142,23 @@ func (p *PG) Reset(ctx context.Context, t *testing.T) {
 	); err != nil {
 		t.Fatalf("reset audit head: %v", err)
 	}
+}
+
+// SeedUser inserts a minimal users row and returns the new UUID. Tests that
+// touch FK-bound tables (mfa_challenges, recovery_sessions, user_vault, ...)
+// must seed a user first because the FK is ON DELETE CASCADE — without a
+// row, the insert into the child table fails.
+func (p *PG) SeedUser(ctx context.Context, t *testing.T, email string) string {
+	t.Helper()
+	var id string
+	err := p.Pool.QueryRow(ctx,
+		`INSERT INTO users (email) VALUES ($1) RETURNING id::text`,
+		email,
+	).Scan(&id)
+	if err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	return id
 }
 
 func runMigrations(dsn string) error {

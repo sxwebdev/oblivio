@@ -163,6 +163,19 @@ type IdempotencyKey struct {
 	ExpiresAt      pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
 }
 
+type MfaChallenge struct {
+	ID            uuid.UUID          `db:"id" json:"id"`
+	UserID        uuid.UUID          `db:"user_id" json:"user_id"`
+	Email         string             `db:"email" json:"email"`
+	AuthKeyCt     []byte             `db:"auth_key_ct" json:"auth_key_ct"`
+	DeviceID      string             `db:"device_id" json:"device_id"`
+	DeviceType    string             `db:"device_type" json:"device_type"`
+	DeviceName    string             `db:"device_name" json:"device_name"`
+	TotpRequired  bool               `db:"totp_required" json:"totp_required"`
+	WebauthnState []byte             `db:"webauthn_state" json:"webauthn_state"`
+	ExpiresAt     pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
+}
+
 type Project struct {
 	ID             uuid.UUID          `db:"id" json:"id"`
 	UserID         uuid.UUID          `db:"user_id" json:"user_id"`
@@ -173,6 +186,20 @@ type Project struct {
 	SortOrder      int32              `db:"sort_order" json:"sort_order"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type RateLimitBucket struct {
+	Kind       string             `db:"kind" json:"kind"`
+	Key        string             `db:"key" json:"key"`
+	Tokens     float64            `db:"tokens" json:"tokens"`
+	RefilledAt pgtype.Timestamptz `db:"refilled_at" json:"refilled_at"`
+}
+
+type RecoverySession struct {
+	ID        uuid.UUID          `db:"id" json:"id"`
+	UserID    uuid.UUID          `db:"user_id" json:"user_id"`
+	Email     string             `db:"email" json:"email"`
+	ExpiresAt pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
 }
 
 type SystemState struct {

@@ -72,12 +72,15 @@ func (s *Service) RegisterBegin(ctx context.Context, req *connect.Request[pb.Reg
 	// Stash the user-supplied credential name in the MFA challenge's
 	// DeviceName slot so RegisterFinish can reach it without an extra
 	// DB roundtrip. chooseName() consumes it as the friendly label.
-	sessionID := s.mfa.Put(auth.MFAChallenge{
+	sessionID, err := s.mfa.Put(ctx, auth.MFAChallenge{
 		UserID:        uc.UserID,
 		Email:         u.Email,
 		DeviceName:    strings.TrimSpace(req.Msg.GetCredentialName()),
 		WebAuthnState: session,
 	})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("mfa challenge put: %w", err))
+	}
 
 	optBytes, err := json.Marshal(options)
 	if err != nil {
@@ -101,7 +104,7 @@ func (s *Service) RegisterFinish(ctx context.Context, req *connect.Request[pb.Re
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid session_id"))
 	}
-	challenge, err := s.mfa.Take(sid)
+	challenge, err := s.mfa.Take(ctx, sid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("registration session expired"))
 	}
@@ -207,11 +210,14 @@ func (s *Service) BeginAssertion(ctx context.Context, _ *connect.Request[pb.Begi
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("begin assertion: %w", err))
 	}
-	sid := s.mfa.Put(auth.MFAChallenge{
+	sid, err := s.mfa.Put(ctx, auth.MFAChallenge{
 		UserID:        uc.UserID,
 		Email:         u.Email,
 		WebAuthnState: session,
 	})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("mfa challenge put: %w", err))
+	}
 	optBytes, err := json.Marshal(options)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

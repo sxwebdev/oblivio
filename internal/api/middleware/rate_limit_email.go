@@ -44,7 +44,7 @@ func NewEmailRateLimitInterceptor(rl *RateLimitMiddleware) connect.UnaryIntercep
 			if perMin == 0 {
 				return next(ctx, req)
 			}
-			if !rl.Allow(rule.kindEmail+":"+email, perMin, burst) {
+			if !rl.Allow(ctx, rule.kindEmail+":"+email, perMin, burst) {
 				metrics.RateLimitDropsTotal.WithLabelValues(procedure, "email").Inc()
 				return nil, connect.NewError(connect.CodeResourceExhausted, errors.New("rate limit exceeded for this email"))
 			}

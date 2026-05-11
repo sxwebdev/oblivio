@@ -1,30 +1,32 @@
 // Package middleware: rate limiter for sensitive anonymous endpoints.
 //
-// We use an in-memory token-bucket (golang.org/x/time/rate) keyed by
-// "kind:identifier". The plan §6.6 specifies a Postgres-backed bucket so a
-// rate-limit decision survives restart and works in a multi-node deploy.
-// We deliberately picked the in-memory variant in Sprint 4 (per user choice)
-// because it avoids a DB round-trip on every Authorize/GetKDFParams. The
-// `rate_limit_buckets` table is left in place for a future migration.
+// Buckets live in Postgres (table `rate_limit_buckets`) so two server
+// instances behind a load balancer share one set of counters. Each
+// Allow() call performs a single INSERT ... ON CONFLICT DO UPDATE that
+// atomically refills and consumes one token — see
+// sql/queries/rate_limit_buckets/rate_limit_buckets.sql.
 //
 // The limiter is wired as an HTTP middleware (NOT a Connect interceptor) so
 // it can see the client IP — the interceptor surface only exposes the
 // ConnectRPC request, not net/http.Request. For per-email rate limiting we
 // decode the protobuf body lazily and key on email when the procedure carries
-// one.
+// one (rate_limit_email.go).
+//
+// Failure mode: when the database is unreachable the limiter fails OPEN
+// (returns true). The trade-off is that a DB outage doesn't lock everyone
+// out; rate-limit metrics surface the spike so operators see what happened.
 package middleware
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
-
-	"golang.org/x/time/rate"
 
 	"github.com/sxwebdev/oblivio/internal/config"
 	"github.com/sxwebdev/oblivio/internal/metrics"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_rate_limit_buckets"
 )
 
 // RateLimitMiddleware applies per-IP and per-email token-bucket limits to
@@ -32,24 +34,15 @@ import (
 // rejected with 429 Too Many Requests; the response body is plain text so
 // it shows up in browser network logs without protobuf decoding.
 type RateLimitMiddleware struct {
-	cfg config.RateLimits
-
-	mu       sync.Mutex
-	limiters map[string]*entry
+	cfg  config.RateLimits
+	repo *repo_rate_limit_buckets.Queries
 }
 
-type entry struct {
-	limiter  *rate.Limiter
-	lastSeen time.Time
-}
-
-// NewRateLimitMiddleware constructs the middleware. A background goroutine
-// is not needed: stale entries are reaped lazily during `bucket` lookups.
-func NewRateLimitMiddleware(cfg config.RateLimits) *RateLimitMiddleware {
-	return &RateLimitMiddleware{
-		cfg:      cfg,
-		limiters: make(map[string]*entry),
-	}
+// NewRateLimitMiddleware constructs the middleware. `repo` is required —
+// the in-memory variant has been retired in favour of Postgres-backed
+// buckets so multi-instance deploys share state.
+func NewRateLimitMiddleware(cfg config.RateLimits, repo *repo_rate_limit_buckets.Queries) *RateLimitMiddleware {
+	return &RateLimitMiddleware{cfg: cfg, repo: repo}
 }
 
 // Wrap installs the per-IP HTTP-layer middleware. Per-email checks live in
@@ -67,7 +60,7 @@ func (m *RateLimitMiddleware) Wrap(next http.Handler) http.Handler {
 
 		ip := clientIP(r)
 		ipLimit, ipBurst := rule.ipLimit(m.cfg)
-		if ipLimit > 0 && !m.Allow(rule.ipKey(ip), ipLimit, ipBurst) {
+		if ipLimit > 0 && !m.Allow(r.Context(), rule.ipKey(ip), ipLimit, ipBurst) {
 			metrics.RateLimitDropsTotal.WithLabelValues(procedure, "ip").Inc()
 			tooMany(w, "rate limit exceeded (ip)")
 			return
@@ -81,41 +74,51 @@ func (m *RateLimitMiddleware) Wrap(next http.Handler) http.Handler {
 // shares this middleware's bucket pool.
 func (m *RateLimitMiddleware) Cfg() config.RateLimits { return m.cfg }
 
-// Allow returns true if a token is available for the given key. Exported so
-// the email-side ConnectRPC interceptor can bypass the HTTP-layer entry
-// point and reuse the same in-memory bucket pool.
+// Allow returns true if a token is available for the given key. `key` must
+// be in "kind:identifier" form; the colon split is required to keep the
+// table's primary key columns distinct.
 //
-// The Sprint-4 limiter resets stale entries (>10min) lazily to avoid an
-// unbounded map.
-func (m *RateLimitMiddleware) Allow(key string, perMin uint32, burst int) bool {
+// The DB function returns the bucket's token count AFTER decrement: a
+// non-negative value means the request was allowed, a negative value means
+// it was denied.
+func (m *RateLimitMiddleware) Allow(ctx context.Context, key string, perMin uint32, burst int) bool {
 	if perMin == 0 {
 		return true
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if m.limiters == nil {
-		m.limiters = make(map[string]*entry)
-	}
-	now := time.Now()
-	e, ok := m.limiters[key]
+	kind, ident, ok := splitBucketKey(key)
 	if !ok {
-		e = &entry{
-			limiter: rate.NewLimiter(rate.Limit(float64(perMin)/60.0), burst),
-		}
-		m.limiters[key] = e
+		// Malformed key — treat as misconfigured limiter and let the
+		// request through rather than 500-storming legitimate traffic.
+		return true
 	}
-	e.lastSeen = now
+	// Cap the DB call so a slow Postgres doesn't stall the request thread.
+	subCtx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	defer cancel()
 
-	// Best-effort GC every ~256 hits.
-	if len(m.limiters) > 256 {
-		for k, v := range m.limiters {
-			if now.Sub(v.lastSeen) > 10*time.Minute {
-				delete(m.limiters, k)
-			}
-		}
+	ratePerSec := float64(perMin) / 60.0
+	tokens, err := m.repo.ConsumeRateLimit(subCtx, repo_rate_limit_buckets.ConsumeRateLimitParams{
+		Kind:       kind,
+		Key:        ident,
+		Burst:      float64(burst),
+		RatePerSec: ratePerSec,
+	})
+	if err != nil {
+		// Fail open: a DB outage must not lock every user out of login.
+		// The error is observable via the metrics counter and DB logs.
+		metrics.RateLimitDropsTotal.WithLabelValues("db_error", "ip").Inc()
+		return true
 	}
-	return e.limiter.AllowN(now, 1)
+	return tokens >= 0
+}
+
+// splitBucketKey turns "kind:identifier" into its parts. Returns ok=false
+// for malformed input (no colon, empty kind, or empty identifier).
+func splitBucketKey(s string) (kind, ident string, ok bool) {
+	i := strings.IndexByte(s, ':')
+	if i <= 0 || i == len(s)-1 {
+		return "", "", false
+	}
+	return s[:i], s[i+1:], true
 }
 
 // procedureRule binds a procedure to the bucket configuration it consumes.

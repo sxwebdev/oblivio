@@ -69,3 +69,9 @@ schemas:
         primary_column: key
       idempotency_keys:
         primary_column: key
+      rate_limit_buckets:
+        primary_column: key
+      mfa_challenges:
+        primary_column: id
+      recovery_sessions:
+        primary_column: id

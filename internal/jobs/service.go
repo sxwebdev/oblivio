@@ -43,6 +43,9 @@ func NewService(
 	river.AddWorker(workers, NewSessionsGCWorker(st, log))
 	river.AddWorker(workers, NewAuthTokensGCWorker(tokenStore, log))
 	river.AddWorker(workers, NewIdempotencyGCWorker(st, log))
+	river.AddWorker(workers, NewMFAGCWorker(st, log))
+	river.AddWorker(workers, NewRecoveryGCWorker(st, log))
+	river.AddWorker(workers, NewRateLimitGCWorker(st, log))
 
 	periodicJobs := []*river.PeriodicJob{
 		river.NewPeriodicJob(
@@ -70,6 +73,27 @@ func NewService(
 			river.PeriodicInterval(idempotencyGCInterval(cfg.IdempotencyGCInterval)),
 			func() (river.JobArgs, *river.InsertOpts) {
 				return IdempotencyGCArgs{}, nil
+			},
+			&river.PeriodicJobOpts{RunOnStart: true},
+		),
+		river.NewPeriodicJob(
+			river.PeriodicInterval(mfaGCInterval(cfg.MFAGCInterval)),
+			func() (river.JobArgs, *river.InsertOpts) {
+				return MFAGCArgs{}, nil
+			},
+			&river.PeriodicJobOpts{RunOnStart: true},
+		),
+		river.NewPeriodicJob(
+			river.PeriodicInterval(recoveryGCInterval(cfg.RecoveryGCInterval)),
+			func() (river.JobArgs, *river.InsertOpts) {
+				return RecoveryGCArgs{}, nil
+			},
+			&river.PeriodicJobOpts{RunOnStart: true},
+		),
+		river.NewPeriodicJob(
+			river.PeriodicInterval(rateLimitGCInterval(cfg.RateLimitGCInterval)),
+			func() (river.JobArgs, *river.InsertOpts) {
+				return RateLimitGCArgs{}, nil
 			},
 			&river.PeriodicJobOpts{RunOnStart: true},
 		),

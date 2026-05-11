@@ -1,10 +1,16 @@
 package auth
 
 import (
-	"sync"
+	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_recovery_sessions"
 )
 
 // RecoverySession captures a successfully-proven recovery attempt. Holding it
@@ -16,91 +22,70 @@ type RecoverySession struct {
 	ExpiresAt time.Time
 }
 
-// RecoveryStore is the in-memory companion to the RecoveryStart →
-// RecoveryComplete handshake. A successful proof creates a session; the
-// subsequent Complete call consumes it. Sessions expire after the configured
-// TTL (15 minutes is the default — long enough for the user to pick a new
-// password, short enough that a stolen recovery_code becomes useless quickly).
+// RecoveryStore is the Postgres-backed companion to the RecoveryStart →
+// RecoveryComplete handshake. A successful proof creates a session row; the
+// subsequent Complete call atomically deletes-and-returns it. Sessions
+// expire after the configured TTL (15 minutes is the default).
+//
+// Unlike MFAChallenge, recovery sessions hold no secret material — the row
+// is a capability token and nothing more, so no KEK is needed.
 type RecoveryStore struct {
-	mu      sync.Mutex
-	items   map[uuid.UUID]RecoverySession
-	ttl     time.Duration
-	stopGC  chan struct{}
-	stopped bool
+	repo *repo_recovery_sessions.Queries
+	ttl  time.Duration
 }
 
-// NewRecoveryStore returns a store backed by a plain map plus a GC goroutine.
-func NewRecoveryStore(ttl time.Duration) *RecoveryStore {
+// NewRecoveryStore returns a store backed by the given repository.
+func NewRecoveryStore(repo *repo_recovery_sessions.Queries, ttl time.Duration) (*RecoveryStore, error) {
+	if repo == nil {
+		return nil, errors.New("recovery store: repo required")
+	}
 	if ttl <= 0 {
 		ttl = 15 * time.Minute
 	}
-	s := &RecoveryStore{
-		items:  make(map[uuid.UUID]RecoverySession),
-		ttl:    ttl,
-		stopGC: make(chan struct{}),
-	}
-	go s.gcLoop()
-	return s
+	return &RecoveryStore{repo: repo, ttl: ttl}, nil
 }
 
-// Put writes a session and returns its UUID.
-func (s *RecoveryStore) Put(sess RecoverySession) uuid.UUID {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// Put writes a session row and returns its UUID. Caller-supplied IDs are
+// honoured for testability; otherwise a fresh UUIDv4 is generated.
+func (s *RecoveryStore) Put(ctx context.Context, sess RecoverySession) (uuid.UUID, error) {
 	if sess.ID == uuid.Nil {
 		sess.ID = uuid.New()
 	}
 	sess.ExpiresAt = time.Now().Add(s.ttl)
-	s.items[sess.ID] = sess
-	return sess.ID
+	_, err := s.repo.InsertRecoverySession(ctx, repo_recovery_sessions.InsertRecoverySessionParams{
+		ID:        sess.ID,
+		UserID:    sess.UserID,
+		Email:     sess.Email,
+		ExpiresAt: pgtype.Timestamptz{Time: sess.ExpiresAt, Valid: true},
+	})
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("recovery store: insert: %w", err)
+	}
+	return sess.ID, nil
 }
 
-// Take removes and returns a session, surfacing whether it had expired.
-func (s *RecoveryStore) Take(id uuid.UUID) (RecoverySession, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	sess, ok := s.items[id]
-	if !ok {
-		return RecoverySession{}, ErrChallengeNotFound
+// Take atomically deletes and returns a session, surfacing whether it had
+// expired. Concurrent Take calls race-safely: the SQL DELETE...RETURNING
+// guarantees only one caller observes the row.
+func (s *RecoveryStore) Take(ctx context.Context, id uuid.UUID) (RecoverySession, error) {
+	row, err := s.repo.TakeRecoverySession(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return RecoverySession{}, ErrChallengeNotFound
+		}
+		return RecoverySession{}, fmt.Errorf("recovery store: take: %w", err)
 	}
-	delete(s.items, id)
+	sess := RecoverySession{
+		ID:        row.ID,
+		UserID:    row.UserID,
+		Email:     row.Email,
+		ExpiresAt: row.ExpiresAt.Time,
+	}
 	if time.Now().After(sess.ExpiresAt) {
 		return RecoverySession{}, ErrChallengeExpired
 	}
 	return sess, nil
 }
 
-// Close stops the GC goroutine.
-func (s *RecoveryStore) Close() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.stopped {
-		return
-	}
-	s.stopped = true
-	close(s.stopGC)
-}
-
-func (s *RecoveryStore) gcLoop() {
-	t := time.NewTicker(s.ttl / 2)
-	defer t.Stop()
-	for {
-		select {
-		case <-s.stopGC:
-			return
-		case <-t.C:
-			s.sweep()
-		}
-	}
-}
-
-func (s *RecoveryStore) sweep() {
-	now := time.Now()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for id, sess := range s.items {
-		if now.After(sess.ExpiresAt) {
-			delete(s.items, id)
-		}
-	}
-}
+// Close is a no-op for the Postgres-backed store. Kept for API parity.
+func (s *RecoveryStore) Close() {}

@@ -108,6 +108,9 @@ type JobsConfig struct {
 	SessionsGCInterval       time.Duration `yaml:"sessions_gc_interval" default:"1h"`
 	AuthTokensGCInterval     time.Duration `yaml:"auth_tokens_gc_interval" default:"1h"`
 	IdempotencyGCInterval    time.Duration `yaml:"idempotency_gc_interval" default:"1h"`
+	MFAGCInterval            time.Duration `yaml:"mfa_gc_interval" default:"5m"`
+	RecoveryGCInterval       time.Duration `yaml:"recovery_gc_interval" default:"5m"`
+	RateLimitGCInterval      time.Duration `yaml:"rate_limit_gc_interval" default:"1h"`
 }
 
 // EmailConfig configures transactional email delivery (verification, recovery).

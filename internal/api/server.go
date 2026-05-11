@@ -118,7 +118,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Email-side rate limiter for AuthService — runs after deserialisation
 	// so it can read req.Email regardless of content-type framing.
-	rateLimitMW := middleware.NewRateLimitMiddleware(s.auth.RateLimits)
+	rateLimitMW := middleware.NewRateLimitMiddleware(s.auth.RateLimits, s.store.RateLimitBuckets())
 	emailRateInterceptor := middleware.NewEmailRateLimitInterceptor(rateLimitMW)
 	authInterceptors := connect.WithInterceptors(emailRateInterceptor)
 

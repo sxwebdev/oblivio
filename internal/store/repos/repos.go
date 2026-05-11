@@ -9,7 +9,10 @@ import (
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_email_verification_tokens"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_entries"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_idempotency_keys"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_mfa_challenges"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_projects"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_rate_limit_buckets"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_recovery_sessions"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_system_state"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_auth"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_kdf_params"
@@ -21,20 +24,23 @@ import (
 
 // Repos aggregates all entity repositories.
 type Repos struct {
-	usersRepo            *repo_users.Queries
-	userKDFParamsRepo    *repo_user_kdf_params.Queries
-	userAuthRepo         *repo_user_auth.Queries
-	userVaultRepo        *repo_user_vault.Queries
-	userLoginTOTPRepo    *repo_user_login_totp.Queries
-	userWebAuthnRepo     *repo_user_webauthn_credentials.Queries
-	authSessionsRepo     *repo_auth_sessions.Queries
-	authTokensRepo       *repo_auth_tokens.Queries
-	emailVerifyRepo      *repo_email_verification_tokens.Queries
-	projectsRepo         *repo_projects.Queries
-	entriesRepo          *repo_entries.Queries
-	auditLogRepo         *repo_audit_log.Queries
-	systemStateRepo      *repo_system_state.Queries
-	idempotencyKeysRepo  *repo_idempotency_keys.Queries
+	usersRepo           *repo_users.Queries
+	userKDFParamsRepo   *repo_user_kdf_params.Queries
+	userAuthRepo        *repo_user_auth.Queries
+	userVaultRepo       *repo_user_vault.Queries
+	userLoginTOTPRepo   *repo_user_login_totp.Queries
+	userWebAuthnRepo    *repo_user_webauthn_credentials.Queries
+	authSessionsRepo    *repo_auth_sessions.Queries
+	authTokensRepo      *repo_auth_tokens.Queries
+	emailVerifyRepo     *repo_email_verification_tokens.Queries
+	projectsRepo        *repo_projects.Queries
+	entriesRepo         *repo_entries.Queries
+	auditLogRepo        *repo_audit_log.Queries
+	systemStateRepo     *repo_system_state.Queries
+	idempotencyKeysRepo *repo_idempotency_keys.Queries
+	rateLimitRepo       *repo_rate_limit_buckets.Queries
+	mfaChallengesRepo   *repo_mfa_challenges.Queries
+	recoverySessionsRepo *repo_recovery_sessions.Queries
 }
 
 // New creates a new Repos instance.
@@ -54,6 +60,9 @@ func New(pool *pgxpool.Pool) *Repos {
 		auditLogRepo:         repo_audit_log.New(pool),
 		systemStateRepo:      repo_system_state.New(pool),
 		idempotencyKeysRepo:  repo_idempotency_keys.New(pool),
+		rateLimitRepo:        repo_rate_limit_buckets.New(pool),
+		mfaChallengesRepo:    repo_mfa_challenges.New(pool),
+		recoverySessionsRepo: repo_recovery_sessions.New(pool),
 	}
 }
 
@@ -181,5 +190,32 @@ func (r *Repos) IdempotencyKeys(opts ...Option) *repo_idempotency_keys.Queries {
 		return r.idempotencyKeysRepo.WithTx(options.Tx)
 	}
 	return r.idempotencyKeysRepo
+}
+
+// RateLimitBuckets returns the rate_limit_buckets repository.
+func (r *Repos) RateLimitBuckets(opts ...Option) *repo_rate_limit_buckets.Queries {
+	options := parseOptions(opts...)
+	if options.Tx != nil {
+		return r.rateLimitRepo.WithTx(options.Tx)
+	}
+	return r.rateLimitRepo
+}
+
+// MFAChallenges returns the mfa_challenges repository.
+func (r *Repos) MFAChallenges(opts ...Option) *repo_mfa_challenges.Queries {
+	options := parseOptions(opts...)
+	if options.Tx != nil {
+		return r.mfaChallengesRepo.WithTx(options.Tx)
+	}
+	return r.mfaChallengesRepo
+}
+
+// RecoverySessions returns the recovery_sessions repository.
+func (r *Repos) RecoverySessions(opts ...Option) *repo_recovery_sessions.Queries {
+	options := parseOptions(opts...)
+	if options.Tx != nil {
+		return r.recoverySessionsRepo.WithTx(options.Tx)
+	}
+	return r.recoverySessionsRepo
 }
 

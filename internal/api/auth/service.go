@@ -363,7 +363,10 @@ func (s *Service) Authorize(ctx context.Context, req *connect.Request[pb.Authori
 			}
 			mfaResp.WebauthnOptionsJson = optJSON
 		}
-		sid := s.mfa.Put(ch)
+		sid, err := s.mfa.Put(ctx, ch)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("mfa challenge put: %w", err))
+		}
 		mfaResp.SessionId = sid.String()
 		metrics.LoginAttemptsTotal.WithLabelValues("mfa_challenge").Inc()
 		return connect.NewResponse(&pb.AuthorizeResponse{MfaChallenge: mfaResp}), nil
@@ -388,7 +391,7 @@ func (s *Service) CompleteMFA(ctx context.Context, req *connect.Request[pb.Compl
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("exactly one of totp_code or webauthn_assertion_json required"))
 	}
 
-	ch, err := s.mfa.Peek(id)
+	ch, err := s.mfa.Peek(ctx, id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("mfa challenge expired"))
 	}
@@ -457,7 +460,7 @@ func (s *Service) CompleteMFA(ctx context.Context, req *connect.Request[pb.Compl
 	}
 
 	// Consume the challenge only after successful validation.
-	taken, err := s.mfa.Take(id)
+	taken, err := s.mfa.Take(ctx, id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("mfa challenge expired"))
 	}
@@ -841,10 +844,13 @@ func (s *Service) RecoveryStart(ctx context.Context, req *connect.Request[pb.Rec
 	if !ok {
 		return nil, unauthenticated()
 	}
-	sid := s.recovery.Put(auth.RecoverySession{
+	sid, err := s.recovery.Put(ctx, auth.RecoverySession{
 		UserID: u.ID,
 		Email:  u.Email,
 	})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("recovery session put: %w", err))
+	}
 	s.logAudit(ctx, u.ID, models.AuditActionRecoveryStart, req, nil)
 	return connect.NewResponse(&pb.RecoveryStartResponse{
 		RecoverySessionId:       sid.String(),
@@ -864,7 +870,7 @@ func (s *Service) RecoveryComplete(ctx context.Context, req *connect.Request[pb.
 		len(r.Verifier) == 0 || len(r.WrappedVaultKey) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("missing new auth artefacts"))
 	}
-	sess, err := s.recovery.Take(id)
+	sess, err := s.recovery.Take(ctx, id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("recovery session expired"))
 	}

@@ -52,7 +52,7 @@ func (s *Service) consumeWebAuthnAssertion(ctx context.Context, tx pgx.Tx, userI
 	if err != nil {
 		return connect.NewError(connect.CodeInvalidArgument, errors.New("invalid mfa_session_id"))
 	}
-	ch, err := s.mfa.Take(sid)
+	ch, err := s.mfa.Take(ctx, sid)
 	if err != nil {
 		return connect.NewError(connect.CodeFailedPrecondition, errors.New("mfa challenge expired"))
 	}
