@@ -165,13 +165,13 @@ function ChangePasswordCard() {
         mKib: oldKdf.mKib,
         p: oldKdf.p,
       })
-      const oldAuthKey = await deriveAuthKey(oldMasterKeyRaw, email)
+      const oldAuthKey = await deriveAuthKey(oldMasterKeyRaw, params.saltUser)
 
       // Derive the new master_key, re-wrap the vault_key under it.
       const newSalt = randomBytes(16)
       newMasterKeyRaw = await deriveMasterKey(newPwd, newSalt, KDF)
       const newMasterKey = await importMasterKey(newMasterKeyRaw)
-      const newAuthKey = await deriveAuthKey(newMasterKeyRaw, email)
+      const newAuthKey = await deriveAuthKey(newMasterKeyRaw, newSalt)
       const newWrappedVaultKey = await wrapVaultKey(newMasterKey, vaultKey)
       const newVerifier = await makeVerifier(newMasterKey)
 

@@ -487,7 +487,7 @@ async function deriveAuthKeyFromPassword(
   } catch {
     /* ignore */
   }
-  const authKey = await deriveAuthKey(masterKeyRaw, email)
+  const authKey = await deriveAuthKey(masterKeyRaw, kdf.saltUser)
   masterKeyRaw.fill(0)
   return { authKey }
 }

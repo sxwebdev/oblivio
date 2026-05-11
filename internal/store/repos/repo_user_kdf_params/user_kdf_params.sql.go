@@ -13,7 +13,7 @@ import (
 )
 
 const getUserKDFParams = `-- name: GetUserKDFParams :one
-SELECT user_id, salt_user, argon2_t, argon2_m_kib, argon2_p, algo FROM user_kdf_params WHERE user_id = $1
+SELECT user_id, salt_user, argon2_t, argon2_m_kib, argon2_p, algo, blind_pepper FROM user_kdf_params WHERE user_id = $1
 `
 
 func (q *Queries) GetUserKDFParams(ctx context.Context, userID uuid.UUID) (*models.UserKdfParam, error) {
@@ -26,28 +26,31 @@ func (q *Queries) GetUserKDFParams(ctx context.Context, userID uuid.UUID) (*mode
 		&i.Argon2MKib,
 		&i.Argon2P,
 		&i.Algo,
+		&i.BlindPepper,
 	)
 	return &i, err
 }
 
 const upsertUserKDFParams = `-- name: UpsertUserKDFParams :exec
-INSERT INTO user_kdf_params (user_id, salt_user, argon2_t, argon2_m_kib, argon2_p, algo)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO user_kdf_params (user_id, salt_user, argon2_t, argon2_m_kib, argon2_p, algo, blind_pepper)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (user_id) DO UPDATE
 SET salt_user    = EXCLUDED.salt_user,
     argon2_t     = EXCLUDED.argon2_t,
     argon2_m_kib = EXCLUDED.argon2_m_kib,
     argon2_p     = EXCLUDED.argon2_p,
-    algo         = EXCLUDED.algo
+    algo         = EXCLUDED.algo,
+    blind_pepper = EXCLUDED.blind_pepper
 `
 
 type UpsertUserKDFParamsParams struct {
-	UserID     uuid.UUID `db:"user_id" json:"user_id"`
-	SaltUser   []byte    `db:"salt_user" json:"salt_user"`
-	Argon2T    int32     `db:"argon2_t" json:"argon2_t"`
-	Argon2MKib int32     `db:"argon2_m_kib" json:"argon2_m_kib"`
-	Argon2P    int32     `db:"argon2_p" json:"argon2_p"`
-	Algo       string    `db:"algo" json:"algo"`
+	UserID      uuid.UUID `db:"user_id" json:"user_id"`
+	SaltUser    []byte    `db:"salt_user" json:"salt_user"`
+	Argon2T     int32     `db:"argon2_t" json:"argon2_t"`
+	Argon2MKib  int32     `db:"argon2_m_kib" json:"argon2_m_kib"`
+	Argon2P     int32     `db:"argon2_p" json:"argon2_p"`
+	Algo        string    `db:"algo" json:"algo"`
+	BlindPepper []byte    `db:"blind_pepper" json:"blind_pepper"`
 }
 
 func (q *Queries) UpsertUserKDFParams(ctx context.Context, arg UpsertUserKDFParamsParams) error {
@@ -58,6 +61,7 @@ func (q *Queries) UpsertUserKDFParams(ctx context.Context, arg UpsertUserKDFPara
 		arg.Argon2MKib,
 		arg.Argon2P,
 		arg.Algo,
+		arg.BlindPepper,
 	)
 	return err
 }

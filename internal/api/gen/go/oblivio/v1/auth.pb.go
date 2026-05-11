@@ -27,19 +27,23 @@ type RegisterRequest struct {
 	// Argon2id parameters chosen by the client (typically t=3,m=128MiB,p=4).
 	SaltUser  []byte        `protobuf:"bytes,2,opt,name=salt_user,json=saltUser,proto3" json:"salt_user,omitempty"`
 	KdfParams *Argon2Params `protobuf:"bytes,3,opt,name=kdf_params,json=kdfParams,proto3" json:"kdf_params,omitempty"`
-	// auth_key = HKDF-SHA256(master_key, info="oblivio/auth/v1", salt=email).
+	// auth_key = HKDF-SHA256(master_key, info="oblivio/auth/v2", salt=salt_user).
 	// The server hashes auth_key with Argon2id once more before storing.
 	AuthKey []byte `protobuf:"bytes,4,opt,name=auth_key,json=authKey,proto3" json:"auth_key,omitempty"`
-	// AES-GCM(master_key, "oblivio-verify"); 32+ bytes (nonce || ct || tag).
+	// AES-GCM(master_key, "oblivio-verify"); 33+ bytes (version || nonce || ct || tag).
 	Verifier []byte `protobuf:"bytes,5,opt,name=verifier,proto3" json:"verifier,omitempty"`
 	// AES-GCM(master_key, vault_key); vault_key is generated client-side.
 	WrappedVaultKey []byte `protobuf:"bytes,6,opt,name=wrapped_vault_key,json=wrappedVaultKey,proto3" json:"wrapped_vault_key,omitempty"`
 	// Recovery artefacts derived from recovery_code shown to the user once.
 	RecoverySalt            []byte `protobuf:"bytes,7,opt,name=recovery_salt,json=recoverySalt,proto3" json:"recovery_salt,omitempty"`
 	RecoveryWrappedVaultKey []byte `protobuf:"bytes,8,opt,name=recovery_wrapped_vault_key,json=recoveryWrappedVaultKey,proto3" json:"recovery_wrapped_vault_key,omitempty"`
-	// Argon2id(HKDF(recovery_key,"oblivio/auth/v1")) — server stores hashed proof.
+	// Argon2id(HKDF(recovery_key,"oblivio/auth/v2")) — server stores hashed proof.
 	RecoveryProof []byte      `protobuf:"bytes,9,opt,name=recovery_proof,json=recoveryProof,proto3" json:"recovery_proof,omitempty"`
 	DeviceInfo    *DeviceInfo `protobuf:"bytes,10,opt,name=device_info,json=deviceInfo,proto3" json:"device_info,omitempty"`
+	// Per-user pepper (16+ random bytes) mixed into the blind-index HKDF.
+	// Stored alongside salt_user; returned at GetKDFParams so subsequent logins
+	// can re-derive K_blind without re-asking the user. See plan §4.4.
+	BlindPepper   []byte `protobuf:"bytes,11,opt,name=blind_pepper,json=blindPepper,proto3" json:"blind_pepper,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -144,6 +148,13 @@ func (x *RegisterRequest) GetDeviceInfo() *DeviceInfo {
 	return nil
 }
 
+func (x *RegisterRequest) GetBlindPepper() []byte {
+	if x != nil {
+		return x.BlindPepper
+	}
+	return nil
+}
+
 type RegisterResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -241,9 +252,13 @@ func (x *GetKDFParamsRequest) GetEmail() string {
 }
 
 type GetKDFParamsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SaltUser      []byte                 `protobuf:"bytes,1,opt,name=salt_user,json=saltUser,proto3" json:"salt_user,omitempty"`
-	KdfParams     *Argon2Params          `protobuf:"bytes,2,opt,name=kdf_params,json=kdfParams,proto3" json:"kdf_params,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	SaltUser  []byte                 `protobuf:"bytes,1,opt,name=salt_user,json=saltUser,proto3" json:"salt_user,omitempty"`
+	KdfParams *Argon2Params          `protobuf:"bytes,2,opt,name=kdf_params,json=kdfParams,proto3" json:"kdf_params,omitempty"`
+	// Per-user pepper for the blind-index HKDF (plan §4.4). Treated as
+	// non-secret: an attacker that already has the salt knows the pepper too,
+	// and breaking the index still requires the vault_key.
+	BlindPepper   []byte `protobuf:"bytes,3,opt,name=blind_pepper,json=blindPepper,proto3" json:"blind_pepper,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -288,6 +303,13 @@ func (x *GetKDFParamsResponse) GetSaltUser() []byte {
 func (x *GetKDFParamsResponse) GetKdfParams() *Argon2Params {
 	if x != nil {
 		return x.KdfParams
+	}
+	return nil
+}
+
+func (x *GetKDFParamsResponse) GetBlindPepper() []byte {
+	if x != nil {
+		return x.BlindPepper
 	}
 	return nil
 }
@@ -1479,7 +1501,7 @@ var File_oblivio_v1_auth_proto protoreflect.FileDescriptor
 const file_oblivio_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"\x15oblivio/v1/auth.proto\x12\n" +
-	"oblivio.v1\x1a\x17oblivio/v1/common.proto\"\xa2\x03\n" +
+	"oblivio.v1\x1a\x17oblivio/v1/common.proto\"\xc5\x03\n" +
 	"\x0fRegisterRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1b\n" +
 	"\tsalt_user\x18\x02 \x01(\fR\bsaltUser\x127\n" +
@@ -1493,16 +1515,18 @@ const file_oblivio_v1_auth_proto_rawDesc = "" +
 	"\x0erecovery_proof\x18\t \x01(\fR\rrecoveryProof\x127\n" +
 	"\vdevice_info\x18\n" +
 	" \x01(\v2\x16.oblivio.v1.DeviceInfoR\n" +
-	"deviceInfo\"g\n" +
+	"deviceInfo\x12!\n" +
+	"\fblind_pepper\x18\v \x01(\fR\vblindPepper\"g\n" +
 	"\x10RegisterResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12:\n" +
 	"\fauth_payload\x18\x02 \x01(\v2\x17.oblivio.v1.AuthPayloadR\vauthPayload\"+\n" +
 	"\x13GetKDFParamsRequest\x12\x14\n" +
-	"\x05email\x18\x01 \x01(\tR\x05email\"l\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\"\x8f\x01\n" +
 	"\x14GetKDFParamsResponse\x12\x1b\n" +
 	"\tsalt_user\x18\x01 \x01(\fR\bsaltUser\x127\n" +
 	"\n" +
-	"kdf_params\x18\x02 \x01(\v2\x18.oblivio.v1.Argon2ParamsR\tkdfParams\"|\n" +
+	"kdf_params\x18\x02 \x01(\v2\x18.oblivio.v1.Argon2ParamsR\tkdfParams\x12!\n" +
+	"\fblind_pepper\x18\x03 \x01(\fR\vblindPepper\"|\n" +
 	"\x10AuthorizeRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x19\n" +
 	"\bauth_key\x18\x02 \x01(\fR\aauthKey\x127\n" +

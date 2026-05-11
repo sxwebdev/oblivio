@@ -31,6 +31,7 @@ export default function ProjectForm(props: ProjectFormMode) {
   const qc = useQueryClient()
   const userId = useAuthStore((s) => s.userId ?? s.email ?? "")
   const vaultKey = useVaultStore((s) => s.vaultKey)
+  const blindPepper = useVaultStore((s) => s.blindPepper)
   const vaultId = vaultIdScope(userId)
 
   const [name, setName] = useState("")
@@ -70,7 +71,7 @@ export default function ProjectForm(props: ProjectFormMode) {
 
   const saveMut = useMutation({
     mutationFn: async () => {
-      if (!vaultKey) throw new Error("vault locked")
+      if (!vaultKey || !blindPepper) throw new Error("vault locked")
       const plaintext: ProjectPlaintext = {
         name: name.trim(),
         description: description.trim() || undefined,
@@ -85,6 +86,7 @@ export default function ProjectForm(props: ProjectFormMode) {
           projectId: newId,
           version: 1,
           plaintext,
+          blindPepper,
         })
         return projectsClient.createProject(
           {
@@ -106,6 +108,7 @@ export default function ProjectForm(props: ProjectFormMode) {
         projectId: cur.id,
         version: nextVersion,
         plaintext,
+        blindPepper,
       })
       return projectsClient.updateProject(
         {

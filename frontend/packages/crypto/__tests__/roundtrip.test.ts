@@ -66,13 +66,15 @@ describe("kdf + vault round-trip", () => {
     await expect(decryptBlob(key, blob, "wrong")).rejects.toThrow()
   })
 
-  it("auth_key is deterministic per email", async () => {
-    const mk = await deriveMasterKey("pw", new Uint8Array(16), params)
-    const a = await deriveAuthKey(mk, "alice@example.com")
-    const b = await deriveAuthKey(mk, "ALICE@example.com")
-    const c = await deriveAuthKey(mk, "bob@example.com")
-    expect(a).toEqual(b) // case-insensitive
-    expect(a).not.toEqual(c)
+  it("auth_key is deterministic per salt_user", async () => {
+    const mk = await deriveMasterKey("pw", new Uint8Array(16).fill(9), params)
+    const saltA = new Uint8Array(16).fill(1)
+    const saltB = new Uint8Array(16).fill(2)
+    const a1 = await deriveAuthKey(mk, saltA)
+    const a2 = await deriveAuthKey(mk, saltA)
+    const b = await deriveAuthKey(mk, saltB)
+    expect(a1).toEqual(a2) // deterministic
+    expect(a1).not.toEqual(b) // different salt → different output
   })
 })
 
@@ -118,7 +120,7 @@ describe("end-to-end registration shape", () => {
     // Client side.
     const masterKeyRaw = await deriveMasterKey(password, saltUser, params)
     const masterKey = await importMasterKey(masterKeyRaw)
-    const authKey = await deriveAuthKey(masterKeyRaw, email)
+    const authKey = await deriveAuthKey(masterKeyRaw, saltUser)
     const vaultKey = generateVaultKey()
     const wrappedVaultKey = await wrapVaultKey(masterKey, vaultKey)
     const verifier = await makeVerifier(masterKey)
@@ -134,8 +136,8 @@ describe("end-to-end registration shape", () => {
 
     expect(authKey.length).toBe(32)
     expect(verifier.length).toBeGreaterThan(16)
-    expect(wrappedVaultKey.length).toBe(12 + 32 + 16) // nonce|ct|tag
-    expect(recoveryWrappedVaultKey.length).toBe(12 + 32 + 16)
+    expect(wrappedVaultKey.length).toBe(1 + 12 + 32 + 16) // version|nonce|ct|tag
+    expect(recoveryWrappedVaultKey.length).toBe(1 + 12 + 32 + 16)
     expect(recoveryProof.length).toBe(32)
 
     // Server stores wrapped_vault_key + verifier; later returns them at login.

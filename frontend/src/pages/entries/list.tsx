@@ -63,6 +63,7 @@ export default function EntriesListPage({
 }) {
   const userId = useAuthStore((s) => s.userId ?? s.email ?? "")
   const vaultKey = useVaultStore((s) => s.vaultKey)
+  const blindPepper = useVaultStore((s) => s.blindPepper)
   const qc = useQueryClient()
 
   const [projectId, setProjectId] = useState<string | undefined>(
@@ -173,11 +174,11 @@ export default function EntriesListPage({
   })
 
   async function runSearch() {
-    if (!vaultKey || !query.trim()) {
+    if (!vaultKey || !blindPepper || !query.trim()) {
       setSearchHash(undefined)
       return
     }
-    const h = await computeTitleHash(vaultKey, query.trim())
+    const h = await computeTitleHash(vaultKey, blindPepper, query.trim())
     setSearchHash(h)
   }
 

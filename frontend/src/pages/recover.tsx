@@ -100,7 +100,7 @@ export default function RecoverPage() {
       const saltUser = randomBytes(16)
       const masterKeyRaw = await deriveMasterKey(password, saltUser, CLIENT_KDF)
       const masterKey = await importMasterKey(masterKeyRaw)
-      const authKey = await deriveAuthKey(masterKeyRaw, email)
+      const authKey = await deriveAuthKey(masterKeyRaw, saltUser)
       const verifier = await makeVerifier(masterKey)
       const wrappedVaultKey = await wrapVaultKey(masterKey, vaultKey)
 

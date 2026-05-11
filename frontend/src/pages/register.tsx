@@ -46,9 +46,10 @@ export default function RegisterPage() {
     setBusy(true)
     try {
       const saltUser = randomBytes(16)
+      const blindPepper = randomBytes(16)
       const masterKeyRaw = await deriveMasterKey(password, saltUser, KDF)
       const masterKey = await importMasterKey(masterKeyRaw)
-      const authKey = await deriveAuthKey(masterKeyRaw, email)
+      const authKey = await deriveAuthKey(masterKeyRaw, saltUser)
       const vaultKey = generateVaultKey()
       const wrappedVaultKey = await wrapVaultKey(masterKey, vaultKey)
       const verifier = await makeVerifier(masterKey)
@@ -72,6 +73,7 @@ export default function RegisterPage() {
         recoverySalt,
         recoveryWrappedVaultKey,
         recoveryProof,
+        blindPepper,
         deviceInfo: {
           deviceId,
           deviceType: "web",
@@ -91,7 +93,7 @@ export default function RegisterPage() {
         refreshExpiresAt:
           Number(payload.refreshExpiresAt?.seconds ?? 0n) * 1000,
       })
-      setVaultKey(vaultKey, payload.vaultKeyVersion)
+      setVaultKey(vaultKey, payload.vaultKeyVersion, blindPepper)
 
       // Wipe the raw master_key bytes from memory.
       masterKeyRaw.fill(0)

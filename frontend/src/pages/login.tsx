@@ -35,6 +35,7 @@ type MFAState = {
   // Cached so we can finalise unlock once tokens arrive.
   masterKey: CryptoKey
   masterKeyRaw: Uint8Array
+  blindPepper: Uint8Array
 }
 
 export default function LoginPage() {
@@ -65,7 +66,8 @@ export default function LoginPage() {
       }
       const masterKeyRaw = await deriveMasterKey(password, kdf.saltUser, params)
       const masterKey = await importMasterKey(masterKeyRaw)
-      const authKey = await deriveAuthKey(masterKeyRaw, email)
+      const authKey = await deriveAuthKey(masterKeyRaw, kdf.saltUser)
+      const blindPepper = kdf.blindPepper
 
       const resp = await authClient.authorize({
         email,
@@ -78,7 +80,7 @@ export default function LoginPage() {
       })
 
       if (resp.authPayload) {
-        await finishUnlock(masterKey, masterKeyRaw, resp.authPayload)
+        await finishUnlock(masterKey, masterKeyRaw, blindPepper, resp.authPayload)
         return
       }
       if (!resp.mfaChallenge) throw new Error("invalid credentials")
@@ -104,6 +106,7 @@ export default function LoginPage() {
         webauthnOptions: opts,
         masterKey,
         masterKeyRaw,
+        blindPepper,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -127,7 +130,12 @@ export default function LoginPage() {
         },
       })
       if (!resp.authPayload) throw new Error("server returned no auth payload")
-      await finishUnlock(mfa.masterKey, mfa.masterKeyRaw, resp.authPayload)
+      await finishUnlock(
+        mfa.masterKey,
+        mfa.masterKeyRaw,
+        mfa.blindPepper,
+        resp.authPayload
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -154,7 +162,12 @@ export default function LoginPage() {
         },
       })
       if (!resp.authPayload) throw new Error("server returned no auth payload")
-      await finishUnlock(mfa.masterKey, mfa.masterKeyRaw, resp.authPayload)
+      await finishUnlock(
+        mfa.masterKey,
+        mfa.masterKeyRaw,
+        mfa.blindPepper,
+        resp.authPayload
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -167,6 +180,7 @@ export default function LoginPage() {
   async function finishUnlock(
     masterKey: CryptoKey,
     masterKeyRaw: Uint8Array,
+    blindPepper: Uint8Array,
     payload: AuthPayload
   ) {
     if (!(await checkVerifier(masterKey, payload.verifier))) {
@@ -182,7 +196,7 @@ export default function LoginPage() {
       accessExpiresAt: Number(payload.accessExpiresAt?.seconds ?? 0n) * 1000,
       refreshExpiresAt: Number(payload.refreshExpiresAt?.seconds ?? 0n) * 1000,
     })
-    setVaultKey(vaultKey, payload.vaultKeyVersion)
+    setVaultKey(vaultKey, payload.vaultKeyVersion, blindPepper)
     masterKeyRaw.fill(0)
     const me = await vaultClient.getMe({})
     setSession({

@@ -155,13 +155,17 @@ func (s *Service) Register(ctx context.Context, req *connect.Request[pb.Register
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	if len(r.BlindPepper) < 16 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("blind_pepper must be at least 16 bytes"))
+	}
 	if err := kdf.UpsertUserKDFParams(ctx, repo_user_kdf_params.UpsertUserKDFParamsParams{
-		UserID:     newUser.ID,
-		SaltUser:   r.SaltUser,
-		Argon2T:    int32(r.KdfParams.GetT()),
-		Argon2MKib: int32(r.KdfParams.GetMKib()),
-		Argon2P:    int32(r.KdfParams.GetP()),
-		Algo:       firstNonEmpty(r.KdfParams.GetAlgo(), "argon2id"),
+		UserID:      newUser.ID,
+		SaltUser:    r.SaltUser,
+		Argon2T:     int32(r.KdfParams.GetT()),
+		Argon2MKib:  int32(r.KdfParams.GetMKib()),
+		Argon2P:     int32(r.KdfParams.GetP()),
+		Algo:        firstNonEmpty(r.KdfParams.GetAlgo(), "argon2id"),
+		BlindPepper: r.BlindPepper,
 	}); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -229,8 +233,9 @@ func (s *Service) GetKDFParams(ctx context.Context, req *connect.Request[pb.GetK
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return connect.NewResponse(&pb.GetKDFParamsResponse{
-				SaltUser:  pseudoSalt(email),
-				KdfParams: defaultKDFParams(),
+				SaltUser:    pseudoSalt(email),
+				KdfParams:   defaultKDFParams(),
+				BlindPepper: pseudoBlindPepper(email),
 			}), nil
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -248,6 +253,7 @@ func (s *Service) GetKDFParams(ctx context.Context, req *connect.Request[pb.GetK
 			P:    uint32(params.Argon2P),
 			Algo: params.Algo,
 		},
+		BlindPepper: params.BlindPepper,
 	}), nil
 }
 
@@ -676,16 +682,24 @@ func (s *Service) ChangeMasterPassword(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// blind_pepper is bound to vault_key (which does NOT rotate on password
+	// change), so carry the existing value through the upsert.
+	existingKDF, err := s.st.UserKDFParams().GetUserKDFParams(ctx, uc.UserID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	// Rotate everything in a single transaction. SystemDo sets the bypass
 	// GUC so the auth_sessions revoke at the end satisfies RLS.
 	if err := s.st.SystemDo(ctx, func(tx pgx.Tx) error {
 		if err := s.st.UserKDFParams(repos.WithTx(tx)).UpsertUserKDFParams(ctx, repo_user_kdf_params.UpsertUserKDFParamsParams{
-			UserID:     uc.UserID,
-			SaltUser:   r.NewSaltUser,
-			Argon2T:    int32(r.NewKdfParams.GetT()),
-			Argon2MKib: int32(r.NewKdfParams.GetMKib()),
-			Argon2P:    int32(r.NewKdfParams.GetP()),
-			Algo:       firstNonEmpty(r.NewKdfParams.GetAlgo(), "argon2id"),
+			UserID:      uc.UserID,
+			SaltUser:    r.NewSaltUser,
+			Argon2T:     int32(r.NewKdfParams.GetT()),
+			Argon2MKib:  int32(r.NewKdfParams.GetMKib()),
+			Argon2P:     int32(r.NewKdfParams.GetP()),
+			Algo:        firstNonEmpty(r.NewKdfParams.GetAlgo(), "argon2id"),
+			BlindPepper: existingKDF.BlindPepper,
 		}); err != nil {
 			return err
 		}
@@ -860,16 +874,24 @@ func (s *Service) RecoveryComplete(ctx context.Context, req *connect.Request[pb.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// vault_key does not change during recovery (only its wrapping does), so
+	// the existing blind_pepper stays. Pre-fetch and carry through the upsert.
+	existingKDF, err := s.st.UserKDFParams().GetUserKDFParams(ctx, sess.UserID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	if err := s.st.SystemDo(ctx, func(tx pgx.Tx) error {
 		// One transaction: rotate KDF/auth/vault, revoke all sessions.
 		// SystemDo sets app.bypass_rls so the auth_sessions write satisfies RLS.
 		if err := s.st.UserKDFParams(repos.WithTx(tx)).UpsertUserKDFParams(ctx, repo_user_kdf_params.UpsertUserKDFParamsParams{
-			UserID:     sess.UserID,
-			SaltUser:   r.SaltUser,
-			Argon2T:    int32(r.KdfParams.GetT()),
-			Argon2MKib: int32(r.KdfParams.GetMKib()),
-			Argon2P:    int32(r.KdfParams.GetP()),
-			Algo:       firstNonEmpty(r.KdfParams.GetAlgo(), "argon2id"),
+			UserID:      sess.UserID,
+			SaltUser:    r.SaltUser,
+			Argon2T:     int32(r.KdfParams.GetT()),
+			Argon2MKib:  int32(r.KdfParams.GetMKib()),
+			Argon2P:     int32(r.KdfParams.GetP()),
+			Algo:        firstNonEmpty(r.KdfParams.GetAlgo(), "argon2id"),
+			BlindPepper: existingKDF.BlindPepper,
 		}); err != nil {
 			return err
 		}
@@ -1020,6 +1042,15 @@ var pseudoSaltSecret = func() []byte {
 func pseudoSalt(email string) []byte {
 	mac := hmac.New(sha256.New, pseudoSaltSecret)
 	mac.Write([]byte(strings.ToLower(strings.TrimSpace(email))))
+	return mac.Sum(nil)[:16]
+}
+
+// pseudoBlindPepper mirrors pseudoSalt for the blind-index pepper field.
+// Stable per-email within one process so the unknown-user branch returns
+// values shaped identically to a real registration.
+func pseudoBlindPepper(email string) []byte {
+	mac := hmac.New(sha256.New, pseudoSaltSecret)
+	mac.Write([]byte("blind:" + strings.ToLower(strings.TrimSpace(email))))
 	return mac.Sum(nil)[:16]
 }
 

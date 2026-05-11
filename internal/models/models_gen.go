@@ -198,12 +198,13 @@ type UserAuth struct {
 }
 
 type UserKdfParam struct {
-	UserID     uuid.UUID `db:"user_id" json:"user_id"`
-	SaltUser   []byte    `db:"salt_user" json:"salt_user"`
-	Argon2T    int32     `db:"argon2_t" json:"argon2_t"`
-	Argon2MKib int32     `db:"argon2_m_kib" json:"argon2_m_kib"`
-	Argon2P    int32     `db:"argon2_p" json:"argon2_p"`
-	Algo       string    `db:"algo" json:"algo"`
+	UserID      uuid.UUID `db:"user_id" json:"user_id"`
+	SaltUser    []byte    `db:"salt_user" json:"salt_user"`
+	Argon2T     int32     `db:"argon2_t" json:"argon2_t"`
+	Argon2MKib  int32     `db:"argon2_m_kib" json:"argon2_m_kib"`
+	Argon2P     int32     `db:"argon2_p" json:"argon2_p"`
+	Algo        string    `db:"algo" json:"algo"`
+	BlindPepper []byte    `db:"blind_pepper" json:"blind_pepper"`
 }
 
 type UserLoginTotp struct {

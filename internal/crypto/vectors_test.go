@@ -43,7 +43,8 @@ func TestCrossLanguageVectors(t *testing.T) {
 	t.Run("hkdf", func(t *testing.T) {
 		for i, c := range v.HKDF {
 			ikm := mustHex(t, c.IKMHex)
-			r := hkdf.New(sha256.New, ikm, []byte(c.Salt), []byte(c.Info))
+			salt := mustHex(t, c.SaltHex)
+			r := hkdf.New(sha256.New, ikm, salt, []byte(c.Info))
 			got := make([]byte, 32)
 			if _, err := io.ReadFull(r, got); err != nil {
 				t.Fatal(err)
@@ -64,9 +65,10 @@ func TestCrossLanguageVectors(t *testing.T) {
 			if hex.EncodeToString(ct) != c.CiphertextHex {
 				t.Fatalf("case %d: got %x want %s", i, ct, c.CiphertextHex)
 			}
-			// Round-trip: open via the package under test, so AESGCMOpen
-			// itself is exercised on every vector.
-			envelope := append(append([]byte{}, nonce...), ct...)
+			// Round-trip: open via the package under test using the full
+			// envelope (version || nonce || ct+tag), so AESGCMOpen is
+			// exercised on every vector.
+			envelope := envWith(nonce, ct)
 			out, err := AESGCMOpen(key, envelope, aad)
 			if err != nil {
 				t.Fatalf("case %d: open: %v", i, err)
@@ -82,7 +84,7 @@ func TestCrossLanguageVectors(t *testing.T) {
 			mk := mustHex(t, c.MasterKeyHex)
 			nonce := mustHex(t, c.NonceHex)
 			ct := sealOrFatal(t, mk, nonce, []byte("oblivio-verify"), []byte("vault-wrap"))
-			env := append(append([]byte{}, nonce...), ct...)
+			env := envWith(nonce, ct)
 			if hex.EncodeToString(env) != c.VerifierHex {
 				t.Fatalf("case %d: verifier mismatch", i)
 			}
@@ -92,7 +94,8 @@ func TestCrossLanguageVectors(t *testing.T) {
 	t.Run("blind_index", func(t *testing.T) {
 		for i, c := range v.BlindIndex {
 			vk := mustHex(t, c.VaultKeyHex)
-			r := hkdf.New(sha256.New, vk, nil, []byte("oblivio/blind/v1"))
+			pepper := mustHex(t, c.PepperHex)
+			r := hkdf.New(sha256.New, vk, pepper, []byte("oblivio/blind/v2"))
 			k := make([]byte, 32)
 			if _, err := io.ReadFull(r, k); err != nil {
 				t.Fatal(err)
@@ -127,7 +130,7 @@ func TestCrossLanguageVectors(t *testing.T) {
 			vault := mustHex(t, c.VaultKeyHex)
 			recoveryKey := argon2.IDKey([]byte(normalizeRecoveryCode(c.RecoveryCode)), salt, 1, 1<<10, 1, 32)
 			ct := sealOrFatal(t, recoveryKey, nonce, vault, []byte("recovery"))
-			env := append(append([]byte{}, nonce...), ct...)
+			env := envWith(nonce, ct)
 			if hex.EncodeToString(env) != c.WrappedHex {
 				t.Fatalf("case %d: got %x want %s", i, env, c.WrappedHex)
 			}
@@ -141,12 +144,22 @@ func TestCrossLanguageVectors(t *testing.T) {
 			nonce := mustHex(t, c.NonceHex)
 			aad := fmt.Sprintf("%s|%s|%d|wrap", c.VaultID, c.ItemID, c.Version)
 			ct := sealOrFatal(t, vault, nonce, item, []byte(aad))
-			env := append(append([]byte{}, nonce...), ct...)
+			env := envWith(nonce, ct)
 			if hex.EncodeToString(env) != c.WrappedHex {
 				t.Fatalf("case %d: got %x want %s", i, env, c.WrappedHex)
 			}
 		}
 	})
+}
+
+// envWith reproduces the envelope layout the production code produces:
+// version(1) || nonce(12) || ct+tag. Used by vector round-trip assertions.
+func envWith(nonce, ct []byte) []byte {
+	out := make([]byte, 0, 1+len(nonce)+len(ct))
+	out = append(out, EnvelopeVersionV1)
+	out = append(out, nonce...)
+	out = append(out, ct...)
+	return out
 }
 
 type vectorsFile struct {
@@ -159,10 +172,10 @@ type vectorsFile struct {
 		HashHex  string `json:"hash_hex"`
 	} `json:"argon2id"`
 	HKDF []struct {
-		IKMHex string `json:"ikm_hex"`
-		Info   string `json:"info"`
-		Salt   string `json:"salt"`
-		OutHex string `json:"out_hex"`
+		IKMHex  string `json:"ikm_hex"`
+		Info    string `json:"info"`
+		SaltHex string `json:"salt_hex"`
+		OutHex  string `json:"out_hex"`
 	} `json:"hkdf"`
 	AESGCM []struct {
 		KeyHex        string `json:"key_hex"`
@@ -178,6 +191,7 @@ type vectorsFile struct {
 	} `json:"verifier"`
 	BlindIndex []struct {
 		VaultKeyHex string `json:"vault_key_hex"`
+		PepperHex   string `json:"pepper_hex"`
 		Title       string `json:"title"`
 		HashHex     string `json:"hash_hex"`
 	} `json:"blind_index"`

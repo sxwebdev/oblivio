@@ -105,6 +105,7 @@ export async function sealProject(opts: {
   projectId: string
   version: number
   plaintext: ProjectPlaintext
+  blindPepper: Uint8Array
 }): Promise<SealedRecord> {
   const vk = await importVaultKey(opts.vaultKey)
   const itemKeyRaw = generateItemKey()
@@ -120,7 +121,7 @@ export async function sealProject(opts: {
   )
   itemKeyRaw.fill(0)
 
-  const blindKey = await deriveBlindIndexKey(opts.vaultKey)
+  const blindKey = await deriveBlindIndexKey(opts.vaultKey, opts.blindPepper)
   const nameHash = await blindIndex(blindKey, opts.plaintext.name || "")
 
   return {
@@ -156,6 +157,7 @@ export async function sealEntry(opts: {
   entryId: string
   version: number
   plaintext: EntryPlaintext
+  blindPepper: Uint8Array
 }): Promise<SealedRecord> {
   const vk = await importVaultKey(opts.vaultKey)
   const itemKeyRaw = generateItemKey()
@@ -171,7 +173,7 @@ export async function sealEntry(opts: {
   )
   itemKeyRaw.fill(0)
 
-  const blindKey = await deriveBlindIndexKey(opts.vaultKey)
+  const blindKey = await deriveBlindIndexKey(opts.vaultKey, opts.blindPepper)
   const titleHash = await blindIndex(blindKey, opts.plaintext.title || "")
   const domain = extractDomain(opts.plaintext.url)
   const domainHash = domain ? await blindIndex(blindKey, domain) : undefined
@@ -207,8 +209,9 @@ export async function openEntry(opts: {
 // Used by the search box to ask the server for an exact match.
 export async function computeTitleHash(
   vaultKey: Uint8Array,
+  blindPepper: Uint8Array,
   title: string
 ): Promise<Uint8Array> {
-  const blindKey = await deriveBlindIndexKey(vaultKey)
+  const blindKey = await deriveBlindIndexKey(vaultKey, blindPepper)
   return blindIndex(blindKey, title)
 }

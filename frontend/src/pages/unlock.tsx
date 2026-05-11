@@ -53,14 +53,14 @@ export default function UnlockPage() {
       const masterKey = await importMasterKey(masterKeyRaw)
       // auth_key derivation kept for parity with login flow even though
       // unlock does not need to round-trip it.
-      await deriveAuthKey(masterKeyRaw, email)
+      await deriveAuthKey(masterKeyRaw, kdf.saltUser)
 
       const keys = await authClient.getMyKeys({})
       if (!(await checkVerifier(masterKey, keys.verifier))) {
         throw new Error("wrong master password")
       }
       const vaultKey = await unwrapVaultKey(masterKey, keys.wrappedVaultKey)
-      setVaultKey(vaultKey, keys.vaultKeyVersion)
+      setVaultKey(vaultKey, keys.vaultKeyVersion, kdf.blindPepper)
       masterKeyRaw.fill(0)
 
       // Refresh the canonical user_id; it backs the AAD vault scope, so a

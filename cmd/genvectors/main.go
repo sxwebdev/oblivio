@@ -37,12 +37,16 @@ import (
 // Domain-separation constants — mirror exactly the labels in
 // frontend/packages/crypto/src/types.ts.
 const (
-	hkdfAuthInfo      = "oblivio/auth/v1"
-	hkdfBlindInfo     = "oblivio/blind/v1"
+	hkdfAuthInfo      = "oblivio/auth/v2"
+	hkdfBlindInfo     = "oblivio/blind/v2"
 	hkdfLoginTOTPInfo = "oblivio/login-totp/v1"
 	vaultWrapAAD      = "vault-wrap"
 	recoveryWrapAAD   = "recovery"
 	verifierText      = "oblivio-verify"
+	// envelopeVersionV1 is the leading byte prefixed to every AES-GCM blob
+	// produced by encryptBlob / AESGCMSeal. See internal/crypto/aead.go and
+	// frontend/packages/crypto/src/aead.ts.
+	envelopeVersionV1 byte = 0x01
 )
 
 type vectors struct {
@@ -66,10 +70,10 @@ type argon2Vector struct {
 }
 
 type hkdfVector struct {
-	IKMHex string `json:"ikm_hex"`
-	Info   string `json:"info"`
-	Salt   string `json:"salt"`
-	OutHex string `json:"out_hex"`
+	IKMHex  string `json:"ikm_hex"`
+	Info    string `json:"info"`
+	SaltHex string `json:"salt_hex"`
+	OutHex  string `json:"out_hex"`
 }
 
 type aesGCMVector struct {
@@ -88,6 +92,7 @@ type verifierVector struct {
 
 type blindVector struct {
 	VaultKeyHex string `json:"vault_key_hex"`
+	PepperHex   string `json:"pepper_hex"`
 	Title       string `json:"title"`
 	HashHex     string `json:"hash_hex"`
 }
@@ -182,27 +187,36 @@ func build() (*vectors, error) {
 		_ = i
 	}
 
-	// HKDF — three cases, each using a different info/salt pair.
+	// HKDF — three cases. v2 auth uses per-user salt_user bytes (not email);
+	// v2 blind uses per-user pepper bytes (not nil); login-totp keeps empty.
 	for _, c := range []struct {
-		ikmSeed byte
-		info    string
-		salt    string
+		ikmSeed  byte
+		info     string
+		saltSeed byte
+		saltLen  int
 	}{
-		{0x10, hkdfAuthInfo, "alice@example.com"},
-		{0x11, hkdfBlindInfo, ""},
-		{0x12, hkdfLoginTOTPInfo, ""},
+		{0x10, hkdfAuthInfo, 0x70, 16},  // 16-byte salt_user
+		{0x11, hkdfBlindInfo, 0x71, 16}, // 16-byte pepper
+		{0x12, hkdfLoginTOTPInfo, 0x00, 0},
 	} {
 		ikm := fillBytes(32, c.ikmSeed)
-		out := hkdfDerive(ikm, []byte(c.info), []byte(c.salt), 32)
+		var salt []byte
+		if c.saltLen > 0 {
+			salt = fillBytes(c.saltLen, c.saltSeed)
+		}
+		out := hkdfDerive(ikm, []byte(c.info), salt, 32)
 		v.HKDF = append(v.HKDF, hkdfVector{
-			IKMHex: hex.EncodeToString(ikm),
-			Info:   c.info,
-			Salt:   c.salt,
-			OutHex: hex.EncodeToString(out),
+			IKMHex:  hex.EncodeToString(ikm),
+			Info:    c.info,
+			SaltHex: hex.EncodeToString(salt),
+			OutHex:  hex.EncodeToString(out),
 		})
 	}
 
 	// AES-256-GCM — three cases varying AAD shape.
+	// ciphertext_hex captures the raw GCM output (ct+tag), without the
+	// envelope version byte or nonce prefix. The vector consumer reassembles
+	// the full envelope to round-trip through AESGCMOpen / decryptBlob.
 	for _, c := range []struct {
 		keySeed   byte
 		nonceSeed byte
@@ -237,8 +251,7 @@ func build() (*vectors, error) {
 		if err != nil {
 			return nil, fmt.Errorf("verifier seal: %w", err)
 		}
-		// Envelope = nonce || ct+tag.
-		envelope := append(append([]byte{}, nonce...), ct...)
+		envelope := buildEnvelope(nonce, ct)
 		v.Verifier = append(v.Verifier, verifierVector{
 			MasterKeyHex: hex.EncodeToString(mk),
 			NonceHex:     hex.EncodeToString(nonce),
@@ -247,21 +260,26 @@ func build() (*vectors, error) {
 	}
 
 	// Blind index over titles. Spec: HMAC-SHA256(K_blind, NFKC(lower(title)))
-	// where K_blind = HKDF(vault_key, "oblivio/blind/v1", "").
+	// where K_blind = HKDF(vault_key, "oblivio/blind/v2", pepper). The pepper
+	// is per-user random bytes stored alongside salt_user (plan §4.4).
 	for _, c := range []struct {
-		keySeed byte
-		title   string
+		keySeed    byte
+		pepperSeed byte
+		title      string
 	}{
-		{0x40, "GitHub"},
-		{0x40, "github"}, // same vault_key, expect different normalized → same hash
-		{0x40, "Café"},
-		{0x41, "GitHub"}, // different vault_key → different hash
-		{0x42, "ＧｉｔＨｕｂ"}, // NFKC fullwidth ASCII → "github"
+		{0x40, 0xa0, "GitHub"},
+		{0x40, 0xa0, "github"}, // same key+pepper, NFKC lowers → same hash
+		{0x40, 0xa0, "Café"},
+		{0x41, 0xa0, "GitHub"}, // different vault_key → different hash
+		{0x40, 0xa1, "GitHub"}, // different pepper → different hash
+		{0x42, 0xa2, "ＧｉｔＨｕｂ"}, // NFKC fullwidth ASCII → "github"
 	} {
 		vaultKey := fillBytes(32, c.keySeed)
-		hash := blindIndex(vaultKey, c.title)
+		pepper := fillBytes(16, c.pepperSeed)
+		hash := blindIndex(vaultKey, pepper, c.title)
 		v.BlindIndex = append(v.BlindIndex, blindVector{
 			VaultKeyHex: hex.EncodeToString(vaultKey),
+			PepperHex:   hex.EncodeToString(pepper),
 			Title:       c.title,
 			HashHex:     hex.EncodeToString(hash),
 		})
@@ -322,7 +340,7 @@ func build() (*vectors, error) {
 		if err != nil {
 			return nil, fmt.Errorf("recovery seal: %w", err)
 		}
-		envelope := append(append([]byte{}, nonce...), ct...)
+		envelope := buildEnvelope(nonce, ct)
 		v.RecoveryWrap = append(v.RecoveryWrap, recoveryVector{
 			RecoveryCode: c.code,
 			SaltHex:      hex.EncodeToString(salt),
@@ -352,7 +370,7 @@ func build() (*vectors, error) {
 		if err != nil {
 			return nil, fmt.Errorf("item seal: %w", err)
 		}
-		envelope := append(append([]byte{}, nonce...), ct...)
+		envelope := buildEnvelope(nonce, ct)
 		v.ItemWrap = append(v.ItemWrap, itemVector{
 			VaultKeyHex: hex.EncodeToString(vault),
 			ItemKeyHex:  hex.EncodeToString(item),
@@ -392,11 +410,21 @@ func aesGCMSeal(key, nonce, plaintext, aad []byte) ([]byte, error) {
 	return g.Seal(nil, nonce, plaintext, aad), nil
 }
 
-func blindIndex(vaultKey []byte, title string) []byte {
-	k := hkdfDerive(vaultKey, []byte(hkdfBlindInfo), nil, 32)
+func blindIndex(vaultKey, pepper []byte, title string) []byte {
+	k := hkdfDerive(vaultKey, []byte(hkdfBlindInfo), pepper, 32)
 	mac := hmac.New(sha256.New, k)
 	mac.Write([]byte(strings.ToLower(norm.NFKC.String(title))))
 	return mac.Sum(nil)
+}
+
+// buildEnvelope returns version(1) || nonce(12) || ct+tag — the format every
+// AES-GCM ciphertext produced by encryptBlob / AESGCMSeal carries on disk.
+func buildEnvelope(nonce, ctTag []byte) []byte {
+	out := make([]byte, 0, 1+len(nonce)+len(ctTag))
+	out = append(out, envelopeVersionV1)
+	out = append(out, nonce...)
+	out = append(out, ctTag...)
+	return out
 }
 
 func normalizeRecoveryCode(s string) string {

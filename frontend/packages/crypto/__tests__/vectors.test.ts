@@ -26,7 +26,7 @@ type Vectors = {
     p: number
     hash_hex: string
   }[]
-  hkdf: { ikm_hex: string; info: string; salt: string; out_hex: string }[]
+  hkdf: { ikm_hex: string; info: string; salt_hex: string; out_hex: string }[]
   aes_gcm: {
     key_hex: string
     nonce_hex: string
@@ -39,7 +39,12 @@ type Vectors = {
     nonce_hex: string
     verifier_hex: string
   }[]
-  blind_index: { vault_key_hex: string; title: string; hash_hex: string }[]
+  blind_index: {
+    vault_key_hex: string
+    pepper_hex: string
+    title: string
+    hash_hex: string
+  }[]
   totp_rfc6238: {
     secret_b32: string
     unix: number
@@ -102,6 +107,16 @@ function normalizeRecoveryCode(s: string): string {
   return out
 }
 
+// envWith reproduces the envelope layout produced by encryptBlob:
+// version(1) || nonce(12) || ct+tag.
+function envWith(nonce: Uint8Array, ct: Uint8Array): Uint8Array {
+  const env = new Uint8Array(1 + nonce.length + ct.length)
+  env[0] = 0x01
+  env.set(nonce, 1)
+  env.set(ct, 1 + nonce.length)
+  return env
+}
+
 async function aesGcmSeal(
   key: Uint8Array,
   nonce: Uint8Array,
@@ -156,7 +171,7 @@ describe("cross-language vectors: hkdf-sha256", () => {
       const out = await hkdfSha256(
         hexToBytes(cse.ikm_hex),
         cse.info,
-        utf8(cse.salt),
+        hexToBytes(cse.salt_hex),
         32
       )
       expect(bytesToHex(out)).toBe(cse.out_hex)
@@ -186,10 +201,9 @@ describe("cross-language vectors: verifier", () => {
       utf8("oblivio-verify"),
       utf8("vault-wrap")
     )
-    const envelope = new Uint8Array(12 + ct.length)
-    envelope.set(hexToBytes(cse.nonce_hex), 0)
-    envelope.set(ct, 12)
-    expect(bytesToHex(envelope)).toBe(cse.verifier_hex)
+    expect(bytesToHex(envWith(hexToBytes(cse.nonce_hex), ct))).toBe(
+      cse.verifier_hex
+    )
   })
 })
 
@@ -200,8 +214,8 @@ describe("cross-language vectors: blind index", () => {
       const cse = c as Vectors["blind_index"][number]
       const raw = await hkdfSha256(
         hexToBytes(cse.vault_key_hex),
-        "oblivio/blind/v1",
-        new Uint8Array(0),
+        "oblivio/blind/v2",
+        hexToBytes(cse.pepper_hex),
         32
       )
       const k = await crypto.subtle.importKey(
@@ -252,10 +266,9 @@ describe("cross-language vectors: recovery wrap", () => {
         hexToBytes(cse.vault_key_hex),
         utf8("recovery")
       )
-      const envelope = new Uint8Array(12 + ct.length)
-      envelope.set(hexToBytes(cse.nonce_hex), 0)
-      envelope.set(ct, 12)
-      expect(bytesToHex(envelope)).toBe(cse.wrapped_hex)
+      expect(bytesToHex(envWith(hexToBytes(cse.nonce_hex), ct))).toBe(
+        cse.wrapped_hex
+      )
     }
   )
 })
@@ -270,10 +283,9 @@ describe("cross-language vectors: item wrap", () => {
       hexToBytes(cse.item_key_hex),
       aad
     )
-    const envelope = new Uint8Array(12 + ct.length)
-    envelope.set(hexToBytes(cse.nonce_hex), 0)
-    envelope.set(ct, 12)
-    expect(bytesToHex(envelope)).toBe(cse.wrapped_hex)
+    expect(bytesToHex(envWith(hexToBytes(cse.nonce_hex), ct))).toBe(
+      cse.wrapped_hex
+    )
   })
 })
 
@@ -283,13 +295,14 @@ describe("cross-language vectors: public API smoke", () => {
     const v = vectors.aes_gcm[0]
     const key = await importVaultKey(hexToBytes(v.key_hex))
     // encryptBlob picks its own random nonce, so we can only assert the
-    // envelope shape — nonce + ct+tag of the expected length.
+    // envelope shape: version(1) + nonce(12) + ct+tag of the expected length.
     const env = await encryptBlob(
       key,
       hexToBytes(v.plaintext_hex),
       hexToBytes(v.aad_hex)
     )
-    expect(env.length).toBe(12 + hexToBytes(v.plaintext_hex).length + 16)
+    expect(env.length).toBe(1 + 12 + hexToBytes(v.plaintext_hex).length + 16)
+    expect(env[0]).toBe(0x01)
   })
 
   it("hexToBytes/bytesToHex round-trip", () => {

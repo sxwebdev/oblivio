@@ -49,6 +49,7 @@ export default function EntryForm(props: EntryFormMode) {
   const qc = useQueryClient()
   const userId = useAuthStore((s) => s.userId ?? s.email ?? "")
   const vaultKey = useVaultStore((s) => s.vaultKey)
+  const blindPepper = useVaultStore((s) => s.blindPepper)
   const vaultId = vaultIdScope(userId)
 
   const [kind, setKind] = useState<EntryKind>(
@@ -136,7 +137,7 @@ export default function EntryForm(props: EntryFormMode) {
 
   const saveMut = useMutation({
     mutationFn: async () => {
-      if (!vaultKey) throw new Error("vault locked")
+      if (!vaultKey || !blindPepper) throw new Error("vault locked")
       const plaintext: EntryPlaintext = { ...pt, title: pt.title.trim() }
       if (!plaintext.title) throw new Error("title required")
 
@@ -148,6 +149,7 @@ export default function EntryForm(props: EntryFormMode) {
           entryId: newId,
           version: 1,
           plaintext,
+          blindPepper,
         })
         return entriesClient.createEntry(
           {
@@ -173,6 +175,7 @@ export default function EntryForm(props: EntryFormMode) {
         entryId: cur.id,
         version: nextVersion,
         plaintext,
+        blindPepper,
       })
       return entriesClient.updateEntry(
         {

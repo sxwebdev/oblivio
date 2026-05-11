@@ -1,7 +1,12 @@
 // Key derivation primitives:
 //  • Argon2id master_key  ← (master_password, salt_user, params)
-//  • HKDF auth_key        ← (master_key, info="oblivio/auth/v1", salt=email)
-//  • HKDF blind-index key ← (vault_key, info="oblivio/blind/v1")
+//  • HKDF auth_key        ← (master_key, info="oblivio/auth/v2", salt=salt_user)
+//  • HKDF blind-index key ← (vault_key, info="oblivio/blind/v2", salt=pepper)
+//
+// salt for auth_key is the per-user random `salt_user` (used to also be email,
+// see plan §4.1). The blind-index key takes a per-user `blind_pepper`
+// random — so popular-domain dictionary attacks against a leaked K_blind don't
+// work (see plan §4.4 and §6.4 metadata note).
 //
 // Argon2id runs in WASM via hash-wasm (single-threaded; multithreaded would
 // require dedicated workers + COOP/COEP headers — Sprint 4 work).
@@ -100,20 +105,30 @@ export async function hkdfSha256(
   return new Uint8Array(bits)
 }
 
-// auth_key = HKDF-SHA256(master_key, info="oblivio/auth/v1", salt=email).
-// The lower-cased email serves as a per-user domain separator.
+// auth_key = HKDF-SHA256(master_key, info="oblivio/auth/v2", salt=salt_user).
+// salt_user is the same per-user random bytes used by Argon2id; this keeps
+// auth_key independent of email so the user can rotate their address without
+// re-deriving their server-side credential.
 export async function deriveAuthKey(
   masterKey: Uint8Array,
-  email: string
+  saltUser: Uint8Array
 ): Promise<Uint8Array> {
-  return hkdfSha256(masterKey, HKDF_AUTH_INFO, utf8(email.toLowerCase()), 32)
+  if (saltUser.length < 16) throw new Error("salt_user too short")
+  return hkdfSha256(masterKey, HKDF_AUTH_INFO, saltUser, 32)
 }
 
-// HMAC-key for blind index over titles. Derived from vault_key.
+// HMAC-key for blind index over titles. Derived from vault_key with a
+// per-user `pepper` mixed into the HKDF salt. The pepper is stored in
+// user_kdf_params on the server and returned at login alongside salt_user;
+// without it, two leaked K_blind values for the same vault would still match
+// against a domain dictionary. With it, the dictionary attacker also needs
+// the per-user pepper.
 export async function deriveBlindIndexKey(
-  vaultKey: Uint8Array
+  vaultKey: Uint8Array,
+  pepper: Uint8Array
 ): Promise<CryptoKey> {
-  const raw = await hkdfSha256(vaultKey, HKDF_BLIND_INFO, new Uint8Array(0), 32)
+  if (pepper.length < 16) throw new Error("blind pepper too short")
+  const raw = await hkdfSha256(vaultKey, HKDF_BLIND_INFO, pepper, 32)
   return crypto.subtle.importKey(
     "raw",
     raw as unknown as ArrayBuffer,

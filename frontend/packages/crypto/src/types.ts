@@ -34,11 +34,18 @@ export const VERIFIER_PLAINTEXT = "oblivio-verify"
 
 // Domain separation labels for HKDF and AAD construction. Bumping these
 // requires a migration; the version suffix forces the scheme into a new lane.
-export const HKDF_AUTH_INFO = "oblivio/auth/v1"
-export const HKDF_BLIND_INFO = "oblivio/blind/v1"
+// v2 introduces per-user salt for auth_key (was email) and per-user pepper
+// for the blind-index key (was nothing) — see plan §4.1, §4.4.
+export const HKDF_AUTH_INFO = "oblivio/auth/v2"
+export const HKDF_BLIND_INFO = "oblivio/blind/v2"
 export const HKDF_LOGIN_TOTP_INFO = "oblivio/login-totp/v1"
 export const VAULT_WRAP_AAD = "vault-wrap"
 export const RECOVERY_WRAP_AAD = "recovery"
+
+// Crypto envelope version. Every AES-GCM envelope produced by encryptBlob
+// starts with this byte so future protocol revisions (XChaCha20, post-quantum)
+// can co-exist with v1 blobs through a decoder registry. See plan §4.6.
+export const ENVELOPE_VERSION_V1 = 0x01
 
 // Suffix labels used inside AAD strings for item-level operations.
 // Per plan §4.3:

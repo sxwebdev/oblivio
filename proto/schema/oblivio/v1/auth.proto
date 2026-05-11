@@ -40,19 +40,23 @@ message RegisterRequest {
   // Argon2id parameters chosen by the client (typically t=3,m=128MiB,p=4).
   bytes salt_user = 2;
   Argon2Params kdf_params = 3;
-  // auth_key = HKDF-SHA256(master_key, info="oblivio/auth/v1", salt=email).
+  // auth_key = HKDF-SHA256(master_key, info="oblivio/auth/v2", salt=salt_user).
   // The server hashes auth_key with Argon2id once more before storing.
   bytes auth_key = 4;
-  // AES-GCM(master_key, "oblivio-verify"); 32+ bytes (nonce || ct || tag).
+  // AES-GCM(master_key, "oblivio-verify"); 33+ bytes (version || nonce || ct || tag).
   bytes verifier = 5;
   // AES-GCM(master_key, vault_key); vault_key is generated client-side.
   bytes wrapped_vault_key = 6;
   // Recovery artefacts derived from recovery_code shown to the user once.
   bytes recovery_salt = 7;
   bytes recovery_wrapped_vault_key = 8;
-  // Argon2id(HKDF(recovery_key,"oblivio/auth/v1")) — server stores hashed proof.
+  // Argon2id(HKDF(recovery_key,"oblivio/auth/v2")) — server stores hashed proof.
   bytes recovery_proof = 9;
   DeviceInfo device_info = 10;
+  // Per-user pepper (16+ random bytes) mixed into the blind-index HKDF.
+  // Stored alongside salt_user; returned at GetKDFParams so subsequent logins
+  // can re-derive K_blind without re-asking the user. See plan §4.4.
+  bytes blind_pepper = 11;
 }
 
 message RegisterResponse {
@@ -67,6 +71,10 @@ message GetKDFParamsRequest {
 message GetKDFParamsResponse {
   bytes salt_user = 1;
   Argon2Params kdf_params = 2;
+  // Per-user pepper for the blind-index HKDF (plan §4.4). Treated as
+  // non-secret: an attacker that already has the salt knows the pepper too,
+  // and breaking the index still requires the vault_key.
+  bytes blind_pepper = 3;
 }
 
 message AuthorizeRequest {

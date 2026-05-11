@@ -8,6 +8,12 @@
 *.so
 *.dylib
 
+# Go binaries built at repo root via `go build ./cmd/<name>` (use `go run`
+# instead). Listed explicitly because the extensionless filenames don't
+# match any general glob.
+/oblivio
+/genvectors
+
 # Test binary, built with `go test -c`
 *.test
 

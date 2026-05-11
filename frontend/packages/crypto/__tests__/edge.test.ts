@@ -170,16 +170,18 @@ describe("verifier", () => {
 })
 
 describe("blind index", () => {
-  it("is deterministic for (vault_key, title)", async () => {
+  const pepper = new Uint8Array(16).fill(0xab)
+
+  it("is deterministic for (vault_key, pepper, title)", async () => {
     const vk = randomBytes(32)
-    const k = await deriveBlindIndexKey(vk)
+    const k = await deriveBlindIndexKey(vk, pepper)
     const a = await blindIndex(k, "GitHub")
     const b = await blindIndex(k, "GitHub")
     expect(a).toEqual(b)
   })
 
   it("NFKC-normalises and case-folds inputs", async () => {
-    const k = await deriveBlindIndexKey(new Uint8Array(32))
+    const k = await deriveBlindIndexKey(new Uint8Array(32), pepper)
     const lower = await blindIndex(k, "github")
     const fullwidth = await blindIndex(k, "ＧｉｔＨｕｂ") // NFKC → "GitHub" → lower → "github"
     const upper = await blindIndex(k, "GITHUB")
@@ -188,11 +190,28 @@ describe("blind index", () => {
   })
 
   it("differs across distinct vault keys for the same title", async () => {
-    const k1 = await deriveBlindIndexKey(new Uint8Array(32).fill(1))
-    const k2 = await deriveBlindIndexKey(new Uint8Array(32).fill(2))
+    const k1 = await deriveBlindIndexKey(new Uint8Array(32).fill(1), pepper)
+    const k2 = await deriveBlindIndexKey(new Uint8Array(32).fill(2), pepper)
     const a = await blindIndex(k1, "GitHub")
     const b = await blindIndex(k2, "GitHub")
     expect(a).not.toEqual(b)
+  })
+
+  it("differs across distinct peppers for the same vault key and title", async () => {
+    const vk = new Uint8Array(32).fill(7)
+    const p1 = new Uint8Array(16).fill(1)
+    const p2 = new Uint8Array(16).fill(2)
+    const k1 = await deriveBlindIndexKey(vk, p1)
+    const k2 = await deriveBlindIndexKey(vk, p2)
+    const a = await blindIndex(k1, "GitHub")
+    const b = await blindIndex(k2, "GitHub")
+    expect(a).not.toEqual(b)
+  })
+
+  it("rejects a short pepper", async () => {
+    await expect(
+      deriveBlindIndexKey(new Uint8Array(32), new Uint8Array(8))
+    ).rejects.toThrow(/pepper too short/)
   })
 })
 
