@@ -15,6 +15,7 @@ import {
   importMasterKey,
   makeVerifier,
   normalizeRecoveryCode,
+  pickArgon2Params,
   randomBytes,
   unwrapVaultKeyFromRecovery,
   wrapVaultKey,
@@ -23,8 +24,6 @@ import {
 import { authClient } from "@/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-
-const CLIENT_KDF = { t: 3, mKib: 131072, p: 1, algo: "argon2id" } as const
 
 type Step = "code" | "newpw" | "done"
 
@@ -98,20 +97,27 @@ export default function RecoverPage() {
     setBusy(true)
     try {
       const saltUser = randomBytes(16)
-      const masterKeyRaw = await deriveMasterKey(password, saltUser, CLIENT_KDF)
+      const kdf = pickArgon2Params()
+      const masterKeyRaw = await deriveMasterKey(password, saltUser, kdf)
       const masterKey = await importMasterKey(masterKeyRaw)
       const authKey = await deriveAuthKey(masterKeyRaw, saltUser)
       const verifier = await makeVerifier(masterKey)
       const wrappedVaultKey = await wrapVaultKey(masterKey, vaultKey)
 
+      // Recovery does not re-encrypt the login-TOTP secret: the user has
+      // lost access to the OLD master_password, so they cannot decrypt the
+      // OLD K_login_totp-wrapped envelope to re-seal it under the new
+      // auth_key. Sending empty bytes tells the server to drop the row;
+      // the user must re-enrol TOTP after sign-in. The user-facing notice
+      // for this lives in the "done" step at the bottom of this file.
       await authClient.recoveryComplete({
         recoverySessionId: sessionId,
         saltUser,
         kdfParams: {
-          t: CLIENT_KDF.t,
-          mKib: CLIENT_KDF.mKib,
-          p: CLIENT_KDF.p,
-          algo: CLIENT_KDF.algo,
+          t: kdf.t,
+          mKib: kdf.mKib,
+          p: kdf.p,
+          algo: kdf.algo,
         },
         authKey,
         verifier,
@@ -140,6 +146,11 @@ export default function RecoverPage() {
         <p className="text-sm text-muted-foreground">
           All previous sessions were signed out. Use your new master password to
           sign in.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Two-factor authentication (TOTP) — if previously enabled — has been
+          reset. You can re-enrol your authenticator app from Settings →
+          Security after signing in.
         </p>
         {newRecovery && (
           <div className="space-y-2">

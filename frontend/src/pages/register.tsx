@@ -12,6 +12,7 @@ import {
   generateVaultKey,
   importMasterKey,
   makeVerifier,
+  pickArgon2Params,
   randomBytes,
   wrapVaultKey,
   wrapVaultKeyForRecovery,
@@ -23,10 +24,11 @@ import { Input } from "@/components/ui/input"
 import { useAuthStore } from "@/stores/auth"
 import { useVaultStore } from "@/stores/vault"
 
-// Per plan §4.2 the client KDF runs t=3, m=128 MiB, p=4. We start at p=1 (no
-// multi-threading) since COOP/COEP headers for SharedArrayBuffer would need
-// extra setup; this still gives healthy entropy for the threat model.
-const KDF = { t: 3, mKib: 131072, p: 1, algo: "argon2id" } as const
+// KDF parameters are device-aware: pickArgon2Params returns the desktop
+// profile (m=128 MiB, t=3) or a halved-memory iOS fallback (m=32 MiB, t=8)
+// depending on user-agent + navigator.deviceMemory (see plan §17.2). The
+// chosen params are frozen into user_kdf_params at Register time; the user
+// keeps them for every subsequent login until ChangeMasterPassword.
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -47,7 +49,8 @@ export default function RegisterPage() {
     try {
       const saltUser = randomBytes(16)
       const blindPepper = randomBytes(16)
-      const masterKeyRaw = await deriveMasterKey(password, saltUser, KDF)
+      const kdfParams = pickArgon2Params()
+      const masterKeyRaw = await deriveMasterKey(password, saltUser, kdfParams)
       const masterKey = await importMasterKey(masterKeyRaw)
       const authKey = await deriveAuthKey(masterKeyRaw, saltUser)
       const vaultKey = generateVaultKey()
@@ -66,7 +69,12 @@ export default function RegisterPage() {
       const resp = await authClient.register({
         email,
         saltUser,
-        kdfParams: { t: KDF.t, mKib: KDF.mKib, p: KDF.p, algo: KDF.algo },
+        kdfParams: {
+          t: kdfParams.t,
+          mKib: kdfParams.mKib,
+          p: kdfParams.p,
+          algo: kdfParams.algo,
+        },
         authKey,
         verifier,
         wrappedVaultKey,

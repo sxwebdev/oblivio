@@ -1689,71 +1689,35 @@ Go-тест: `internal/crypto/vectors_test.go`, TS-тест:
 
 - **Login-TOTP не zero-knowledge.** Сервер видит plaintext TOTP-секрета во время
   одной операции при login (расшифровкой ключом, выведенным из `auth_key`).
-  См. §5.3. Альтернатива (client-side TOTP с PAKE) — не делалась в MVP.
-- **HKDF salt = email** для вывода `auth_key`. Работает, но (а) email — публичная
-  низкоэнтропийная величина, (б) при смене email нужна полная перерегистрация
-  `auth_key`. Целевая правка — мигрировать на `salt_user`.
+  Plaintext теперь возвращается из крипто-helper-ов как `*memguard.LockedBuffer`
+  и зануляется через `defer Destroy()`, но это всё ещё trick in-process, а не
+  настоящая ZK-модель. Client-side TOTP с PAKE — отложено.
 - **Crypto-shred не криптографический.** При `DeleteMe` запись удаляется
   каскадно, но и обёртка ключа, и ciphertext остаются в бэкапах БД до истечения
-  retention. Целевая модель — per-user envelope-ключ в Vault transit, который
-  уничтожается при удалении аккаунта.
-- **Envelope без version-byte.** Текущий формат blob-а не несёт явного байта
-  версии. До первого протокол-апгрейда не критично; при апгрейде нужно ввести
-  decoder-registry. См. §4.6.
+  retention. Реально stale до retention rotation. Целевая модель — per-user
+  envelope-ключ в Vault transit — отложено.
 
-### 17.2 Аутентификация и сессии
+### 17.2 Метаданные и side-channels
 
-- **WebAuthn UserVerification по умолчанию ("preferred").** Сейчас passkey
-  без PIN/biometric тоже принимается. Целевая правка — `UV = required` для
-  secret-manager-уровня доверия. См. §5.4.
-- **`ChangeMasterPassword` и `RecoveryComplete` не обновляют `login_totp`.**
-  Старый `encrypted_secret` после смены `auth_key` нечитаем — 2FA молча ломается
-  до повторного setup. Целевая правка — клиент перешифровывает secret и
-  отправляет новое значение в payload ротации. См. §5.3 и §5.5.
-- **Argon2id на клиенте, фиксированные параметры.** m=128 MiB на iOS Safari
-  может OOM-нуть. Сейчас fallback на меньшее `m` нет. Целевая правка —
-  device-aware параметры с сохранением `salt_user`. См. §4.2.
+- **`domain_hash` низкой cardinality.** Per-user `blind_pepper` теперь
+  обязателен (HKDF salt при выводе `K_blind`), но при утечке `K_blind` всё
+  ещё работает словарь популярных доменов внутри конкретного юзера.
+  Радикальная защита — отказаться от `domain_hash` в пользу client-side
+  favicon — отложено.
 
-### 17.3 Доступность и DoS
+### 17.3 Эксплуатационные
 
-- **Argon2id concurrency-cap на сервере отсутствует.** Защита — только
-  rate-limit middleware. Большой одновременный флуд `Authorize` может
-  выбить RAM. Целевая правка — semaphore вокруг argon2-вызовов плюс
-  обязательный CAPTCHA на `Register` в production.
-- **Rate-limit in-memory.** Counter-ы не переживают рестарт и не делятся
-  между инстансами. Single-node only. Целевая правка — миграция на
-  `rate_limit_buckets` (Postgres) или Redis при горизонтальном масштабировании.
-- **Multi-instance assumptions нет.** MFA-store, tokenmanager in-memory cache,
-  rate-limit — всё локально. При двух инстансах за LB пользователь рискует
-  потерять MFA-challenge при попадании на «не тот» инстанс. Целевая правка —
-  shared store перед deploy с N>1.
-
-### 17.4 Audit и integrity
-
-- **Audit-chain head в той же БД, что и сам log.** Это защита от случайной
-  порчи и от компроматов в обход аппликейшна, но не от противника с
-  полным DB-доступом, который перепишет цепочку и обновит head. Целевая
-  правка — внешний якорь (s3 object-lock, подпись Vault transit, witness service).
-- **Polling-only sync.** Pushpull/SSE/long-poll для уведомлений о новых
-  записях между устройствами нет. UX компенсируется TanStack Query
-  invalidation и manual refresh. Целевая правка — SSE-stream на изменения
-  пользовательского namespace.
-
-### 17.5 Хранение серверных секретов
-
-- **`secrets.json` plaintext для self-hosted без Vault.** Файл под mode 0600 с
-  base64-ключами; компрометация диска = forge сессий. Приемлемо для single-node
-  dev/self-host, не для production. Целевая правка — рекомендовать Vault или
-  derive-from-env (`OBLIVIO_MASTER_SEED` + HKDF). См. §8.3.
-- **memguard покрывает только in-rest буферы.** Plaintext, который stdlib-crypto
-  принимает на вход, всё равно лежит в обычной heap-памяти. См. §8.3.
-
-### 17.6 Метаданные и side-channels
-
-- **`domain_hash` низкой cardinality.** Если когда-нибудь утечёт `K_blind` (например,
-  через XSS в браузерной памяти), популярные домены угадаются по словарю. То же
-  касается `title_hash` (но cardinality выше). Целевая правка — добавить
-  per-user pepper, либо отказаться от `domain_hash` в пользу client-side favicon.
+- **CSP `style-src 'unsafe-inline'`.** Tailwind 4 в production не вставляет
+  inline-style — `unsafe-inline` можно убрать сразу. Не сделано в этой итерации.
+- **CAPTCHA на `Register` не enforced.** Argon2id concurrency-cap снимает
+  основной DoS-вектор, но автоматизированная регистрация всё ещё возможна.
+  hCaptcha/Turnstile через config-flag — ручная задача оператора.
+- **MFA KEK при per-instance fallback.** Без `OBLIVIO_MFA_KEK_SEED` каждый
+  инстанс генерит свой KEK; multi-instance deploy теряет cross-instance
+  challenge resolution и требует sticky-session на LB. При наличии seed —
+  всё работает прозрачно через HKDF.
+- **Pre-launch checklist остаётся ручным.** Внешний crypto-аудит, hstspreload,
+  bug bounty, restore-drill — задачи команды, не кода.
 
 ---
 

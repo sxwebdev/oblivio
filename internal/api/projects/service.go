@@ -17,6 +17,7 @@ import (
 	pb "github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1"
 	"github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1/obliviov1connect"
 	"github.com/sxwebdev/oblivio/internal/api/middleware"
+	apisubs "github.com/sxwebdev/oblivio/internal/api/subscriptions"
 	"github.com/sxwebdev/oblivio/internal/models"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_projects"
 )
@@ -83,6 +84,9 @@ func (s *Service) CreateProject(ctx context.Context, req *connect.Request[pb.Cre
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	middleware.SetAuditTarget(ctx, row.ID)
+	if err := apisubs.PublishProjectsChanged(ctx, tx, uc.UserID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	return connect.NewResponse(&pb.CreateProjectResponse{Project: toProject(row)}), nil
 }
 
@@ -113,6 +117,9 @@ func (s *Service) UpdateProject(ctx context.Context, req *connect.Request[pb.Upd
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	middleware.SetAuditTarget(ctx, row.ID)
+	if err := apisubs.PublishProjectsChanged(ctx, tx, uc.UserID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	return connect.NewResponse(&pb.UpdateProjectResponse{Project: toProject(row)}), nil
 }
 
@@ -137,6 +144,9 @@ func (s *Service) DeleteProject(ctx context.Context, req *connect.Request[pb.Del
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("project missing or version mismatch"))
 	}
 	middleware.SetAuditTarget(ctx, id)
+	if err := apisubs.PublishProjectsChanged(ctx, tx, uc.UserID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	return connect.NewResponse(&pb.DeleteProjectResponse{}), nil
 }
 
@@ -157,6 +167,9 @@ func (s *Service) ReorderProjects(ctx context.Context, req *connect.Request[pb.R
 		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+	}
+	if err := apisubs.PublishProjectsChanged(ctx, tx, uc.UserID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&pb.ReorderProjectsResponse{}), nil
 }

@@ -131,6 +131,13 @@ message GetMyKeysResponse {
   bytes verifier = 1;
   bytes wrapped_vault_key = 2;
   uint32 vault_key_version = 3;
+  // Login-TOTP envelope (AES-GCM under K_login_totp = HKDF(auth_key, ...)).
+  // Populated only when the user has TOTP configured. The client uses this
+  // at ChangeMasterPassword / RecoveryComplete to re-derive K_login_totp
+  // under the new auth_key and upload a re-encrypted envelope so 2FA
+  // survives the rotation. Empty when no TOTP is set.
+  bytes login_totp_encrypted_secret = 4;
+  bytes login_totp_nonce = 5;
 }
 
 // --- Recovery flow (plan §5.5) -----------------------------------------
@@ -167,6 +174,15 @@ message RecoveryCompleteRequest {
   bytes auth_key = 4;
   bytes verifier = 5;
   bytes wrapped_vault_key = 6;
+  // Optional: re-encrypted login-TOTP envelope under the new K_login_totp.
+  // When the recovering client still has access to the TOTP secret it can
+  // recover the envelope from GetMyKeys (BEFORE recovery completes) by
+  // decrypting with the OLD auth_key, then re-seal here under the new
+  // auth_key. When the user lost their authenticator app these fields are
+  // empty and the server drops the stored TOTP — the user must set it up
+  // again after recovery.
+  bytes login_totp_encrypted_secret = 7;
+  bytes login_totp_nonce = 8;
 }
 message RecoveryCompleteResponse {}
 
@@ -199,5 +215,12 @@ message ChangeMasterPasswordRequest {
   Argon2Params new_kdf_params = 4;
   bytes new_verifier = 5;
   bytes new_wrapped_vault_key = 6;
+  // Optional re-encrypted login-TOTP envelope under the new K_login_totp.
+  // The client decrypts the old envelope (returned by GetMyKeys) with the
+  // OLD auth_key, then seals the secret under the new one. Empty when the
+  // user has no TOTP configured. See plan §17.2 — without this rotation
+  // path TOTP would silently break when auth_key changes.
+  bytes new_login_totp_encrypted_secret = 7;
+  bytes new_login_totp_nonce = 8;
 }
 message ChangeMasterPasswordResponse {}

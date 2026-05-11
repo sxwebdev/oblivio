@@ -40,6 +40,7 @@ import (
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_email_verification_tokens"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_auth"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_kdf_params"
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_login_totp"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_vault"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_webauthn_credentials"
 )
@@ -352,7 +353,11 @@ func (s *Service) Authorize(ctx context.Context, req *connect.Request[pb.Authori
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			wuser := buildWebAuthnUser(u, creds)
-			options, session, err := s.wa.BeginLogin(wuser)
+			// UV=required (see webauthn/service.go RegisterBegin for rationale).
+			options, session, err := s.wa.BeginLogin(
+				wuser,
+				wa.WithUserVerification(protocol.VerificationRequired),
+			)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("webauthn begin login: %w", err))
 			}
@@ -405,11 +410,15 @@ func (s *Service) CompleteMFA(ctx context.Context, req *connect.Request[pb.Compl
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		secret, err := openLoginTOTP(ch.AuthKey, row.EncryptedSecret)
+		secretBuf, err := openLoginTOTP(ch.AuthKey, row.EncryptedSecret)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		if err := auth.ValidateTOTPCode(secret, r.TotpCode); err != nil {
+		// defer-first: destroy on every return path, including error
+		// branches below, so the plaintext base32 secret never lingers in
+		// locked memory longer than the validation step.
+		defer secretBuf.Destroy()
+		if err := auth.ValidateTOTPCodeBytes(secretBuf.Bytes(), []byte(r.TotpCode)); err != nil {
 			metrics.MFAAttemptsTotal.WithLabelValues("totp", "failure").Inc()
 			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid totp code"))
 		}
@@ -712,11 +721,19 @@ func (s *Service) ChangeMasterPassword(ctx context.Context, req *connect.Request
 		}); err != nil {
 			return err
 		}
-		return s.st.UserVault(repos.WithTx(tx)).UpdateUserVaultPassword(ctx, repo_user_vault.UpdateUserVaultPasswordParams{
+		if err := s.st.UserVault(repos.WithTx(tx)).UpdateUserVaultPassword(ctx, repo_user_vault.UpdateUserVaultPasswordParams{
 			UserID:          uc.UserID,
 			Verifier:        r.NewVerifier,
 			WrappedVaultKey: r.NewWrappedVaultKey,
-		})
+		}); err != nil {
+			return err
+		}
+		// login_totp is encrypted under K_login_totp = HKDF(auth_key, ...),
+		// so the old envelope is unreadable after the auth_key rotation.
+		// Caller is expected to have decrypted with the OLD K and re-sealed
+		// with the NEW one; we just upsert. When the new envelope is empty
+		// AND a row exists, the user has explicitly chosen to drop TOTP.
+		return rotateLoginTOTPInTx(ctx, s.st, tx, uc.UserID, r.NewLoginTotpEncryptedSecret, r.NewLoginTotpNonce)
 	}); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -759,7 +776,9 @@ func (s *Service) Logout(ctx context.Context, req *connect.Request[pb.LogoutRequ
 }
 
 // GetMyKeys returns the encrypted vault artefacts the client needs to unlock
-// its key tree.
+// its key tree. Includes the login-TOTP envelope (when configured) so the
+// client can re-encrypt it under a new K_login_totp at ChangeMasterPassword
+// or RecoveryComplete (see plan §17.2).
 func (s *Service) GetMyKeys(ctx context.Context, _ *connect.Request[pb.GetMyKeysRequest]) (*connect.Response[pb.GetMyKeysResponse], error) {
 	uc, ok := middleware.FromContext(ctx)
 	if !ok {
@@ -769,11 +788,21 @@ func (s *Service) GetMyKeys(ctx context.Context, _ *connect.Request[pb.GetMyKeys
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&pb.GetMyKeysResponse{
+	resp := &pb.GetMyKeysResponse{
 		Verifier:        uv.Verifier,
 		WrappedVaultKey: uv.WrappedVaultKey,
 		VaultKeyVersion: uint32(uv.VaultKeyVersion),
-	}), nil
+	}
+	// login_totp row is optional — only present once the user has set up
+	// the factor. Errors other than pgx.ErrNoRows surface as Internal so
+	// the client doesn't accidentally drop the secret on a transient blip.
+	if totp, err := s.st.UserLoginTOTP().GetUserLoginTOTP(ctx, uc.UserID); err == nil {
+		resp.LoginTotpEncryptedSecret = totp.EncryptedSecret
+		resp.LoginTotpNonce = totp.Nonce
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(resp), nil
 }
 
 // --- Recovery (plan §5.5) ---------------------------------------------
@@ -914,6 +943,13 @@ func (s *Service) RecoveryComplete(ctx context.Context, req *connect.Request[pb.
 		}); err != nil {
 			return err
 		}
+		// Same rotation logic as ChangeMasterPassword: a recovering client
+		// that still has the TOTP secret re-encrypts and uploads it; one
+		// that lost their authenticator app sends empty bytes and the row
+		// is dropped — the user re-sets up TOTP after sign-in.
+		if err := rotateLoginTOTPInTx(ctx, s.st, tx, sess.UserID, r.LoginTotpEncryptedSecret, r.LoginTotpNonce); err != nil {
+			return err
+		}
 		return s.st.AuthSessions(repos.WithTx(tx)).RevokeAllUserSessions(ctx, sess.UserID)
 	}); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -938,6 +974,42 @@ func (s *Service) RecoveryComplete(ctx context.Context, req *connect.Request[pb.
 }
 
 // --- helpers ---
+
+// rotateLoginTOTPInTx applies a re-encrypted login-TOTP envelope to the
+// user's row in the same transaction as the auth-artefact rotation.
+//
+// When the client supplied fresh bytes we upsert under the OLD enabled
+// flag — a user who had TOTP enabled before the rotation stays enabled
+// after it. When the client supplied empty bytes AND a row exists we drop
+// it (recovery without authenticator app, explicit disable, etc.). When
+// the client supplied empty bytes and no row exists, no-op.
+func rotateLoginTOTPInTx(
+	ctx context.Context,
+	st *store.Store,
+	tx pgx.Tx,
+	userID uuid.UUID,
+	newEncrypted, newNonce []byte,
+) error {
+	repo := st.UserLoginTOTP(repos.WithTx(tx))
+	if len(newEncrypted) > 0 && len(newNonce) > 0 {
+		existing, err := repo.GetUserLoginTOTP(ctx, userID)
+		enabled := false
+		if err == nil {
+			enabled = existing.Enabled
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		return repo.UpsertUserLoginTOTP(ctx, repo_user_login_totp.UpsertUserLoginTOTPParams{
+			UserID:          userID,
+			EncryptedSecret: newEncrypted,
+			Nonce:           newNonce,
+			Enabled:         enabled,
+		})
+	}
+	// Empty bytes → drop the row if it exists. DeleteUserLoginTOTP is a
+	// plain DELETE so missing rows are silently no-op.
+	return repo.DeleteUserLoginTOTP(ctx, userID)
+}
 
 type payloadKeys struct {
 	Verifier        []byte

@@ -87,6 +87,14 @@ func (e EntryKind) Valid() bool {
 	return false
 }
 
+type AuditChainAnchor struct {
+	ID        int64              `db:"id" json:"id"`
+	Head      []byte             `db:"head" json:"head"`
+	Signature []byte             `db:"signature" json:"signature"`
+	SignedAt  pgtype.Timestamptz `db:"signed_at" json:"signed_at"`
+	SignerID  string             `db:"signer_id" json:"signer_id"`
+}
+
 type AuditLog struct {
 	ID        int64              `db:"id" json:"id"`
 	UserID    uuid.NullUUID      `db:"user_id" json:"user_id"`

@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package oblivio.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/sxwebdev/oblivio/internal/api/pb/oblivio/v1;oblivio_v1";
+
+// SubscriptionsService is a thin server-streaming endpoint backed by Postgres
+// LISTEN/NOTIFY. It pushes hints — "your entries changed", "your projects
+// changed" — so a connected client can invalidate caches and refetch
+// without polling. Payloads carry no secret material; the client must
+// still hit the regular query endpoints for actual data.
+//
+// Cross-instance fan-out comes from Postgres itself: every server instance
+// LISTENs the same per-user channel, so a NOTIFY published by an instance
+// completing an EntriesService.CreateEntry call reaches every connected
+// client regardless of which instance terminates each SSE stream.
+service SubscriptionsService {
+  // Subscribe opens a server stream of per-user notifications. The
+  // procedure requires authentication; the server scopes notifications to
+  // the caller's user_id. Closing the client cancels the stream.
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+}
+
+message SubscribeRequest {}
+
+// SubscribeResponse wraps a single push so the proto-lint rule (response
+// type must mirror the RPC name) is satisfied. The semantic payload is
+// the embedded Notification.
+message SubscribeResponse {
+  Notification notification = 1;
+}
+
+// NotificationKind enumerates the categories of changes the client may
+// observe. Adding new kinds is non-breaking; clients are expected to
+// ignore unknown values.
+enum NotificationKind {
+  NOTIFICATION_KIND_UNSPECIFIED = 0;
+  NOTIFICATION_KIND_ENTRIES_UPDATED = 1;
+  NOTIFICATION_KIND_PROJECTS_UPDATED = 2;
+  NOTIFICATION_KIND_HEARTBEAT = 3;
+}
+
+message Notification {
+  NotificationKind kind = 1;
+  // Server-observed timestamp of the event. The client uses it only for
+  // ordering / debounce; it MUST NOT trust the value beyond that.
+  google.protobuf.Timestamp at = 2;
+}

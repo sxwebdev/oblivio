@@ -823,8 +823,15 @@ type GetMyKeysResponse struct {
 	Verifier        []byte                 `protobuf:"bytes,1,opt,name=verifier,proto3" json:"verifier,omitempty"`
 	WrappedVaultKey []byte                 `protobuf:"bytes,2,opt,name=wrapped_vault_key,json=wrappedVaultKey,proto3" json:"wrapped_vault_key,omitempty"`
 	VaultKeyVersion uint32                 `protobuf:"varint,3,opt,name=vault_key_version,json=vaultKeyVersion,proto3" json:"vault_key_version,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Login-TOTP envelope (AES-GCM under K_login_totp = HKDF(auth_key, ...)).
+	// Populated only when the user has TOTP configured. The client uses this
+	// at ChangeMasterPassword / RecoveryComplete to re-derive K_login_totp
+	// under the new auth_key and upload a re-encrypted envelope so 2FA
+	// survives the rotation. Empty when no TOTP is set.
+	LoginTotpEncryptedSecret []byte `protobuf:"bytes,4,opt,name=login_totp_encrypted_secret,json=loginTotpEncryptedSecret,proto3" json:"login_totp_encrypted_secret,omitempty"`
+	LoginTotpNonce           []byte `protobuf:"bytes,5,opt,name=login_totp_nonce,json=loginTotpNonce,proto3" json:"login_totp_nonce,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *GetMyKeysResponse) Reset() {
@@ -876,6 +883,20 @@ func (x *GetMyKeysResponse) GetVaultKeyVersion() uint32 {
 		return x.VaultKeyVersion
 	}
 	return 0
+}
+
+func (x *GetMyKeysResponse) GetLoginTotpEncryptedSecret() []byte {
+	if x != nil {
+		return x.LoginTotpEncryptedSecret
+	}
+	return nil
+}
+
+func (x *GetMyKeysResponse) GetLoginTotpNonce() []byte {
+	if x != nil {
+		return x.LoginTotpNonce
+	}
+	return nil
 }
 
 type GetRecoveryParamsRequest struct {
@@ -1094,8 +1115,17 @@ type RecoveryCompleteRequest struct {
 	AuthKey         []byte        `protobuf:"bytes,4,opt,name=auth_key,json=authKey,proto3" json:"auth_key,omitempty"`
 	Verifier        []byte        `protobuf:"bytes,5,opt,name=verifier,proto3" json:"verifier,omitempty"`
 	WrappedVaultKey []byte        `protobuf:"bytes,6,opt,name=wrapped_vault_key,json=wrappedVaultKey,proto3" json:"wrapped_vault_key,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Optional: re-encrypted login-TOTP envelope under the new K_login_totp.
+	// When the recovering client still has access to the TOTP secret it can
+	// recover the envelope from GetMyKeys (BEFORE recovery completes) by
+	// decrypting with the OLD auth_key, then re-seal here under the new
+	// auth_key. When the user lost their authenticator app these fields are
+	// empty and the server drops the stored TOTP — the user must set it up
+	// again after recovery.
+	LoginTotpEncryptedSecret []byte `protobuf:"bytes,7,opt,name=login_totp_encrypted_secret,json=loginTotpEncryptedSecret,proto3" json:"login_totp_encrypted_secret,omitempty"`
+	LoginTotpNonce           []byte `protobuf:"bytes,8,opt,name=login_totp_nonce,json=loginTotpNonce,proto3" json:"login_totp_nonce,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *RecoveryCompleteRequest) Reset() {
@@ -1166,6 +1196,20 @@ func (x *RecoveryCompleteRequest) GetVerifier() []byte {
 func (x *RecoveryCompleteRequest) GetWrappedVaultKey() []byte {
 	if x != nil {
 		return x.WrappedVaultKey
+	}
+	return nil
+}
+
+func (x *RecoveryCompleteRequest) GetLoginTotpEncryptedSecret() []byte {
+	if x != nil {
+		return x.LoginTotpEncryptedSecret
+	}
+	return nil
+}
+
+func (x *RecoveryCompleteRequest) GetLoginTotpNonce() []byte {
+	if x != nil {
+		return x.LoginTotpNonce
 	}
 	return nil
 }
@@ -1384,8 +1428,15 @@ type ChangeMasterPasswordRequest struct {
 	NewKdfParams       *Argon2Params `protobuf:"bytes,4,opt,name=new_kdf_params,json=newKdfParams,proto3" json:"new_kdf_params,omitempty"`
 	NewVerifier        []byte        `protobuf:"bytes,5,opt,name=new_verifier,json=newVerifier,proto3" json:"new_verifier,omitempty"`
 	NewWrappedVaultKey []byte        `protobuf:"bytes,6,opt,name=new_wrapped_vault_key,json=newWrappedVaultKey,proto3" json:"new_wrapped_vault_key,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Optional re-encrypted login-TOTP envelope under the new K_login_totp.
+	// The client decrypts the old envelope (returned by GetMyKeys) with the
+	// OLD auth_key, then seals the secret under the new one. Empty when the
+	// user has no TOTP configured. See plan §17.2 — without this rotation
+	// path TOTP would silently break when auth_key changes.
+	NewLoginTotpEncryptedSecret []byte `protobuf:"bytes,7,opt,name=new_login_totp_encrypted_secret,json=newLoginTotpEncryptedSecret,proto3" json:"new_login_totp_encrypted_secret,omitempty"`
+	NewLoginTotpNonce           []byte `protobuf:"bytes,8,opt,name=new_login_totp_nonce,json=newLoginTotpNonce,proto3" json:"new_login_totp_nonce,omitempty"`
+	unknownFields               protoimpl.UnknownFields
+	sizeCache                   protoimpl.SizeCache
 }
 
 func (x *ChangeMasterPasswordRequest) Reset() {
@@ -1456,6 +1507,20 @@ func (x *ChangeMasterPasswordRequest) GetNewVerifier() []byte {
 func (x *ChangeMasterPasswordRequest) GetNewWrappedVaultKey() []byte {
 	if x != nil {
 		return x.NewWrappedVaultKey
+	}
+	return nil
+}
+
+func (x *ChangeMasterPasswordRequest) GetNewLoginTotpEncryptedSecret() []byte {
+	if x != nil {
+		return x.NewLoginTotpEncryptedSecret
+	}
+	return nil
+}
+
+func (x *ChangeMasterPasswordRequest) GetNewLoginTotpNonce() []byte {
+	if x != nil {
+		return x.NewLoginTotpNonce
 	}
 	return nil
 }
@@ -1558,11 +1623,13 @@ const file_oblivio_v1_auth_proto_rawDesc = "" +
 	"\fauth_payload\x18\x01 \x01(\v2\x17.oblivio.v1.AuthPayloadR\vauthPayload\"\x0f\n" +
 	"\rLogoutRequest\"\x10\n" +
 	"\x0eLogoutResponse\"\x12\n" +
-	"\x10GetMyKeysRequest\"\x87\x01\n" +
+	"\x10GetMyKeysRequest\"\xf0\x01\n" +
 	"\x11GetMyKeysResponse\x12\x1a\n" +
 	"\bverifier\x18\x01 \x01(\fR\bverifier\x12*\n" +
 	"\x11wrapped_vault_key\x18\x02 \x01(\fR\x0fwrappedVaultKey\x12*\n" +
-	"\x11vault_key_version\x18\x03 \x01(\rR\x0fvaultKeyVersion\"0\n" +
+	"\x11vault_key_version\x18\x03 \x01(\rR\x0fvaultKeyVersion\x12=\n" +
+	"\x1blogin_totp_encrypted_secret\x18\x04 \x01(\fR\x18loginTotpEncryptedSecret\x12(\n" +
+	"\x10login_totp_nonce\x18\x05 \x01(\fR\x0eloginTotpNonce\"0\n" +
 	"\x18GetRecoveryParamsRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\"y\n" +
 	"\x19GetRecoveryParamsResponse\x12#\n" +
@@ -1574,7 +1641,7 @@ const file_oblivio_v1_auth_proto_rawDesc = "" +
 	"\x0erecovery_proof\x18\x02 \x01(\fR\rrecoveryProof\"\x84\x01\n" +
 	"\x15RecoveryStartResponse\x12.\n" +
 	"\x13recovery_session_id\x18\x01 \x01(\tR\x11recoverySessionId\x12;\n" +
-	"\x1arecovery_wrapped_vault_key\x18\x02 \x01(\fR\x17recoveryWrappedVaultKey\"\x82\x02\n" +
+	"\x1arecovery_wrapped_vault_key\x18\x02 \x01(\fR\x17recoveryWrappedVaultKey\"\xeb\x02\n" +
 	"\x17RecoveryCompleteRequest\x12.\n" +
 	"\x13recovery_session_id\x18\x01 \x01(\tR\x11recoverySessionId\x12\x1b\n" +
 	"\tsalt_user\x18\x02 \x01(\fR\bsaltUser\x127\n" +
@@ -1582,14 +1649,16 @@ const file_oblivio_v1_auth_proto_rawDesc = "" +
 	"kdf_params\x18\x03 \x01(\v2\x18.oblivio.v1.Argon2ParamsR\tkdfParams\x12\x19\n" +
 	"\bauth_key\x18\x04 \x01(\fR\aauthKey\x12\x1a\n" +
 	"\bverifier\x18\x05 \x01(\fR\bverifier\x12*\n" +
-	"\x11wrapped_vault_key\x18\x06 \x01(\fR\x0fwrappedVaultKey\"\x1a\n" +
+	"\x11wrapped_vault_key\x18\x06 \x01(\fR\x0fwrappedVaultKey\x12=\n" +
+	"\x1blogin_totp_encrypted_secret\x18\a \x01(\fR\x18loginTotpEncryptedSecret\x12(\n" +
+	"\x10login_totp_nonce\x18\b \x01(\fR\x0eloginTotpNonce\"\x1a\n" +
 	"\x18RecoveryCompleteResponse\"*\n" +
 	"\x12VerifyEmailRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\"\x15\n" +
 	"\x13VerifyEmailResponse\"1\n" +
 	"\x19ResendVerificationRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\"\x1c\n" +
-	"\x1aResendVerificationResponse\"\x9b\x02\n" +
+	"\x1aResendVerificationResponse\"\x92\x03\n" +
 	"\x1bChangeMasterPasswordRequest\x12 \n" +
 	"\fold_auth_key\x18\x01 \x01(\fR\n" +
 	"oldAuthKey\x12 \n" +
@@ -1598,7 +1667,9 @@ const file_oblivio_v1_auth_proto_rawDesc = "" +
 	"\rnew_salt_user\x18\x03 \x01(\fR\vnewSaltUser\x12>\n" +
 	"\x0enew_kdf_params\x18\x04 \x01(\v2\x18.oblivio.v1.Argon2ParamsR\fnewKdfParams\x12!\n" +
 	"\fnew_verifier\x18\x05 \x01(\fR\vnewVerifier\x121\n" +
-	"\x15new_wrapped_vault_key\x18\x06 \x01(\fR\x12newWrappedVaultKey\"\x1e\n" +
+	"\x15new_wrapped_vault_key\x18\x06 \x01(\fR\x12newWrappedVaultKey\x12D\n" +
+	"\x1fnew_login_totp_encrypted_secret\x18\a \x01(\fR\x1bnewLoginTotpEncryptedSecret\x12/\n" +
+	"\x14new_login_totp_nonce\x18\b \x01(\fR\x11newLoginTotpNonce\"\x1e\n" +
 	"\x1cChangeMasterPasswordResponse2\xd6\b\n" +
 	"\vAuthService\x12E\n" +
 	"\bRegister\x12\x1b.oblivio.v1.RegisterRequest\x1a\x1c.oblivio.v1.RegisterResponse\x12Q\n" +

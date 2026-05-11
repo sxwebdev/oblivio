@@ -75,3 +75,5 @@ schemas:
         primary_column: id
       recovery_sessions:
         primary_column: id
+      audit_chain_anchors:
+        primary_column: id

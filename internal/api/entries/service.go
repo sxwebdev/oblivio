@@ -19,6 +19,7 @@ import (
 	pb "github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1"
 	"github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1/obliviov1connect"
 	"github.com/sxwebdev/oblivio/internal/api/middleware"
+	apisubs "github.com/sxwebdev/oblivio/internal/api/subscriptions"
 	"github.com/sxwebdev/oblivio/internal/metrics"
 	"github.com/sxwebdev/oblivio/internal/models"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_entries"
@@ -155,6 +156,9 @@ func (s *Service) CreateEntry(ctx context.Context, req *connect.Request[pb.Creat
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	middleware.SetAuditTarget(ctx, row.ID)
+	if err := apisubs.PublishEntriesChanged(ctx, tx, uc.UserID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	return connect.NewResponse(&pb.CreateEntryResponse{Entry: toEntry(row)}), nil
 }
 
@@ -197,6 +201,9 @@ func (s *Service) UpdateEntry(ctx context.Context, req *connect.Request[pb.Updat
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	middleware.SetAuditTarget(ctx, row.ID)
+	if err := apisubs.PublishEntriesChanged(ctx, tx, uc.UserID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	return connect.NewResponse(&pb.UpdateEntryResponse{Entry: toEntry(row)}), nil
 }
 
@@ -217,6 +224,9 @@ func (s *Service) DeleteEntry(ctx context.Context, req *connect.Request[pb.Delet
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("entry not found"))
 	}
 	middleware.SetAuditTarget(ctx, id)
+	if err := apisubs.PublishEntriesChanged(ctx, tx, uc.UserID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	return connect.NewResponse(&pb.DeleteEntryResponse{}), nil
 }
 
@@ -237,6 +247,9 @@ func (s *Service) ToggleFavorite(ctx context.Context, req *connect.Request[pb.To
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("entry not found"))
 		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if err := apisubs.PublishEntriesChanged(ctx, tx, uc.UserID); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&pb.ToggleFavoriteResponse{Entry: toEntry(row)}), nil

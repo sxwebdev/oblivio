@@ -79,10 +79,15 @@ type AuthConfig struct {
 
 // Argon2Params parameterises server-side Argon2id over auth_key.
 // Per plan §4.2: t=3, m=64 MiB, p=1.
+// MaxConcurrent caps the number of concurrent Argon2id evaluations to
+// protect the server from a DoS spike (each hash pins ~m_kib of RAM —
+// at 64 MiB × an unbounded queue, an attacker can OOM the process before
+// the rate limiter throttles). Default 0 means runtime.NumCPU().
 type Argon2Params struct {
-	T    uint32 `yaml:"t" default:"3"`
-	MKiB uint32 `yaml:"m_kib" default:"65536"`
-	P    uint8  `yaml:"p" default:"1"`
+	T             uint32 `yaml:"t" default:"3"`
+	MKiB          uint32 `yaml:"m_kib" default:"65536"`
+	P             uint8  `yaml:"p" default:"1"`
+	MaxConcurrent int    `yaml:"max_concurrent" default:"0"`
 }
 
 // RateLimits bounds anonymous and per-user request rates on sensitive endpoints.
@@ -105,6 +110,7 @@ type WebAuthnConfig struct {
 // to the documented default (typically 1h).
 type JobsConfig struct {
 	AuditChainVerifyInterval time.Duration `yaml:"audit_chain_verify_interval" default:"24h"`
+	AuditChainAnchorInterval time.Duration `yaml:"audit_chain_anchor_interval" default:"1h"`
 	SessionsGCInterval       time.Duration `yaml:"sessions_gc_interval" default:"1h"`
 	AuthTokensGCInterval     time.Duration `yaml:"auth_tokens_gc_interval" default:"1h"`
 	IdempotencyGCInterval    time.Duration `yaml:"idempotency_gc_interval" default:"1h"`

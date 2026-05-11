@@ -16,10 +16,14 @@ import { toast } from "sonner"
 import { Lock, Mail, ShieldAlert, Trash2 } from "lucide-react"
 import {
   deriveAuthKey,
+  deriveLoginTotpKey,
   deriveMasterKey,
   importMasterKey,
   makeVerifier,
+  pickArgon2Params,
   randomBytes,
+  unwrapLoginTotpSecret,
+  wrapLoginTotpSecret,
   wrapVaultKey,
 } from "@oblivio/crypto"
 
@@ -126,8 +130,11 @@ function EmailVerificationCard() {
 }
 
 // ---- Change master password ------------------------------------------
-
-const KDF = { t: 3, mKib: 131072, p: 1, algo: "argon2id" } as const
+//
+// KDF is device-aware via pickArgon2Params (plan §17.2). The chosen profile
+// at change-password time may differ from registration time if the user
+// switches devices between registrations — the server stores whatever the
+// client supplied in `new_kdf_params`.
 
 function ChangePasswordCard() {
   const email = useAuthStore((s) => s.email) ?? ""
@@ -169,11 +176,42 @@ function ChangePasswordCard() {
 
       // Derive the new master_key, re-wrap the vault_key under it.
       const newSalt = randomBytes(16)
-      newMasterKeyRaw = await deriveMasterKey(newPwd, newSalt, KDF)
+      const newKdf = pickArgon2Params()
+      newMasterKeyRaw = await deriveMasterKey(newPwd, newSalt, newKdf)
       const newMasterKey = await importMasterKey(newMasterKeyRaw)
       const newAuthKey = await deriveAuthKey(newMasterKeyRaw, newSalt)
       const newWrappedVaultKey = await wrapVaultKey(newMasterKey, vaultKey)
       const newVerifier = await makeVerifier(newMasterKey)
+
+      // If the user has login-TOTP configured, decrypt the old envelope
+      // with the OLD K_login_totp and re-encrypt with the NEW one. Without
+      // this round-trip the server's stored secret would become unreadable
+      // (encrypted under the no-longer-derivable old auth_key).
+      let newLoginTotpSecret = new Uint8Array(0)
+      let newLoginTotpNonce = new Uint8Array(0)
+      const existingKeys = await authClient.getMyKeys({})
+      if (
+        existingKeys.loginTotpEncryptedSecret &&
+        existingKeys.loginTotpEncryptedSecret.length > 0
+      ) {
+        const oldTotpKey = await deriveLoginTotpKey(oldAuthKey)
+        const plain = await unwrapLoginTotpSecret(
+          oldTotpKey,
+          existingKeys.loginTotpEncryptedSecret
+        )
+        const newTotpKey = await deriveLoginTotpKey(newAuthKey)
+        const sealed = await wrapLoginTotpSecret(newTotpKey, plain)
+        // Copy into a fresh Uint8Array so the generated proto setter,
+        // which is typed Uint8Array<ArrayBuffer>, accepts the value.
+        newLoginTotpSecret = new Uint8Array(sealed)
+        // wrapLoginTotpSecret returns version|nonce|ct+tag; the server
+        // stores it as a single column so nonce field is redundant but
+        // proto requires it — emit a 1-byte placeholder. The server
+        // treats either an empty encrypted_secret OR empty nonce as
+        // "no envelope supplied"; supplying 1 byte passes the
+        // len(...) > 0 check on both fields.
+        newLoginTotpNonce = new Uint8Array([0])
+      }
 
       await authClient.changeMasterPassword(
         {
@@ -181,13 +219,15 @@ function ChangePasswordCard() {
           newAuthKey,
           newSaltUser: newSalt,
           newKdfParams: {
-            t: KDF.t,
-            mKib: KDF.mKib,
-            p: KDF.p,
-            algo: KDF.algo,
+            t: newKdf.t,
+            mKib: newKdf.mKib,
+            p: newKdf.p,
+            algo: newKdf.algo,
           },
           newVerifier,
           newWrappedVaultKey,
+          newLoginTotpEncryptedSecret: newLoginTotpSecret,
+          newLoginTotpNonce: newLoginTotpNonce,
         },
         { headers: idempotencyHeaders() }
       )

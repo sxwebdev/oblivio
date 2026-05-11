@@ -25,6 +25,7 @@ import { AuditService } from "./gen/oblivio/v1/audit_pb"
 import { LoginTOTPService } from "./gen/oblivio/v1/login_totp_pb"
 import { WebAuthnService } from "./gen/oblivio/v1/webauthn_pb"
 import { SessionsService } from "./gen/oblivio/v1/sessions_pb"
+import { SubscriptionsService } from "./gen/oblivio/v1/subscriptions_pb"
 
 import { useAuthStore } from "@/stores/auth"
 import { useVaultStore } from "@/stores/vault"
@@ -124,6 +125,7 @@ export const auditClient = createClient(AuditService, transport)
 export const loginTotpClient = createClient(LoginTOTPService, transport)
 export const webauthnClient = createClient(WebAuthnService, transport)
 export const sessionsClient = createClient(SessionsService, transport)
+export const subscriptionsClient = createClient(SubscriptionsService, transport)
 
 // idempotencyHeaders returns a one-shot Idempotency-Key header dictionary.
 // Pass it through to a mutating RPC via { headers: idempotencyHeaders() }.

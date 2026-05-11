@@ -24,6 +24,7 @@ import (
 	"github.com/sxwebdev/oblivio/internal/api/middleware"
 	apiprojects "github.com/sxwebdev/oblivio/internal/api/projects"
 	apisessions "github.com/sxwebdev/oblivio/internal/api/sessions"
+	apisubs "github.com/sxwebdev/oblivio/internal/api/subscriptions"
 	apivault "github.com/sxwebdev/oblivio/internal/api/vault"
 	apiwebauthn "github.com/sxwebdev/oblivio/internal/api/webauthn"
 	"github.com/sxwebdev/oblivio/internal/audit"
@@ -156,6 +157,12 @@ func (s *Server) Start(ctx context.Context) error {
 	sessionsSvc := apisessions.NewService(auditWriter, s.am)
 	rpcMux.Handle(obliviov1connect.NewSessionsServiceHandler(sessionsSvc, interceptors))
 
+	// Subscriptions: server-streaming push of "your entries/projects changed"
+	// hints via Postgres LISTEN/NOTIFY. Skips the RLS interceptor — the
+	// handler scopes by uc.UserID and the payload carries no row data.
+	subsSvc := apisubs.NewService(s.store.Pool())
+	rpcMux.Handle(obliviov1connect.NewSubscriptionsServiceHandler(subsSvc))
+
 	loginTOTPSvc := apilogintotp.NewService(s.wa, s.mfaStore)
 	rpcMux.Handle(obliviov1connect.NewLoginTOTPServiceHandler(loginTOTPSvc, interceptors))
 
@@ -188,6 +195,7 @@ func (s *Server) Start(ctx context.Context) error {
 	root.Handle("/api/oblivio.v1.SessionsService/", apiHandler)
 	root.Handle("/api/oblivio.v1.LoginTOTPService/", apiHandler)
 	root.Handle("/api/oblivio.v1.WebAuthnService/", apiHandler)
+	root.Handle("/api/oblivio.v1.SubscriptionsService/", apiHandler)
 	root.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)

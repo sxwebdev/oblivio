@@ -11,11 +11,12 @@
 //   • Password gen: length and alphabet honoured; uniform distribution
 //     (chi-squared sanity, conservative threshold).
 
-import { describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import {
   deriveMasterKey,
   importMasterKey,
   deriveBlindIndexKey,
+  pickArgon2Params,
 } from "../src/kdf"
 import { encryptBlob, decryptBlob } from "../src/aead"
 import {
@@ -271,4 +272,58 @@ describe("password gen", () => {
     // magnitude higher.
     expect(chi).toBeLessThan(150)
   })
+})
+
+describe("pickArgon2Params", () => {
+  const origUA = navigator.userAgent
+  const origMem = (navigator as { deviceMemory?: number }).deviceMemory
+
+  function setUA(value: string) {
+    Object.defineProperty(navigator, "userAgent", {
+      value,
+      configurable: true,
+    })
+  }
+  function setDeviceMemory(value: number | undefined) {
+    Object.defineProperty(navigator, "deviceMemory", {
+      value,
+      configurable: true,
+    })
+  }
+
+  afterEach(() => {
+    setUA(origUA)
+    setDeviceMemory(origMem)
+  })
+
+  it("returns the desktop profile by default", () => {
+    setUA("Mozilla/5.0 (X11; Linux x86_64) Gecko/20100101 Firefox/130.0")
+    setDeviceMemory(8)
+    const p = pickArgon2Params()
+    expect(p.mKib).toBe(131072)
+    expect(p.t).toBe(3)
+  })
+
+  it("returns the low-memory profile on iOS Safari", () => {
+    setUA(
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+    )
+    setDeviceMemory(undefined)
+    const p = pickArgon2Params()
+    expect(p.mKib).toBe(32768)
+    expect(p.t).toBe(8)
+  })
+
+  it("returns the low-memory profile on devices with <=2 GB RAM", () => {
+    setUA("Mozilla/5.0 (Linux; Android 11; Pixel 4a)")
+    setDeviceMemory(2)
+    const p = pickArgon2Params()
+    expect(p.mKib).toBe(32768)
+  })
+})
+
+beforeEach(() => {
+  // Marker so the import isn't reported unused when individual cases above
+  // forget to register their own hook. Each pickArgon2Params test installs
+  // its own afterEach cleanup.
 })

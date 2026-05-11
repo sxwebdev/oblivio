@@ -2,13 +2,17 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/awnumar/memguard"
+	"golang.org/x/crypto/hkdf"
 )
 
 // Secrets owns the signing keys for access and refresh tokens. Both keys are
@@ -52,20 +56,56 @@ func (s *Secrets) Close() {
 }
 
 // LoadSecrets resolves access/refresh signing keys in this order:
-//  1. If `access` and `refresh` are non-empty (e.g. supplied by Vault), use them.
-//  2. Otherwise read/write a JSON file under `dir/secrets.json` with mode 0600.
+//  1. Explicit `access` and `refresh` from config (typically Vault).
+//  2. `OBLIVIO_MASTER_SEED` env var: a 32+ byte seed (hex or base64) that
+//     gets fed through HKDF-SHA256 with two distinct info labels to derive
+//     stable access/refresh keys. Same seed → same keys across restarts
+//     and across multi-instance deploys, no on-disk state needed.
+//  3. On-disk `dir/secrets.json` with mode 0o600 (self-hosted dev fallback).
 //
-// The on-disk fallback is for self-hosted dev/single-node deployments where
-// Vault is not configured. Keys are 32 random bytes, base64-encoded.
+// The HKDF path is the recommended production setup when Vault is not
+// available: keep the seed in your secret manager (1Password, sealed env,
+// etc.) and the binary never touches the disk for signing material.
 func LoadSecrets(dir, access, refresh string) (*Secrets, error) {
 	if access != "" && refresh != "" {
 		return wrapSecrets([]byte(access), []byte(refresh))
+	}
+	if seed := os.Getenv("OBLIVIO_MASTER_SEED"); seed != "" {
+		raw, err := decodeMasterSeed(seed)
+		if err != nil {
+			return nil, fmt.Errorf("OBLIVIO_MASTER_SEED: %w", err)
+		}
+		if len(raw) < 32 {
+			return nil, fmt.Errorf("OBLIVIO_MASTER_SEED: need ≥32 bytes, got %d", len(raw))
+		}
+		accessKey, err := deriveSeedKey(raw, "oblivio/jwt-access/v1")
+		if err != nil {
+			return nil, err
+		}
+		refreshKey, err := deriveSeedKey(raw, "oblivio/jwt-refresh/v1")
+		if err != nil {
+			return nil, err
+		}
+		// Encode as base64 so the downstream consumers (which treat the
+		// signing secret as an opaque string) see the same shape they
+		// get from the Vault/on-disk paths.
+		return wrapSecrets(
+			[]byte(base64.RawStdEncoding.EncodeToString(accessKey)),
+			[]byte(base64.RawStdEncoding.EncodeToString(refreshKey)),
+		)
 	}
 
 	if dir == "" {
 		dir = "data/secrets"
 	}
 	path := filepath.Join(dir, "secrets.json")
+	// Loud warning so operators notice the weakest configuration mode in
+	// startup logs. The on-disk file holds the JWT signing material in
+	// plaintext base64; protect the disk accordingly or move to Vault /
+	// OBLIVIO_MASTER_SEED.
+	fmt.Fprintln(os.Stderr,
+		"WARN auth.LoadSecrets: falling back to on-disk secrets.json — "+
+			"prefer Vault or OBLIVIO_MASTER_SEED in production")
 
 	type onDisk struct {
 		Access  string `json:"access_token_secret"`
@@ -122,4 +162,33 @@ func randomKey() (string, error) {
 		return "", fmt.Errorf("random key: %w", err)
 	}
 	return base64.RawStdEncoding.EncodeToString(b), nil
+}
+
+// decodeMasterSeed accepts a hex, std-base64, or raw-base64 encoded seed
+// and returns the decoded bytes. Returns an error only when none of the
+// codecs accept the input — common typos like trailing whitespace are
+// normalised away.
+func decodeMasterSeed(s string) ([]byte, error) {
+	if b, err := hex.DecodeString(s); err == nil {
+		return b, nil
+	}
+	if b, err := base64.StdEncoding.DecodeString(s); err == nil {
+		return b, nil
+	}
+	if b, err := base64.RawStdEncoding.DecodeString(s); err == nil {
+		return b, nil
+	}
+	return nil, fmt.Errorf("not valid hex or base64")
+}
+
+// deriveSeedKey runs HKDF-SHA256 over the master seed with the given info
+// label and returns a 32-byte key. The info label is the domain
+// separation — same seed + different label → independent keys.
+func deriveSeedKey(seed []byte, info string) ([]byte, error) {
+	r := hkdf.New(sha256.New, seed, nil, []byte(info))
+	out := make([]byte, 32)
+	if _, err := io.ReadFull(r, out); err != nil {
+		return nil, fmt.Errorf("derive %s: %w", info, err)
+	}
+	return out, nil
 }

@@ -2,6 +2,7 @@ import { Outlet, createFileRoute, redirect } from "@tanstack/react-router"
 
 import { AppShell } from "@/components/layout/AppShell"
 import { AutoLock } from "@/components/auth/AutoLock"
+import { useChangeSubscription } from "@/api/subscriptions"
 import { useAuthStore } from "@/stores/auth"
 import { useVaultStore } from "@/stores/vault"
 
@@ -24,6 +25,10 @@ export const Route = createFileRoute("/_auth")({
 })
 
 function AuthLayout() {
+  // Open the server-streaming notification channel for the duration of
+  // the authenticated session. Backgrounds itself; clean-up runs when
+  // the layout unmounts (logout, lock, navigation to /_public).
+  useChangeSubscription()
   return (
     <AppShell>
       <AutoLock />

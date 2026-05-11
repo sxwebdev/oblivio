@@ -1,9 +1,10 @@
 package auth
 
 import (
+	"github.com/awnumar/memguard"
+
 	"github.com/sxwebdev/oblivio/internal/auth"
 	"github.com/sxwebdev/oblivio/internal/auth/wauser"
-	srvcrypto "github.com/sxwebdev/oblivio/internal/crypto"
 	"github.com/sxwebdev/oblivio/internal/models"
 )
 
@@ -13,18 +14,10 @@ func buildWebAuthnUser(u *models.User, creds []*models.UserWebauthnCredential) *
 	return wauser.New(u, creds)
 }
 
-// openLoginTOTP decrypts a login-TOTP envelope using K_login_totp derived
-// from the supplied auth_key. The intermediate key buffer is destroyed
-// before the function returns.
-func openLoginTOTP(authKey, blob []byte) (string, error) {
-	keyBuf, err := auth.DeriveLoginTOTPKey(authKey)
-	if err != nil {
-		return "", err
-	}
-	defer keyBuf.Destroy()
-	pt, err := srvcrypto.AESGCMOpen(keyBuf.Bytes(), blob, []byte(auth.LoginTOTPAAD))
-	if err != nil {
-		return "", err
-	}
-	return string(pt), nil
+// openLoginTOTP decrypts a login-TOTP envelope and returns the plaintext
+// inside a memguard.LockedBuffer. The caller MUST `Destroy()` the buffer
+// (typically via defer) immediately after validating the code. The K_login_totp
+// material is wiped by OpenLoginTOTPSecret before this function returns.
+func openLoginTOTP(authKey, blob []byte) (*memguard.LockedBuffer, error) {
+	return auth.OpenLoginTOTPSecret(authKey, blob)
 }

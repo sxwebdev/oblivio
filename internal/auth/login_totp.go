@@ -25,6 +25,8 @@ import (
 
 	"github.com/awnumar/memguard"
 	"golang.org/x/crypto/hkdf"
+
+	srvcrypto "github.com/sxwebdev/oblivio/internal/crypto"
 )
 
 // LoginTOTPInfo is the HKDF info string that derives the client/server
@@ -51,6 +53,60 @@ func DeriveLoginTOTPKey(authKey []byte) (*memguard.LockedBuffer, error) {
 	// NewBufferFromBytes wipes the source slice after copying so we don't
 	// leave a plaintext duplicate on the heap.
 	return memguard.NewBufferFromBytes(out), nil
+}
+
+// OpenLoginTOTPSecret decrypts a stored login-TOTP envelope and returns the
+// plaintext secret wrapped in a memguard.LockedBuffer. The caller MUST
+// `Destroy()` the buffer (typically via defer) as soon as the secret has
+// been validated; the plaintext lives in locked memory until then so it
+// is excluded from coredumps and swap.
+//
+// Compared to the older string-returning helper this version eliminates the
+// `string(plaintext)` conversion that left an immutable, unwipeable copy of
+// the secret on the heap (see plan §17.5 — memguard coverage).
+func OpenLoginTOTPSecret(authKey, blob []byte) (*memguard.LockedBuffer, error) {
+	keyBuf, err := DeriveLoginTOTPKey(authKey)
+	if err != nil {
+		return nil, err
+	}
+	defer keyBuf.Destroy()
+	pt, err := srvcrypto.AESGCMOpen(keyBuf.Bytes(), blob, []byte(LoginTOTPAAD))
+	if err != nil {
+		return nil, err
+	}
+	// NewBufferFromBytes copies the source and zeroes the original — the
+	// returned buffer is the only live copy of the plaintext.
+	return memguard.NewBufferFromBytes(pt), nil
+}
+
+// ValidateTOTPCodeBytes is the byte-slice variant of ValidateTOTPCode. It
+// avoids the `string(secret)` round-trip so callers operating on a memguard
+// buffer don't leak an immutable plaintext copy onto the heap. The slice is
+// expected to be a base32-encoded TOTP secret as produced by authenticator
+// apps and matches the wire format the client uploaded at Setup.
+func ValidateTOTPCodeBytes(secretBase32, code []byte) error {
+	if len(code) == 0 {
+		return errors.New("login_totp: empty code")
+	}
+	now := time.Now().UTC().Unix()
+	step := int64(30)
+	cur := now / step
+	secret, err := decodeBase32SecretBytes(secretBase32)
+	if err != nil {
+		return fmt.Errorf("login_totp: decode secret: %w", err)
+	}
+	defer func() {
+		for i := range secret {
+			secret[i] = 0
+		}
+	}()
+	for delta := int64(-1); delta <= 1; delta++ {
+		want := generateHOTP(secret, uint64(cur+delta), 6)
+		if subtle.ConstantTimeCompare([]byte(want), code) == 1 {
+			return nil
+		}
+	}
+	return errors.New("login_totp: invalid code")
 }
 
 // ValidateTOTPCode checks `code` against `secretBase32` using RFC 6238 with
@@ -94,6 +150,29 @@ func decodeBase32Secret(s string) ([]byte, error) {
 	}, s)
 	cleaned = strings.ToUpper(cleaned)
 	return base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(cleaned)
+}
+
+// decodeBase32SecretBytes mirrors decodeBase32Secret but takes a byte slice
+// so callers operating on memguard-wrapped plaintext don't need a
+// `string(...)` conversion that lands an immutable copy on the heap.
+func decodeBase32SecretBytes(b []byte) ([]byte, error) {
+	cleaned := make([]byte, 0, len(b))
+	for _, c := range b {
+		switch c {
+		case ' ', '-', '=':
+			continue
+		}
+		if c >= 'a' && c <= 'z' {
+			c -= 32
+		}
+		cleaned = append(cleaned, c)
+	}
+	out := make([]byte, base32.StdEncoding.WithPadding(base32.NoPadding).DecodedLen(len(cleaned)))
+	n, err := base32.StdEncoding.WithPadding(base32.NoPadding).Decode(out, cleaned)
+	if err != nil {
+		return nil, err
+	}
+	return out[:n], nil
 }
 
 // generateHOTP implements RFC 4226 §5.3 (HMAC-SHA1 + dynamic truncation).

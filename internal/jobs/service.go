@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/sxwebdev/oblivio/internal/audit"
 	"github.com/sxwebdev/oblivio/internal/auth"
 	"github.com/sxwebdev/oblivio/internal/config"
 	"github.com/sxwebdev/oblivio/internal/store"
@@ -29,23 +30,26 @@ type Service struct {
 
 // NewService creates a new River job service and initialises the River client.
 // pool must be non-nil (postgres must be started before calling this).
+// anchorSigner may be nil; the audit-anchor worker then turns into a no-op.
 func NewService(
 	log logger.ExtendedLogger,
 	cfg config.JobsConfig,
 	pool *pgxpool.Pool,
 	st *store.Store,
 	tokenStore *auth.PGTokenStore,
+	anchorSigner audit.Signer,
 ) (*Service, error) {
 	driver := riverpgxv5.New(pool)
 
 	workers := river.NewWorkers()
-	river.AddWorker(workers, NewAuditChainVerifyWorker(pool, log))
+	river.AddWorker(workers, NewAuditChainVerifyWorker(pool, st, anchorSigner, log))
 	river.AddWorker(workers, NewSessionsGCWorker(st, log))
 	river.AddWorker(workers, NewAuthTokensGCWorker(tokenStore, log))
 	river.AddWorker(workers, NewIdempotencyGCWorker(st, log))
 	river.AddWorker(workers, NewMFAGCWorker(st, log))
 	river.AddWorker(workers, NewRecoveryGCWorker(st, log))
 	river.AddWorker(workers, NewRateLimitGCWorker(st, log))
+	river.AddWorker(workers, NewAuditChainAnchorWorker(st, pool, anchorSigner, log))
 
 	periodicJobs := []*river.PeriodicJob{
 		river.NewPeriodicJob(
@@ -94,6 +98,13 @@ func NewService(
 			river.PeriodicInterval(rateLimitGCInterval(cfg.RateLimitGCInterval)),
 			func() (river.JobArgs, *river.InsertOpts) {
 				return RateLimitGCArgs{}, nil
+			},
+			&river.PeriodicJobOpts{RunOnStart: true},
+		),
+		river.NewPeriodicJob(
+			river.PeriodicInterval(auditChainAnchorInterval(cfg.AuditChainAnchorInterval)),
+			func() (river.JobArgs, *river.InsertOpts) {
+				return AuditChainAnchorArgs{}, nil
 			},
 			&river.PeriodicJobOpts{RunOnStart: true},
 		),

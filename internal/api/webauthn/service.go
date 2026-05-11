@@ -64,7 +64,16 @@ func (s *Service) RegisterBegin(ctx context.Context, req *connect.Request[pb.Reg
 	}
 	user := newUser(u, creds)
 
-	options, session, err := s.wa.BeginRegistration(user)
+	// Force user-verification at registration. Without UV=required the
+	// library default is "preferred", which would accept a passkey backed
+	// only by proof-of-possession (no PIN / no biometric) — too weak for a
+	// secret-manager second factor (see plan §5.4).
+	options, session, err := s.wa.BeginRegistration(
+		user,
+		wa.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
+			UserVerification: protocol.VerificationRequired,
+		}),
+	)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("begin registration: %w", err))
 	}
@@ -206,7 +215,11 @@ func (s *Service) BeginAssertion(ctx context.Context, _ *connect.Request[pb.Begi
 	}
 	wuser := newUser(u, creds)
 
-	options, session, err := s.wa.BeginLogin(wuser)
+	// UV=required (see RegisterBegin for rationale).
+	options, session, err := s.wa.BeginLogin(
+		wuser,
+		wa.WithUserVerification(protocol.VerificationRequired),
+	)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("begin assertion: %w", err))
 	}

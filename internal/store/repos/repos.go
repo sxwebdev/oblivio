@@ -3,6 +3,7 @@ package repos
 import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/sxwebdev/oblivio/internal/store/repos/repo_audit_chain_anchors"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_audit_log"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_auth_sessions"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_auth_tokens"
@@ -41,6 +42,7 @@ type Repos struct {
 	rateLimitRepo       *repo_rate_limit_buckets.Queries
 	mfaChallengesRepo   *repo_mfa_challenges.Queries
 	recoverySessionsRepo *repo_recovery_sessions.Queries
+	auditChainAnchorsRepo *repo_audit_chain_anchors.Queries
 }
 
 // New creates a new Repos instance.
@@ -60,9 +62,10 @@ func New(pool *pgxpool.Pool) *Repos {
 		auditLogRepo:         repo_audit_log.New(pool),
 		systemStateRepo:      repo_system_state.New(pool),
 		idempotencyKeysRepo:  repo_idempotency_keys.New(pool),
-		rateLimitRepo:        repo_rate_limit_buckets.New(pool),
-		mfaChallengesRepo:    repo_mfa_challenges.New(pool),
-		recoverySessionsRepo: repo_recovery_sessions.New(pool),
+		rateLimitRepo:         repo_rate_limit_buckets.New(pool),
+		mfaChallengesRepo:     repo_mfa_challenges.New(pool),
+		recoverySessionsRepo:  repo_recovery_sessions.New(pool),
+		auditChainAnchorsRepo: repo_audit_chain_anchors.New(pool),
 	}
 }
 
@@ -217,5 +220,14 @@ func (r *Repos) RecoverySessions(opts ...Option) *repo_recovery_sessions.Queries
 		return r.recoverySessionsRepo.WithTx(options.Tx)
 	}
 	return r.recoverySessionsRepo
+}
+
+// AuditChainAnchors returns the audit_chain_anchors repository.
+func (r *Repos) AuditChainAnchors(opts ...Option) *repo_audit_chain_anchors.Queries {
+	options := parseOptions(opts...)
+	if options.Tx != nil {
+		return r.auditChainAnchorsRepo.WithTx(options.Tx)
+	}
+	return r.auditChainAnchorsRepo
 }
 

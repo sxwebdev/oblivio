@@ -65,6 +65,43 @@ function pageSupportsMultiThread(): boolean {
   }
 }
 
+// pickArgon2Params chooses defensible Argon2id parameters for the current
+// device. Plan §17.2 — Argon2id at m=128 MiB OOMs on iOS Safari WASM, so we
+// halve the memory and double the time cost on detected low-memory devices.
+// The result is per-device at registration time and is then frozen into
+// `user_kdf_params`; the user keeps the same params on every subsequent
+// login until ChangeMasterPassword.
+//
+// Defaults (desktop):     t=3,  mKib=131072 (128 MiB), p=1
+// iOS Safari / low-mem:   t=8,  mKib=32768  (32 MiB),  p=1
+//
+// Detection is best-effort and conservative — when in doubt we use the
+// lighter profile rather than risk an unrecoverable OOM during registration.
+export function pickArgon2Params(): Argon2Params {
+  if (isLowMemoryEnv()) {
+    return { t: 8, mKib: 32768, p: 1, algo: "argon2id" }
+  }
+  return { t: 3, mKib: 131072, p: 1, algo: "argon2id" }
+}
+
+// isLowMemoryEnv returns true when the runtime almost certainly cannot
+// allocate a 128 MiB Argon2id WASM instance. Two signals:
+//   - iOS Safari (WebKit on iPhone/iPad/iPod): WASM heap capped well below
+//     what 128 MiB Argon2id wants. Heuristic: UA contains iP[hone|ad|od]
+//     AND does NOT contain CriOS/FxiOS/EdgiOS (Chrome/Firefox/Edge on iOS
+//     ship UA strings that include their own marker and still use WebKit
+//     under the hood — same lid, same problem).
+//   - navigator.deviceMemory ≤ 2 GB: a hint exposed by Chromium/Firefox
+//     mobile builds; absent on Safari (so iOS detection above still wins).
+function isLowMemoryEnv(): boolean {
+  if (typeof navigator === "undefined") return false
+  const ua = navigator.userAgent || ""
+  if (/iP(hone|ad|od)/.test(ua)) return true
+  const mem = (navigator as { deviceMemory?: number }).deviceMemory
+  if (typeof mem === "number" && mem <= 2) return true
+  return false
+}
+
 // Promote raw key material into a non-extractable CryptoKey suitable for
 // AES-GCM 256.
 export async function importMasterKey(raw: Uint8Array): Promise<CryptoKey> {

@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
+	"github.com/awnumar/memguard"
 	"github.com/go-webauthn/webauthn/protocol"
 	wa "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
@@ -26,7 +27,6 @@ import (
 	"github.com/sxwebdev/oblivio/internal/api/middleware"
 	"github.com/sxwebdev/oblivio/internal/auth"
 	"github.com/sxwebdev/oblivio/internal/auth/wauser"
-	srvcrypto "github.com/sxwebdev/oblivio/internal/crypto"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_login_totp"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_webauthn_credentials"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_users"
@@ -103,13 +103,13 @@ func (s *Service) Setup(ctx context.Context, req *connect.Request[pb.LoginTOTPSe
 		return nil, err
 	}
 
-	secret, err := decryptLoginTOTP(r.AuthKey, r.EncryptedSecret)
+	secretBuf, err := decryptLoginTOTP(r.AuthKey, r.EncryptedSecret)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	defer func() { wipeString(&secret) }()
+	defer secretBuf.Destroy()
 
-	if err := auth.ValidateTOTPCode(secret, r.TotpCode); err != nil {
+	if err := auth.ValidateTOTPCodeBytes(secretBuf.Bytes(), []byte(r.TotpCode)); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("totp code does not match the supplied secret"))
 	}
 
@@ -144,8 +144,8 @@ func (s *Service) Enable(ctx context.Context, req *connect.Request[pb.LoginTOTPS
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("totp secret corrupted"))
 	}
-	defer func() { wipeString(&secret) }()
-	if err := auth.ValidateTOTPCode(secret, req.Msg.TotpCode); err != nil {
+	defer secret.Destroy()
+	if err := auth.ValidateTOTPCodeBytes(secret.Bytes(), []byte(req.Msg.TotpCode)); err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid totp code"))
 	}
 	if err := repo_user_login_totp.New(tx).UpsertUserLoginTOTP(ctx, repo_user_login_totp.UpsertUserLoginTOTPParams{
@@ -191,8 +191,8 @@ func (s *Service) Disable(ctx context.Context, req *connect.Request[pb.LoginTOTP
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, errors.New("totp secret corrupted"))
 		}
-		defer func() { wipeString(&secret) }()
-		if err := auth.ValidateTOTPCode(secret, r.TotpCode); err != nil {
+		defer secret.Destroy()
+		if err := auth.ValidateTOTPCodeBytes(secret.Bytes(), []byte(r.TotpCode)); err != nil {
 			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid totp code"))
 		}
 	} else {
@@ -252,33 +252,11 @@ func (s *Service) verifyAuthKey(ctx context.Context, tx pgx.Tx, uc *middleware.U
 	return nil
 }
 
-// decryptLoginTOTP returns the plaintext base32 secret. The K_login_totp
-// buffer is wiped before the function returns.
-func decryptLoginTOTP(authKey []byte, blob []byte) (string, error) {
-	keyBuf, err := auth.DeriveLoginTOTPKey(authKey)
-	if err != nil {
-		return "", err
-	}
-	defer keyBuf.Destroy()
-	pt, err := srvcrypto.AESGCMOpen(keyBuf.Bytes(), blob, []byte(auth.LoginTOTPAAD))
-	if err != nil {
-		return "", err
-	}
-	return string(pt), nil
-}
-
-// wipeString sets the pointer to "" and zeroes a freshly-allocated copy of
-// the bytes. Strings in Go are immutable, so this is best-effort theatre —
-// the original string's backing bytes (if not already deallocated) survive
-// until GC. The reset of the pointer prevents accidental re-logging or
-// debugger inspection. For real wiping use memguard.
-func wipeString(s *string) {
-	if s == nil || *s == "" {
-		return
-	}
-	b := []byte(*s)
-	for i := range b {
-		b[i] = 0
-	}
-	*s = ""
+// decryptLoginTOTP returns the plaintext base32 secret inside a
+// memguard.LockedBuffer. The intermediate K_login_totp material is wiped
+// before this function returns; the returned buffer holds the only live
+// copy of the plaintext, so callers MUST `Destroy()` it as soon as
+// validation completes (typically via defer at the call site).
+func decryptLoginTOTP(authKey []byte, blob []byte) (*memguard.LockedBuffer, error) {
+	return auth.OpenLoginTOTPSecret(authKey, blob)
 }

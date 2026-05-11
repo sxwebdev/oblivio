@@ -15,6 +15,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/riverqueue/river/rivermigrate"
 	"github.com/sxwebdev/oblivio/internal/api"
+	"github.com/sxwebdev/oblivio/internal/audit"
 	"github.com/sxwebdev/oblivio/internal/auth"
 	"github.com/sxwebdev/oblivio/internal/config"
 	"github.com/sxwebdev/oblivio/internal/email"
@@ -85,6 +86,12 @@ func startCMD() *cli.Command {
 
 			st := store.New(pg)
 
+			// Cap concurrent Argon2id evaluations BEFORE the API starts so
+			// the first incoming Authorize already runs under the limit.
+			// Zero/negative config falls back to runtime.NumCPU() inside
+			// SetArgon2Concurrency.
+			auth.SetArgon2Concurrency(conf.Auth.Argon2Server.MaxConcurrent)
+
 			secrets, err := auth.LoadSecrets("data/secrets", conf.Auth.AccessTokenSecretKey, conf.Auth.RefreshTokenSecretKey)
 			if err != nil {
 				return fmt.Errorf("load auth secrets: %w", err)
@@ -129,7 +136,17 @@ func startCMD() *cli.Command {
 				l.Warnf("webauthn disabled: %v", err)
 			}
 
-			jobService, err := jobs.NewService(l, conf.Jobs, pg.Pool(), st, tokenStore)
+			// External anchor for the audit-chain head (plan §17.4). A nil
+			// signer disables the worker; for now we always create the
+			// local Ed25519 signer — it's free and provides defence
+			// against a DB-only attacker. Vault transit can be wired
+			// later via a different audit.Signer implementation.
+			anchorSigner, err := audit.NewLocalSigner("data/secrets")
+			if err != nil {
+				return fmt.Errorf("audit anchor signer: %w", err)
+			}
+
+			jobService, err := jobs.NewService(l, conf.Jobs, pg.Pool(), st, tokenStore, anchorSigner)
 			if err != nil {
 				return fmt.Errorf("failed to create job service: %w", err)
 			}

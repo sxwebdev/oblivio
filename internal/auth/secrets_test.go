@@ -95,6 +95,47 @@ func TestSecretsNil(t *testing.T) {
 	s.Close() // must not panic
 }
 
+func TestLoadSecrets_MasterSeedDeterministic(t *testing.T) {
+	// Same seed must derive identical access/refresh keys on every load —
+	// otherwise a multi-instance deploy would reject each other's tokens.
+	seed := base64.RawStdEncoding.EncodeToString(randBytes(48))
+	t.Setenv("OBLIVIO_MASTER_SEED", seed)
+
+	s1, err := LoadSecrets(t.TempDir(), "", "")
+	if err != nil {
+		t.Fatalf("first load: %v", err)
+	}
+	defer s1.Close()
+	s2, err := LoadSecrets(t.TempDir(), "", "")
+	if err != nil {
+		t.Fatalf("second load: %v", err)
+	}
+	defer s2.Close()
+	if s1.AccessSecret() != s2.AccessSecret() {
+		t.Error("access secrets diverged for same seed")
+	}
+	if s1.RefreshSecret() != s2.RefreshSecret() {
+		t.Error("refresh secrets diverged for same seed")
+	}
+	if s1.AccessSecret() == s1.RefreshSecret() {
+		t.Error("access and refresh must be domain-separated")
+	}
+}
+
+func TestLoadSecrets_MasterSeedShortFails(t *testing.T) {
+	t.Setenv("OBLIVIO_MASTER_SEED", base64.RawStdEncoding.EncodeToString(randBytes(16)))
+	if _, err := LoadSecrets(t.TempDir(), "", ""); err == nil {
+		t.Fatal("expected rejection of <32-byte seed")
+	}
+}
+
+func TestLoadSecrets_MasterSeedGarbageFails(t *testing.T) {
+	t.Setenv("OBLIVIO_MASTER_SEED", "not-hex-not-base64-!@#$")
+	if _, err := LoadSecrets(t.TempDir(), "", ""); err == nil {
+		t.Fatal("expected rejection of malformed seed")
+	}
+}
+
 func randBytes(n int) []byte {
 	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
