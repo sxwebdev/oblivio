@@ -2,17 +2,31 @@
 // @generated from file oblivio/v1/entries.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
-import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Timestamp } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { Message } from "@bufbuild/protobuf";
+import type {
+  GenEnum,
+  GenFile,
+  GenMessage,
+  GenService,
+} from "@bufbuild/protobuf/codegenv2"
+import {
+  enumDesc,
+  fileDesc,
+  messageDesc,
+  serviceDesc,
+} from "@bufbuild/protobuf/codegenv2"
+import type { Timestamp } from "@bufbuild/protobuf/wkt"
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt"
+import type { Message } from "@bufbuild/protobuf"
 
 /**
  * Describes the file oblivio/v1/entries.proto.
  */
-export const file_oblivio_v1_entries: GenFile = /*@__PURE__*/
-  fileDesc("ChhvYmxpdmlvL3YxL2VudHJpZXMucHJvdG8SCm9ibGl2aW8udjEikQIKCUVudHJ5TWV0YRIKCgJpZBgBIAEoCRISCgpwcm9qZWN0X2lkGAIgASgJEiMKBGtpbmQYAyABKA4yFS5vYmxpdmlvLnYxLkVudHJ5S2luZBISCgp0aXRsZV9oYXNoGAQgASgMEhMKC2RvbWFpbl9oYXNoGAUgASgMEhAKCGhhc190b3RwGAYgASgIEhMKC2lzX2Zhdm9yaXRlGAcgASgIEg8KB3ZlcnNpb24YCCABKA0SLgoKY3JlYXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAivwIKBUVudHJ5EgoKAmlkGAEgASgJEhIKCnByb2plY3RfaWQYAiABKAkSIwoEa2luZBgDIAEoDjIVLm9ibGl2aW8udjEuRW50cnlLaW5kEhYKDmVuY3J5cHRlZF9ibG9iGAQgASgMEhgKEHdyYXBwZWRfaXRlbV9rZXkYBSABKAwSEgoKdGl0bGVfaGFzaBgGIAEoDBITCgtkb21haW5faGFzaBgHIAEoDBIQCghoYXNfdG90cBgIIAEoCBITCgtpc19mYXZvcml0ZRgJIAEoCBIPCgd2ZXJzaW9uGAogASgNEi4KCmNyZWF0ZWRfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYDCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wItMCChJMaXN0RW50cmllc1JlcXVlc3QSFwoKcHJvamVjdF9pZBgBIAEoCUgAiAEBEigKBGtpbmQYAiABKA4yFS5vYmxpdmlvLnYxLkVudHJ5S2luZEgBiAEBEhQKDHRpdGxlX2hhc2hlcxgDIAMoDBIVCg1kb21haW5faGFzaGVzGAQgAygMEhsKDmZhdm9yaXRlc19vbmx5GAUgASgISAKIAQESGgoNaGFzX3RvdHBfb25seRgGIAEoCEgDiAEBEjYKDXVwZGF0ZWRfYWZ0ZXIYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSASIAQESDQoFbGltaXQYCCABKA1CDQoLX3Byb2plY3RfaWRCBwoFX2tpbmRCEQoPX2Zhdm9yaXRlc19vbmx5QhAKDl9oYXNfdG90cF9vbmx5QhAKDl91cGRhdGVkX2FmdGVyIpEBChNMaXN0RW50cmllc1Jlc3BvbnNlEiYKB2VudHJpZXMYASADKAsyFS5vYmxpdmlvLnYxLkVudHJ5TWV0YRI7ChJuZXh0X3VwZGF0ZWRfYWZ0ZXIYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSACIAQFCFQoTX25leHRfdXBkYXRlZF9hZnRlciIlChZHZXRFbnRyaWVzQnlJZHNSZXF1ZXN0EgsKA2lkcxgBIAMoCSI9ChdHZXRFbnRyaWVzQnlJZHNSZXNwb25zZRIiCgdlbnRyaWVzGAEgAygLMhEub2JsaXZpby52MS5FbnRyeSIdCg9HZXRFbnRyeVJlcXVlc3QSCgoCaWQYASABKAkiNAoQR2V0RW50cnlSZXNwb25zZRIgCgVlbnRyeRgBIAEoCzIRLm9ibGl2aW8udjEuRW50cnki4wEKEkNyZWF0ZUVudHJ5UmVxdWVzdBIXCgpwcm9qZWN0X2lkGAEgASgJSACIAQESIwoEa2luZBgCIAEoDjIVLm9ibGl2aW8udjEuRW50cnlLaW5kEhYKDmVuY3J5cHRlZF9ibG9iGAMgASgMEhgKEHdyYXBwZWRfaXRlbV9rZXkYBCABKAwSEgoKdGl0bGVfaGFzaBgFIAEoDBITCgtkb21haW5faGFzaBgGIAEoDBIQCghoYXNfdG90cBgHIAEoCBITCgtpc19mYXZvcml0ZRgIIAEoCEINCgtfcHJvamVjdF9pZCI3ChNDcmVhdGVFbnRyeVJlc3BvbnNlEiAKBWVudHJ5GAEgASgLMhEub2JsaXZpby52MS5FbnRyeSKJAgoSVXBkYXRlRW50cnlSZXF1ZXN0EgoKAmlkGAEgASgJEhgKEGV4cGVjdGVkX3ZlcnNpb24YAiABKA0SFwoKcHJvamVjdF9pZBgDIAEoCUgAiAEBEiMKBGtpbmQYBCABKA4yFS5vYmxpdmlvLnYxLkVudHJ5S2luZBIWCg5lbmNyeXB0ZWRfYmxvYhgFIAEoDBIYChB3cmFwcGVkX2l0ZW1fa2V5GAYgASgMEhIKCnRpdGxlX2hhc2gYByABKAwSEwoLZG9tYWluX2hhc2gYCCABKAwSEAoIaGFzX3RvdHAYCSABKAgSEwoLaXNfZmF2b3JpdGUYCiABKAhCDQoLX3Byb2plY3RfaWQiNwoTVXBkYXRlRW50cnlSZXNwb25zZRIgCgVlbnRyeRgBIAEoCzIRLm9ibGl2aW8udjEuRW50cnkiIAoSRGVsZXRlRW50cnlSZXF1ZXN0EgoKAmlkGAEgASgJIhUKE0RlbGV0ZUVudHJ5UmVzcG9uc2UiOAoVVG9nZ2xlRmF2b3JpdGVSZXF1ZXN0EgoKAmlkGAEgASgJEhMKC2lzX2Zhdm9yaXRlGAIgASgIIjoKFlRvZ2dsZUZhdm9yaXRlUmVzcG9uc2USIAoFZW50cnkYASABKAsyES5vYmxpdmlvLnYxLkVudHJ5Kq0BCglFbnRyeUtpbmQSGgoWRU5UUllfS0lORF9VTlNQRUNJRklFRBAAEhQKEEVOVFJZX0tJTkRfTE9HSU4QARITCg9FTlRSWV9LSU5EX1RPVFAQAhITCg9FTlRSWV9LSU5EX0NBUkQQAxIXChNFTlRSWV9LSU5EX0lERU5USVRZEAQSFgoSRU5UUllfS0lORF9TU0hfS0VZEAUSEwoPRU5UUllfS0lORF9OT1RFEAYyzAQKDkVudHJpZXNTZXJ2aWNlEk4KC0xpc3RFbnRyaWVzEh4ub2JsaXZpby52MS5MaXN0RW50cmllc1JlcXVlc3QaHy5vYmxpdmlvLnYxLkxpc3RFbnRyaWVzUmVzcG9uc2USWgoPR2V0RW50cmllc0J5SWRzEiIub2JsaXZpby52MS5HZXRFbnRyaWVzQnlJZHNSZXF1ZXN0GiMub2JsaXZpby52MS5HZXRFbnRyaWVzQnlJZHNSZXNwb25zZRJFCghHZXRFbnRyeRIbLm9ibGl2aW8udjEuR2V0RW50cnlSZXF1ZXN0Ghwub2JsaXZpby52MS5HZXRFbnRyeVJlc3BvbnNlEk4KC0NyZWF0ZUVudHJ5Eh4ub2JsaXZpby52MS5DcmVhdGVFbnRyeVJlcXVlc3QaHy5vYmxpdmlvLnYxLkNyZWF0ZUVudHJ5UmVzcG9uc2USTgoLVXBkYXRlRW50cnkSHi5vYmxpdmlvLnYxLlVwZGF0ZUVudHJ5UmVxdWVzdBofLm9ibGl2aW8udjEuVXBkYXRlRW50cnlSZXNwb25zZRJOCgtEZWxldGVFbnRyeRIeLm9ibGl2aW8udjEuRGVsZXRlRW50cnlSZXF1ZXN0Gh8ub2JsaXZpby52MS5EZWxldGVFbnRyeVJlc3BvbnNlElcKDlRvZ2dsZUZhdm9yaXRlEiEub2JsaXZpby52MS5Ub2dnbGVGYXZvcml0ZVJlcXVlc3QaIi5vYmxpdmlvLnYxLlRvZ2dsZUZhdm9yaXRlUmVzcG9uc2VCrQEKDmNvbS5vYmxpdmlvLnYxQgxFbnRyaWVzUHJvdG9QAVpEZ2l0aHViLmNvbS9zeHdlYmRldi9vYmxpdmlvL2ludGVybmFsL2FwaS9nZW4vZ28vb2JsaXZpby92MTtvYmxpdmlvdjGiAgNPWFiqAgpPYmxpdmlvLlYxygIKT2JsaXZpb1xWMeICFk9ibGl2aW9cVjFcR1BCTWV0YWRhdGHqAgtPYmxpdmlvOjpWMWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+export const file_oblivio_v1_entries: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    "ChhvYmxpdmlvL3YxL2VudHJpZXMucHJvdG8SCm9ibGl2aW8udjEikQIKCUVudHJ5TWV0YRIKCgJpZBgBIAEoCRISCgpwcm9qZWN0X2lkGAIgASgJEiMKBGtpbmQYAyABKA4yFS5vYmxpdmlvLnYxLkVudHJ5S2luZBISCgp0aXRsZV9oYXNoGAQgASgMEhMKC2RvbWFpbl9oYXNoGAUgASgMEhAKCGhhc190b3RwGAYgASgIEhMKC2lzX2Zhdm9yaXRlGAcgASgIEg8KB3ZlcnNpb24YCCABKA0SLgoKY3JlYXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAivwIKBUVudHJ5EgoKAmlkGAEgASgJEhIKCnByb2plY3RfaWQYAiABKAkSIwoEa2luZBgDIAEoDjIVLm9ibGl2aW8udjEuRW50cnlLaW5kEhYKDmVuY3J5cHRlZF9ibG9iGAQgASgMEhgKEHdyYXBwZWRfaXRlbV9rZXkYBSABKAwSEgoKdGl0bGVfaGFzaBgGIAEoDBITCgtkb21haW5faGFzaBgHIAEoDBIQCghoYXNfdG90cBgIIAEoCBITCgtpc19mYXZvcml0ZRgJIAEoCBIPCgd2ZXJzaW9uGAogASgNEi4KCmNyZWF0ZWRfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYDCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wItMCChJMaXN0RW50cmllc1JlcXVlc3QSFwoKcHJvamVjdF9pZBgBIAEoCUgAiAEBEigKBGtpbmQYAiABKA4yFS5vYmxpdmlvLnYxLkVudHJ5S2luZEgBiAEBEhQKDHRpdGxlX2hhc2hlcxgDIAMoDBIVCg1kb21haW5faGFzaGVzGAQgAygMEhsKDmZhdm9yaXRlc19vbmx5GAUgASgISAKIAQESGgoNaGFzX3RvdHBfb25seRgGIAEoCEgDiAEBEjYKDXVwZGF0ZWRfYWZ0ZXIYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSASIAQESDQoFbGltaXQYCCABKA1CDQoLX3Byb2plY3RfaWRCBwoFX2tpbmRCEQoPX2Zhdm9yaXRlc19vbmx5QhAKDl9oYXNfdG90cF9vbmx5QhAKDl91cGRhdGVkX2FmdGVyIpEBChNMaXN0RW50cmllc1Jlc3BvbnNlEiYKB2VudHJpZXMYASADKAsyFS5vYmxpdmlvLnYxLkVudHJ5TWV0YRI7ChJuZXh0X3VwZGF0ZWRfYWZ0ZXIYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSACIAQFCFQoTX25leHRfdXBkYXRlZF9hZnRlciIlChZHZXRFbnRyaWVzQnlJZHNSZXF1ZXN0EgsKA2lkcxgBIAMoCSI9ChdHZXRFbnRyaWVzQnlJZHNSZXNwb25zZRIiCgdlbnRyaWVzGAEgAygLMhEub2JsaXZpby52MS5FbnRyeSIdCg9HZXRFbnRyeVJlcXVlc3QSCgoCaWQYASABKAkiNAoQR2V0RW50cnlSZXNwb25zZRIgCgVlbnRyeRgBIAEoCzIRLm9ibGl2aW8udjEuRW50cnki4wEKEkNyZWF0ZUVudHJ5UmVxdWVzdBIXCgpwcm9qZWN0X2lkGAEgASgJSACIAQESIwoEa2luZBgCIAEoDjIVLm9ibGl2aW8udjEuRW50cnlLaW5kEhYKDmVuY3J5cHRlZF9ibG9iGAMgASgMEhgKEHdyYXBwZWRfaXRlbV9rZXkYBCABKAwSEgoKdGl0bGVfaGFzaBgFIAEoDBITCgtkb21haW5faGFzaBgGIAEoDBIQCghoYXNfdG90cBgHIAEoCBITCgtpc19mYXZvcml0ZRgIIAEoCEINCgtfcHJvamVjdF9pZCI3ChNDcmVhdGVFbnRyeVJlc3BvbnNlEiAKBWVudHJ5GAEgASgLMhEub2JsaXZpby52MS5FbnRyeSKJAgoSVXBkYXRlRW50cnlSZXF1ZXN0EgoKAmlkGAEgASgJEhgKEGV4cGVjdGVkX3ZlcnNpb24YAiABKA0SFwoKcHJvamVjdF9pZBgDIAEoCUgAiAEBEiMKBGtpbmQYBCABKA4yFS5vYmxpdmlvLnYxLkVudHJ5S2luZBIWCg5lbmNyeXB0ZWRfYmxvYhgFIAEoDBIYChB3cmFwcGVkX2l0ZW1fa2V5GAYgASgMEhIKCnRpdGxlX2hhc2gYByABKAwSEwoLZG9tYWluX2hhc2gYCCABKAwSEAoIaGFzX3RvdHAYCSABKAgSEwoLaXNfZmF2b3JpdGUYCiABKAhCDQoLX3Byb2plY3RfaWQiNwoTVXBkYXRlRW50cnlSZXNwb25zZRIgCgVlbnRyeRgBIAEoCzIRLm9ibGl2aW8udjEuRW50cnkiIAoSRGVsZXRlRW50cnlSZXF1ZXN0EgoKAmlkGAEgASgJIhUKE0RlbGV0ZUVudHJ5UmVzcG9uc2UiOAoVVG9nZ2xlRmF2b3JpdGVSZXF1ZXN0EgoKAmlkGAEgASgJEhMKC2lzX2Zhdm9yaXRlGAIgASgIIjoKFlRvZ2dsZUZhdm9yaXRlUmVzcG9uc2USIAoFZW50cnkYASABKAsyES5vYmxpdmlvLnYxLkVudHJ5Kq0BCglFbnRyeUtpbmQSGgoWRU5UUllfS0lORF9VTlNQRUNJRklFRBAAEhQKEEVOVFJZX0tJTkRfTE9HSU4QARITCg9FTlRSWV9LSU5EX1RPVFAQAhITCg9FTlRSWV9LSU5EX0NBUkQQAxIXChNFTlRSWV9LSU5EX0lERU5USVRZEAQSFgoSRU5UUllfS0lORF9TU0hfS0VZEAUSEwoPRU5UUllfS0lORF9OT1RFEAYyzAQKDkVudHJpZXNTZXJ2aWNlEk4KC0xpc3RFbnRyaWVzEh4ub2JsaXZpby52MS5MaXN0RW50cmllc1JlcXVlc3QaHy5vYmxpdmlvLnYxLkxpc3RFbnRyaWVzUmVzcG9uc2USWgoPR2V0RW50cmllc0J5SWRzEiIub2JsaXZpby52MS5HZXRFbnRyaWVzQnlJZHNSZXF1ZXN0GiMub2JsaXZpby52MS5HZXRFbnRyaWVzQnlJZHNSZXNwb25zZRJFCghHZXRFbnRyeRIbLm9ibGl2aW8udjEuR2V0RW50cnlSZXF1ZXN0Ghwub2JsaXZpby52MS5HZXRFbnRyeVJlc3BvbnNlEk4KC0NyZWF0ZUVudHJ5Eh4ub2JsaXZpby52MS5DcmVhdGVFbnRyeVJlcXVlc3QaHy5vYmxpdmlvLnYxLkNyZWF0ZUVudHJ5UmVzcG9uc2USTgoLVXBkYXRlRW50cnkSHi5vYmxpdmlvLnYxLlVwZGF0ZUVudHJ5UmVxdWVzdBofLm9ibGl2aW8udjEuVXBkYXRlRW50cnlSZXNwb25zZRJOCgtEZWxldGVFbnRyeRIeLm9ibGl2aW8udjEuRGVsZXRlRW50cnlSZXF1ZXN0Gh8ub2JsaXZpby52MS5EZWxldGVFbnRyeVJlc3BvbnNlElcKDlRvZ2dsZUZhdm9yaXRlEiEub2JsaXZpby52MS5Ub2dnbGVGYXZvcml0ZVJlcXVlc3QaIi5vYmxpdmlvLnYxLlRvZ2dsZUZhdm9yaXRlUmVzcG9uc2VCrQEKDmNvbS5vYmxpdmlvLnYxQgxFbnRyaWVzUHJvdG9QAVpEZ2l0aHViLmNvbS9zeHdlYmRldi9vYmxpdmlvL2ludGVybmFsL2FwaS9nZW4vZ28vb2JsaXZpby92MTtvYmxpdmlvdjGiAgNPWFiqAgpPYmxpdmlvLlYxygIKT2JsaXZpb1xWMeICFk9ibGl2aW9cVjFcR1BCTWV0YWRhdGHqAgtPYmxpdmlvOjpWMWIGcHJvdG8z",
+    [file_google_protobuf_timestamp]
+  )
 
 /**
  * EntryMeta carries everything the list view needs WITHOUT plaintext or
@@ -25,60 +39,61 @@ export type EntryMeta = Message<"oblivio.v1.EntryMeta"> & {
   /**
    * @generated from field: string id = 1;
    */
-  id: string;
+  id: string
 
   /**
    * @generated from field: string project_id = 2;
    */
-  projectId: string;
+  projectId: string
 
   /**
    * @generated from field: oblivio.v1.EntryKind kind = 3;
    */
-  kind: EntryKind;
+  kind: EntryKind
 
   /**
    * @generated from field: bytes title_hash = 4;
    */
-  titleHash: Uint8Array;
+  titleHash: Uint8Array
 
   /**
    * @generated from field: bytes domain_hash = 5;
    */
-  domainHash: Uint8Array;
+  domainHash: Uint8Array
 
   /**
    * @generated from field: bool has_totp = 6;
    */
-  hasTotp: boolean;
+  hasTotp: boolean
 
   /**
    * @generated from field: bool is_favorite = 7;
    */
-  isFavorite: boolean;
+  isFavorite: boolean
 
   /**
    * @generated from field: uint32 version = 8;
    */
-  version: number;
+  version: number
 
   /**
    * @generated from field: google.protobuf.Timestamp created_at = 9;
    */
-  createdAt?: Timestamp | undefined;
+  createdAt?: Timestamp | undefined
 
   /**
    * @generated from field: google.protobuf.Timestamp updated_at = 10;
    */
-  updatedAt?: Timestamp | undefined;
-};
+  updatedAt?: Timestamp | undefined
+}
 
 /**
  * Describes the message oblivio.v1.EntryMeta.
  * Use `create(EntryMetaSchema)` to create a new message.
  */
-export const EntryMetaSchema: GenMessage<EntryMeta> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 0);
+export const EntryMetaSchema: GenMessage<EntryMeta> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 0)
 
 /**
  * Entry is the full server-side row, including ciphertext. Used for the
@@ -90,70 +105,71 @@ export type Entry = Message<"oblivio.v1.Entry"> & {
   /**
    * @generated from field: string id = 1;
    */
-  id: string;
+  id: string
 
   /**
    * @generated from field: string project_id = 2;
    */
-  projectId: string;
+  projectId: string
 
   /**
    * @generated from field: oblivio.v1.EntryKind kind = 3;
    */
-  kind: EntryKind;
+  kind: EntryKind
 
   /**
    * @generated from field: bytes encrypted_blob = 4;
    */
-  encryptedBlob: Uint8Array;
+  encryptedBlob: Uint8Array
 
   /**
    * @generated from field: bytes wrapped_item_key = 5;
    */
-  wrappedItemKey: Uint8Array;
+  wrappedItemKey: Uint8Array
 
   /**
    * @generated from field: bytes title_hash = 6;
    */
-  titleHash: Uint8Array;
+  titleHash: Uint8Array
 
   /**
    * @generated from field: bytes domain_hash = 7;
    */
-  domainHash: Uint8Array;
+  domainHash: Uint8Array
 
   /**
    * @generated from field: bool has_totp = 8;
    */
-  hasTotp: boolean;
+  hasTotp: boolean
 
   /**
    * @generated from field: bool is_favorite = 9;
    */
-  isFavorite: boolean;
+  isFavorite: boolean
 
   /**
    * @generated from field: uint32 version = 10;
    */
-  version: number;
+  version: number
 
   /**
    * @generated from field: google.protobuf.Timestamp created_at = 11;
    */
-  createdAt?: Timestamp | undefined;
+  createdAt?: Timestamp | undefined
 
   /**
    * @generated from field: google.protobuf.Timestamp updated_at = 12;
    */
-  updatedAt?: Timestamp | undefined;
-};
+  updatedAt?: Timestamp | undefined
+}
 
 /**
  * Describes the message oblivio.v1.Entry.
  * Use `create(EntrySchema)` to create a new message.
  */
-export const EntrySchema: GenMessage<Entry> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 1);
+export const EntrySchema: GenMessage<Entry> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 1)
 
 /**
  * @generated from message oblivio.v1.ListEntriesRequest
@@ -164,52 +180,53 @@ export type ListEntriesRequest = Message<"oblivio.v1.ListEntriesRequest"> & {
    *
    * @generated from field: optional string project_id = 1;
    */
-  projectId?: string | undefined;
+  projectId?: string | undefined
 
   /**
    * @generated from field: optional oblivio.v1.EntryKind kind = 2;
    */
-  kind?: EntryKind | undefined;
+  kind?: EntryKind | undefined
 
   /**
    * @generated from field: repeated bytes title_hashes = 3;
    */
-  titleHashes: Uint8Array[];
+  titleHashes: Uint8Array[]
 
   /**
    * @generated from field: repeated bytes domain_hashes = 4;
    */
-  domainHashes: Uint8Array[];
+  domainHashes: Uint8Array[]
 
   /**
    * @generated from field: optional bool favorites_only = 5;
    */
-  favoritesOnly?: boolean | undefined;
+  favoritesOnly?: boolean | undefined
 
   /**
    * @generated from field: optional bool has_totp_only = 6;
    */
-  hasTotpOnly?: boolean | undefined;
+  hasTotpOnly?: boolean | undefined
 
   /**
    * @generated from field: optional google.protobuf.Timestamp updated_after = 7;
    */
-  updatedAfter?: Timestamp | undefined;
+  updatedAfter?: Timestamp | undefined
 
   /**
    * server caps at 500; 0 → default 100
    *
    * @generated from field: uint32 limit = 8;
    */
-  limit: number;
-};
+  limit: number
+}
 
 /**
  * Describes the message oblivio.v1.ListEntriesRequest.
  * Use `create(ListEntriesRequestSchema)` to create a new message.
  */
-export const ListEntriesRequestSchema: GenMessage<ListEntriesRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 2);
+export const ListEntriesRequestSchema: GenMessage<ListEntriesRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 2)
 
 /**
  * @generated from message oblivio.v1.ListEntriesResponse
@@ -218,7 +235,7 @@ export type ListEntriesResponse = Message<"oblivio.v1.ListEntriesResponse"> & {
   /**
    * @generated from field: repeated oblivio.v1.EntryMeta entries = 1;
    */
-  entries: EntryMeta[];
+  entries: EntryMeta[]
 
   /**
    * Cursor for the next page in the form of an updated_at timestamp; pass
@@ -226,49 +243,54 @@ export type ListEntriesResponse = Message<"oblivio.v1.ListEntriesResponse"> & {
    *
    * @generated from field: optional google.protobuf.Timestamp next_updated_after = 2;
    */
-  nextUpdatedAfter?: Timestamp | undefined;
-};
+  nextUpdatedAfter?: Timestamp | undefined
+}
 
 /**
  * Describes the message oblivio.v1.ListEntriesResponse.
  * Use `create(ListEntriesResponseSchema)` to create a new message.
  */
-export const ListEntriesResponseSchema: GenMessage<ListEntriesResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 3);
+export const ListEntriesResponseSchema: GenMessage<ListEntriesResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 3)
 
 /**
  * @generated from message oblivio.v1.GetEntriesByIdsRequest
  */
-export type GetEntriesByIdsRequest = Message<"oblivio.v1.GetEntriesByIdsRequest"> & {
-  /**
-   * @generated from field: repeated string ids = 1;
-   */
-  ids: string[];
-};
+export type GetEntriesByIdsRequest =
+  Message<"oblivio.v1.GetEntriesByIdsRequest"> & {
+    /**
+     * @generated from field: repeated string ids = 1;
+     */
+    ids: string[]
+  }
 
 /**
  * Describes the message oblivio.v1.GetEntriesByIdsRequest.
  * Use `create(GetEntriesByIdsRequestSchema)` to create a new message.
  */
-export const GetEntriesByIdsRequestSchema: GenMessage<GetEntriesByIdsRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 4);
+export const GetEntriesByIdsRequestSchema: GenMessage<GetEntriesByIdsRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 4)
 
 /**
  * @generated from message oblivio.v1.GetEntriesByIdsResponse
  */
-export type GetEntriesByIdsResponse = Message<"oblivio.v1.GetEntriesByIdsResponse"> & {
-  /**
-   * @generated from field: repeated oblivio.v1.Entry entries = 1;
-   */
-  entries: Entry[];
-};
+export type GetEntriesByIdsResponse =
+  Message<"oblivio.v1.GetEntriesByIdsResponse"> & {
+    /**
+     * @generated from field: repeated oblivio.v1.Entry entries = 1;
+     */
+    entries: Entry[]
+  }
 
 /**
  * Describes the message oblivio.v1.GetEntriesByIdsResponse.
  * Use `create(GetEntriesByIdsResponseSchema)` to create a new message.
  */
-export const GetEntriesByIdsResponseSchema: GenMessage<GetEntriesByIdsResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 5);
+export const GetEntriesByIdsResponseSchema: GenMessage<GetEntriesByIdsResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 5)
 
 /**
  * @generated from message oblivio.v1.GetEntryRequest
@@ -277,15 +299,16 @@ export type GetEntryRequest = Message<"oblivio.v1.GetEntryRequest"> & {
   /**
    * @generated from field: string id = 1;
    */
-  id: string;
-};
+  id: string
+}
 
 /**
  * Describes the message oblivio.v1.GetEntryRequest.
  * Use `create(GetEntryRequestSchema)` to create a new message.
  */
-export const GetEntryRequestSchema: GenMessage<GetEntryRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 6);
+export const GetEntryRequestSchema: GenMessage<GetEntryRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 6)
 
 /**
  * @generated from message oblivio.v1.GetEntryResponse
@@ -294,15 +317,16 @@ export type GetEntryResponse = Message<"oblivio.v1.GetEntryResponse"> & {
   /**
    * @generated from field: oblivio.v1.Entry entry = 1;
    */
-  entry?: Entry | undefined;
-};
+  entry?: Entry | undefined
+}
 
 /**
  * Describes the message oblivio.v1.GetEntryResponse.
  * Use `create(GetEntryResponseSchema)` to create a new message.
  */
-export const GetEntryResponseSchema: GenMessage<GetEntryResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 7);
+export const GetEntryResponseSchema: GenMessage<GetEntryResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 7)
 
 /**
  * @generated from message oblivio.v1.CreateEntryRequest
@@ -311,50 +335,51 @@ export type CreateEntryRequest = Message<"oblivio.v1.CreateEntryRequest"> & {
   /**
    * @generated from field: optional string project_id = 1;
    */
-  projectId?: string | undefined;
+  projectId?: string | undefined
 
   /**
    * @generated from field: oblivio.v1.EntryKind kind = 2;
    */
-  kind: EntryKind;
+  kind: EntryKind
 
   /**
    * @generated from field: bytes encrypted_blob = 3;
    */
-  encryptedBlob: Uint8Array;
+  encryptedBlob: Uint8Array
 
   /**
    * @generated from field: bytes wrapped_item_key = 4;
    */
-  wrappedItemKey: Uint8Array;
+  wrappedItemKey: Uint8Array
 
   /**
    * @generated from field: bytes title_hash = 5;
    */
-  titleHash: Uint8Array;
+  titleHash: Uint8Array
 
   /**
    * @generated from field: bytes domain_hash = 6;
    */
-  domainHash: Uint8Array;
+  domainHash: Uint8Array
 
   /**
    * @generated from field: bool has_totp = 7;
    */
-  hasTotp: boolean;
+  hasTotp: boolean
 
   /**
    * @generated from field: bool is_favorite = 8;
    */
-  isFavorite: boolean;
-};
+  isFavorite: boolean
+}
 
 /**
  * Describes the message oblivio.v1.CreateEntryRequest.
  * Use `create(CreateEntryRequestSchema)` to create a new message.
  */
-export const CreateEntryRequestSchema: GenMessage<CreateEntryRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 8);
+export const CreateEntryRequestSchema: GenMessage<CreateEntryRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 8)
 
 /**
  * @generated from message oblivio.v1.CreateEntryResponse
@@ -363,15 +388,16 @@ export type CreateEntryResponse = Message<"oblivio.v1.CreateEntryResponse"> & {
   /**
    * @generated from field: oblivio.v1.Entry entry = 1;
    */
-  entry?: Entry | undefined;
-};
+  entry?: Entry | undefined
+}
 
 /**
  * Describes the message oblivio.v1.CreateEntryResponse.
  * Use `create(CreateEntryResponseSchema)` to create a new message.
  */
-export const CreateEntryResponseSchema: GenMessage<CreateEntryResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 9);
+export const CreateEntryResponseSchema: GenMessage<CreateEntryResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 9)
 
 /**
  * @generated from message oblivio.v1.UpdateEntryRequest
@@ -380,60 +406,61 @@ export type UpdateEntryRequest = Message<"oblivio.v1.UpdateEntryRequest"> & {
   /**
    * @generated from field: string id = 1;
    */
-  id: string;
+  id: string
 
   /**
    * @generated from field: uint32 expected_version = 2;
    */
-  expectedVersion: number;
+  expectedVersion: number
 
   /**
    * @generated from field: optional string project_id = 3;
    */
-  projectId?: string | undefined;
+  projectId?: string | undefined
 
   /**
    * @generated from field: oblivio.v1.EntryKind kind = 4;
    */
-  kind: EntryKind;
+  kind: EntryKind
 
   /**
    * @generated from field: bytes encrypted_blob = 5;
    */
-  encryptedBlob: Uint8Array;
+  encryptedBlob: Uint8Array
 
   /**
    * @generated from field: bytes wrapped_item_key = 6;
    */
-  wrappedItemKey: Uint8Array;
+  wrappedItemKey: Uint8Array
 
   /**
    * @generated from field: bytes title_hash = 7;
    */
-  titleHash: Uint8Array;
+  titleHash: Uint8Array
 
   /**
    * @generated from field: bytes domain_hash = 8;
    */
-  domainHash: Uint8Array;
+  domainHash: Uint8Array
 
   /**
    * @generated from field: bool has_totp = 9;
    */
-  hasTotp: boolean;
+  hasTotp: boolean
 
   /**
    * @generated from field: bool is_favorite = 10;
    */
-  isFavorite: boolean;
-};
+  isFavorite: boolean
+}
 
 /**
  * Describes the message oblivio.v1.UpdateEntryRequest.
  * Use `create(UpdateEntryRequestSchema)` to create a new message.
  */
-export const UpdateEntryRequestSchema: GenMessage<UpdateEntryRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 10);
+export const UpdateEntryRequestSchema: GenMessage<UpdateEntryRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 10)
 
 /**
  * @generated from message oblivio.v1.UpdateEntryResponse
@@ -442,15 +469,16 @@ export type UpdateEntryResponse = Message<"oblivio.v1.UpdateEntryResponse"> & {
   /**
    * @generated from field: oblivio.v1.Entry entry = 1;
    */
-  entry?: Entry | undefined;
-};
+  entry?: Entry | undefined
+}
 
 /**
  * Describes the message oblivio.v1.UpdateEntryResponse.
  * Use `create(UpdateEntryResponseSchema)` to create a new message.
  */
-export const UpdateEntryResponseSchema: GenMessage<UpdateEntryResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 11);
+export const UpdateEntryResponseSchema: GenMessage<UpdateEntryResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 11)
 
 /**
  * @generated from message oblivio.v1.DeleteEntryRequest
@@ -459,67 +487,72 @@ export type DeleteEntryRequest = Message<"oblivio.v1.DeleteEntryRequest"> & {
   /**
    * @generated from field: string id = 1;
    */
-  id: string;
-};
+  id: string
+}
 
 /**
  * Describes the message oblivio.v1.DeleteEntryRequest.
  * Use `create(DeleteEntryRequestSchema)` to create a new message.
  */
-export const DeleteEntryRequestSchema: GenMessage<DeleteEntryRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 12);
+export const DeleteEntryRequestSchema: GenMessage<DeleteEntryRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 12)
 
 /**
  * @generated from message oblivio.v1.DeleteEntryResponse
  */
-export type DeleteEntryResponse = Message<"oblivio.v1.DeleteEntryResponse"> & {
-};
+export type DeleteEntryResponse = Message<"oblivio.v1.DeleteEntryResponse"> & {}
 
 /**
  * Describes the message oblivio.v1.DeleteEntryResponse.
  * Use `create(DeleteEntryResponseSchema)` to create a new message.
  */
-export const DeleteEntryResponseSchema: GenMessage<DeleteEntryResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 13);
+export const DeleteEntryResponseSchema: GenMessage<DeleteEntryResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 13)
 
 /**
  * @generated from message oblivio.v1.ToggleFavoriteRequest
  */
-export type ToggleFavoriteRequest = Message<"oblivio.v1.ToggleFavoriteRequest"> & {
-  /**
-   * @generated from field: string id = 1;
-   */
-  id: string;
+export type ToggleFavoriteRequest =
+  Message<"oblivio.v1.ToggleFavoriteRequest"> & {
+    /**
+     * @generated from field: string id = 1;
+     */
+    id: string
 
-  /**
-   * @generated from field: bool is_favorite = 2;
-   */
-  isFavorite: boolean;
-};
+    /**
+     * @generated from field: bool is_favorite = 2;
+     */
+    isFavorite: boolean
+  }
 
 /**
  * Describes the message oblivio.v1.ToggleFavoriteRequest.
  * Use `create(ToggleFavoriteRequestSchema)` to create a new message.
  */
-export const ToggleFavoriteRequestSchema: GenMessage<ToggleFavoriteRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 14);
+export const ToggleFavoriteRequestSchema: GenMessage<ToggleFavoriteRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 14)
 
 /**
  * @generated from message oblivio.v1.ToggleFavoriteResponse
  */
-export type ToggleFavoriteResponse = Message<"oblivio.v1.ToggleFavoriteResponse"> & {
-  /**
-   * @generated from field: oblivio.v1.Entry entry = 1;
-   */
-  entry?: Entry | undefined;
-};
+export type ToggleFavoriteResponse =
+  Message<"oblivio.v1.ToggleFavoriteResponse"> & {
+    /**
+     * @generated from field: oblivio.v1.Entry entry = 1;
+     */
+    entry?: Entry | undefined
+  }
 
 /**
  * Describes the message oblivio.v1.ToggleFavoriteResponse.
  * Use `create(ToggleFavoriteResponseSchema)` to create a new message.
  */
-export const ToggleFavoriteResponseSchema: GenMessage<ToggleFavoriteResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_entries, 15);
+export const ToggleFavoriteResponseSchema: GenMessage<ToggleFavoriteResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_entries, 15)
 
 /**
  * @generated from enum oblivio.v1.EntryKind
@@ -564,8 +597,9 @@ export enum EntryKind {
 /**
  * Describes the enum oblivio.v1.EntryKind.
  */
-export const EntryKindSchema: GenEnum<EntryKind> = /*@__PURE__*/
-  enumDesc(file_oblivio_v1_entries, 0);
+export const EntryKindSchema: GenEnum<EntryKind> =
+  /*@__PURE__*/
+  enumDesc(file_oblivio_v1_entries, 0)
 
 /**
  * EntriesService stores every secret record kind — logins, TOTP-only, cards,
@@ -580,58 +614,56 @@ export const EntriesService: GenService<{
    * @generated from rpc oblivio.v1.EntriesService.ListEntries
    */
   listEntries: {
-    methodKind: "unary";
-    input: typeof ListEntriesRequestSchema;
-    output: typeof ListEntriesResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof ListEntriesRequestSchema
+    output: typeof ListEntriesResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.EntriesService.GetEntriesByIds
    */
   getEntriesByIds: {
-    methodKind: "unary";
-    input: typeof GetEntriesByIdsRequestSchema;
-    output: typeof GetEntriesByIdsResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof GetEntriesByIdsRequestSchema
+    output: typeof GetEntriesByIdsResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.EntriesService.GetEntry
    */
   getEntry: {
-    methodKind: "unary";
-    input: typeof GetEntryRequestSchema;
-    output: typeof GetEntryResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof GetEntryRequestSchema
+    output: typeof GetEntryResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.EntriesService.CreateEntry
    */
   createEntry: {
-    methodKind: "unary";
-    input: typeof CreateEntryRequestSchema;
-    output: typeof CreateEntryResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof CreateEntryRequestSchema
+    output: typeof CreateEntryResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.EntriesService.UpdateEntry
    */
   updateEntry: {
-    methodKind: "unary";
-    input: typeof UpdateEntryRequestSchema;
-    output: typeof UpdateEntryResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof UpdateEntryRequestSchema
+    output: typeof UpdateEntryResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.EntriesService.DeleteEntry
    */
   deleteEntry: {
-    methodKind: "unary";
-    input: typeof DeleteEntryRequestSchema;
-    output: typeof DeleteEntryResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof DeleteEntryRequestSchema
+    output: typeof DeleteEntryResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.EntriesService.ToggleFavorite
    */
   toggleFavorite: {
-    methodKind: "unary";
-    input: typeof ToggleFavoriteRequestSchema;
-    output: typeof ToggleFavoriteResponseSchema;
-  },
-}> = /*@__PURE__*/
-  serviceDesc(file_oblivio_v1_entries, 0);
-
+    methodKind: "unary"
+    input: typeof ToggleFavoriteRequestSchema
+    output: typeof ToggleFavoriteResponseSchema
+  }
+}> = /*@__PURE__*/ serviceDesc(file_oblivio_v1_entries, 0)

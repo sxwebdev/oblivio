@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"maps"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
@@ -65,9 +66,7 @@ func SetAuditMetadata(ctx context.Context, kv map[string]any) {
 		if box.extra == nil {
 			box.extra = make(map[string]any, len(kv))
 		}
-		for k, v := range kv {
-			box.extra[k] = v
-		}
+		maps.Copy(box.extra, kv)
 	}
 }
 
@@ -94,9 +93,7 @@ func NewAuditInterceptor(writer *audit.Writer, procedures AuditProcedureMap) con
 				"procedure": req.Spec().Procedure,
 				"device_id": uc.DeviceID,
 			}
-			for k, v := range box.extra {
-				meta[k] = v
-			}
+			maps.Copy(meta, box.extra)
 			ev := audit.Event{
 				UserID:    uuid.NullUUID{UUID: uc.UserID, Valid: true},
 				Action:    action,

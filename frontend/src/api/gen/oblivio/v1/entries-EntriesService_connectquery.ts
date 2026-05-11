@@ -2,39 +2,39 @@
 // @generated from file oblivio/v1/entries.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import { EntriesService } from "./entries_pb";
+import { EntriesService } from "./entries_pb"
 
 /**
  * @generated from rpc oblivio.v1.EntriesService.ListEntries
  */
-export const listEntries = EntriesService.method.listEntries;
+export const listEntries = EntriesService.method.listEntries
 
 /**
  * @generated from rpc oblivio.v1.EntriesService.GetEntriesByIds
  */
-export const getEntriesByIds = EntriesService.method.getEntriesByIds;
+export const getEntriesByIds = EntriesService.method.getEntriesByIds
 
 /**
  * @generated from rpc oblivio.v1.EntriesService.GetEntry
  */
-export const getEntry = EntriesService.method.getEntry;
+export const getEntry = EntriesService.method.getEntry
 
 /**
  * @generated from rpc oblivio.v1.EntriesService.CreateEntry
  */
-export const createEntry = EntriesService.method.createEntry;
+export const createEntry = EntriesService.method.createEntry
 
 /**
  * @generated from rpc oblivio.v1.EntriesService.UpdateEntry
  */
-export const updateEntry = EntriesService.method.updateEntry;
+export const updateEntry = EntriesService.method.updateEntry
 
 /**
  * @generated from rpc oblivio.v1.EntriesService.DeleteEntry
  */
-export const deleteEntry = EntriesService.method.deleteEntry;
+export const deleteEntry = EntriesService.method.deleteEntry
 
 /**
  * @generated from rpc oblivio.v1.EntriesService.ToggleFavorite
  */
-export const toggleFavorite = EntriesService.method.toggleFavorite;
+export const toggleFavorite = EntriesService.method.toggleFavorite

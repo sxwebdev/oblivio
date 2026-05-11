@@ -80,7 +80,12 @@ export default function LoginPage() {
       })
 
       if (resp.authPayload) {
-        await finishUnlock(masterKey, masterKeyRaw, blindPepper, resp.authPayload)
+        await finishUnlock(
+          masterKey,
+          masterKeyRaw,
+          blindPepper,
+          resp.authPayload
+        )
         return
       }
       if (!resp.mfaChallenge) throw new Error("invalid credentials")

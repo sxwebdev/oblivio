@@ -2,6 +2,7 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/awnumar/memguard"
 	"golang.org/x/crypto/hkdf"
-	"crypto/sha256"
 
 	"github.com/sxwebdev/oblivio/internal/crypto"
 )

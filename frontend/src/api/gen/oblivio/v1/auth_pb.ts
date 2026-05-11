@@ -2,17 +2,29 @@
 // @generated from file oblivio/v1/auth.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Argon2Params, AuthPayload, DeviceInfo } from "./common_pb";
-import { file_oblivio_v1_common } from "./common_pb";
-import type { Message } from "@bufbuild/protobuf";
+import type {
+  GenFile,
+  GenMessage,
+  GenService,
+} from "@bufbuild/protobuf/codegenv2"
+import {
+  fileDesc,
+  messageDesc,
+  serviceDesc,
+} from "@bufbuild/protobuf/codegenv2"
+import type { Argon2Params, AuthPayload, DeviceInfo } from "./common_pb"
+import { file_oblivio_v1_common } from "./common_pb"
+import type { Message } from "@bufbuild/protobuf"
 
 /**
  * Describes the file oblivio/v1/auth.proto.
  */
-export const file_oblivio_v1_auth: GenFile = /*@__PURE__*/
-  fileDesc("ChVvYmxpdmlvL3YxL2F1dGgucHJvdG8SCm9ibGl2aW8udjEitgIKD1JlZ2lzdGVyUmVxdWVzdBINCgVlbWFpbBgBIAEoCRIRCglzYWx0X3VzZXIYAiABKAwSLAoKa2RmX3BhcmFtcxgDIAEoCzIYLm9ibGl2aW8udjEuQXJnb24yUGFyYW1zEhAKCGF1dGhfa2V5GAQgASgMEhAKCHZlcmlmaWVyGAUgASgMEhkKEXdyYXBwZWRfdmF1bHRfa2V5GAYgASgMEhUKDXJlY292ZXJ5X3NhbHQYByABKAwSIgoacmVjb3Zlcnlfd3JhcHBlZF92YXVsdF9rZXkYCCABKAwSFgoOcmVjb3ZlcnlfcHJvb2YYCSABKAwSKwoLZGV2aWNlX2luZm8YCiABKAsyFi5vYmxpdmlvLnYxLkRldmljZUluZm8SFAoMYmxpbmRfcGVwcGVyGAsgASgMIlIKEFJlZ2lzdGVyUmVzcG9uc2USDwoHdXNlcl9pZBgBIAEoCRItCgxhdXRoX3BheWxvYWQYAiABKAsyFy5vYmxpdmlvLnYxLkF1dGhQYXlsb2FkIiQKE0dldEtERlBhcmFtc1JlcXVlc3QSDQoFZW1haWwYASABKAkibQoUR2V0S0RGUGFyYW1zUmVzcG9uc2USEQoJc2FsdF91c2VyGAEgASgMEiwKCmtkZl9wYXJhbXMYAiABKAsyGC5vYmxpdmlvLnYxLkFyZ29uMlBhcmFtcxIUCgxibGluZF9wZXBwZXIYAyABKAwiYAoQQXV0aG9yaXplUmVxdWVzdBINCgVlbWFpbBgBIAEoCRIQCghhdXRoX2tleRgCIAEoDBIrCgtkZXZpY2VfaW5mbxgDIAEoCzIWLm9ibGl2aW8udjEuRGV2aWNlSW5mbyJzChFBdXRob3JpemVSZXNwb25zZRItCgxhdXRoX3BheWxvYWQYASABKAsyFy5vYmxpdmlvLnYxLkF1dGhQYXlsb2FkEi8KDW1mYV9jaGFsbGVuZ2UYAiABKAsyGC5vYmxpdmlvLnYxLk1GQUNoYWxsZW5nZSJzCgxNRkFDaGFsbGVuZ2USEgoKc2Vzc2lvbl9pZBgBIAEoCRIVCg10b3RwX3JlcXVpcmVkGAIgASgIEhkKEXdlYmF1dGhuX3JlcXVpcmVkGAMgASgIEh0KFXdlYmF1dGhuX29wdGlvbnNfanNvbhgEIAEoDCKJAQoSQ29tcGxldGVNRkFSZXF1ZXN0EhIKCnNlc3Npb25faWQYASABKAkSEQoJdG90cF9jb2RlGAIgASgJEh8KF3dlYmF1dGhuX2Fzc2VydGlvbl9qc29uGAMgASgMEisKC2RldmljZV9pbmZvGAQgASgLMhYub2JsaXZpby52MS5EZXZpY2VJbmZvIkQKE0NvbXBsZXRlTUZBUmVzcG9uc2USLQoMYXV0aF9wYXlsb2FkGAEgASgLMhcub2JsaXZpby52MS5BdXRoUGF5bG9hZCJZChNSZWZyZXNoVG9rZW5SZXF1ZXN0EhUKDXJlZnJlc2hfdG9rZW4YASABKAkSKwoLZGV2aWNlX2luZm8YAiABKAsyFi5vYmxpdmlvLnYxLkRldmljZUluZm8iRQoUUmVmcmVzaFRva2VuUmVzcG9uc2USLQoMYXV0aF9wYXlsb2FkGAEgASgLMhcub2JsaXZpby52MS5BdXRoUGF5bG9hZCIPCg1Mb2dvdXRSZXF1ZXN0IhAKDkxvZ291dFJlc3BvbnNlIhIKEEdldE15S2V5c1JlcXVlc3QimgEKEUdldE15S2V5c1Jlc3BvbnNlEhAKCHZlcmlmaWVyGAEgASgMEhkKEXdyYXBwZWRfdmF1bHRfa2V5GAIgASgMEhkKEXZhdWx0X2tleV92ZXJzaW9uGAMgASgNEiMKG2xvZ2luX3RvdHBfZW5jcnlwdGVkX3NlY3JldBgEIAEoDBIYChBsb2dpbl90b3RwX25vbmNlGAUgASgMIikKGEdldFJlY292ZXJ5UGFyYW1zUmVxdWVzdBINCgVlbWFpbBgBIAEoCSJgChlHZXRSZWNvdmVyeVBhcmFtc1Jlc3BvbnNlEhUKDXJlY292ZXJ5X3NhbHQYASABKAwSLAoKa2RmX3BhcmFtcxgCIAEoCzIYLm9ibGl2aW8udjEuQXJnb24yUGFyYW1zIj0KFFJlY292ZXJ5U3RhcnRSZXF1ZXN0Eg0KBWVtYWlsGAEgASgJEhYKDnJlY292ZXJ5X3Byb29mGAIgASgMIlgKFVJlY292ZXJ5U3RhcnRSZXNwb25zZRIbChNyZWNvdmVyeV9zZXNzaW9uX2lkGAEgASgJEiIKGnJlY292ZXJ5X3dyYXBwZWRfdmF1bHRfa2V5GAIgASgMIvUBChdSZWNvdmVyeUNvbXBsZXRlUmVxdWVzdBIbChNyZWNvdmVyeV9zZXNzaW9uX2lkGAEgASgJEhEKCXNhbHRfdXNlchgCIAEoDBIsCgprZGZfcGFyYW1zGAMgASgLMhgub2JsaXZpby52MS5BcmdvbjJQYXJhbXMSEAoIYXV0aF9rZXkYBCABKAwSEAoIdmVyaWZpZXIYBSABKAwSGQoRd3JhcHBlZF92YXVsdF9rZXkYBiABKAwSIwobbG9naW5fdG90cF9lbmNyeXB0ZWRfc2VjcmV0GAcgASgMEhgKEGxvZ2luX3RvdHBfbm9uY2UYCCABKAwiGgoYUmVjb3ZlcnlDb21wbGV0ZVJlc3BvbnNlIiMKElZlcmlmeUVtYWlsUmVxdWVzdBINCgV0b2tlbhgBIAEoCSIVChNWZXJpZnlFbWFpbFJlc3BvbnNlIioKGVJlc2VuZFZlcmlmaWNhdGlvblJlcXVlc3QSDQoFZW1haWwYASABKAkiHAoaUmVzZW5kVmVyaWZpY2F0aW9uUmVzcG9uc2UijgIKG0NoYW5nZU1hc3RlclBhc3N3b3JkUmVxdWVzdBIUCgxvbGRfYXV0aF9rZXkYASABKAwSFAoMbmV3X2F1dGhfa2V5GAIgASgMEhUKDW5ld19zYWx0X3VzZXIYAyABKAwSMAoObmV3X2tkZl9wYXJhbXMYBCABKAsyGC5vYmxpdmlvLnYxLkFyZ29uMlBhcmFtcxIUCgxuZXdfdmVyaWZpZXIYBSABKAwSHQoVbmV3X3dyYXBwZWRfdmF1bHRfa2V5GAYgASgMEicKH25ld19sb2dpbl90b3RwX2VuY3J5cHRlZF9zZWNyZXQYByABKAwSHAoUbmV3X2xvZ2luX3RvdHBfbm9uY2UYCCABKAwiHgocQ2hhbmdlTWFzdGVyUGFzc3dvcmRSZXNwb25zZTLWCAoLQXV0aFNlcnZpY2USRQoIUmVnaXN0ZXISGy5vYmxpdmlvLnYxLlJlZ2lzdGVyUmVxdWVzdBocLm9ibGl2aW8udjEuUmVnaXN0ZXJSZXNwb25zZRJRCgxHZXRLREZQYXJhbXMSHy5vYmxpdmlvLnYxLkdldEtERlBhcmFtc1JlcXVlc3QaIC5vYmxpdmlvLnYxLkdldEtERlBhcmFtc1Jlc3BvbnNlEkgKCUF1dGhvcml6ZRIcLm9ibGl2aW8udjEuQXV0aG9yaXplUmVxdWVzdBodLm9ibGl2aW8udjEuQXV0aG9yaXplUmVzcG9uc2USTgoLQ29tcGxldGVNRkESHi5vYmxpdmlvLnYxLkNvbXBsZXRlTUZBUmVxdWVzdBofLm9ibGl2aW8udjEuQ29tcGxldGVNRkFSZXNwb25zZRJRCgxSZWZyZXNoVG9rZW4SHy5vYmxpdmlvLnYxLlJlZnJlc2hUb2tlblJlcXVlc3QaIC5vYmxpdmlvLnYxLlJlZnJlc2hUb2tlblJlc3BvbnNlEmAKEUdldFJlY292ZXJ5UGFyYW1zEiQub2JsaXZpby52MS5HZXRSZWNvdmVyeVBhcmFtc1JlcXVlc3QaJS5vYmxpdmlvLnYxLkdldFJlY292ZXJ5UGFyYW1zUmVzcG9uc2USVAoNUmVjb3ZlcnlTdGFydBIgLm9ibGl2aW8udjEuUmVjb3ZlcnlTdGFydFJlcXVlc3QaIS5vYmxpdmlvLnYxLlJlY292ZXJ5U3RhcnRSZXNwb25zZRJdChBSZWNvdmVyeUNvbXBsZXRlEiMub2JsaXZpby52MS5SZWNvdmVyeUNvbXBsZXRlUmVxdWVzdBokLm9ibGl2aW8udjEuUmVjb3ZlcnlDb21wbGV0ZVJlc3BvbnNlEk4KC1ZlcmlmeUVtYWlsEh4ub2JsaXZpby52MS5WZXJpZnlFbWFpbFJlcXVlc3QaHy5vYmxpdmlvLnYxLlZlcmlmeUVtYWlsUmVzcG9uc2USYwoSUmVzZW5kVmVyaWZpY2F0aW9uEiUub2JsaXZpby52MS5SZXNlbmRWZXJpZmljYXRpb25SZXF1ZXN0GiYub2JsaXZpby52MS5SZXNlbmRWZXJpZmljYXRpb25SZXNwb25zZRI/CgZMb2dvdXQSGS5vYmxpdmlvLnYxLkxvZ291dFJlcXVlc3QaGi5vYmxpdmlvLnYxLkxvZ291dFJlc3BvbnNlEkgKCUdldE15S2V5cxIcLm9ibGl2aW8udjEuR2V0TXlLZXlzUmVxdWVzdBodLm9ibGl2aW8udjEuR2V0TXlLZXlzUmVzcG9uc2USaQoUQ2hhbmdlTWFzdGVyUGFzc3dvcmQSJy5vYmxpdmlvLnYxLkNoYW5nZU1hc3RlclBhc3N3b3JkUmVxdWVzdBooLm9ibGl2aW8udjEuQ2hhbmdlTWFzdGVyUGFzc3dvcmRSZXNwb25zZUKqAQoOY29tLm9ibGl2aW8udjFCCUF1dGhQcm90b1ABWkRnaXRodWIuY29tL3N4d2ViZGV2L29ibGl2aW8vaW50ZXJuYWwvYXBpL2dlbi9nby9vYmxpdmlvL3YxO29ibGl2aW92MaICA09YWKoCCk9ibGl2aW8uVjHKAgpPYmxpdmlvXFYx4gIWT2JsaXZpb1xWMVxHUEJNZXRhZGF0YeoCC09ibGl2aW86OlYxYgZwcm90bzM", [file_oblivio_v1_common]);
+export const file_oblivio_v1_auth: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    "ChVvYmxpdmlvL3YxL2F1dGgucHJvdG8SCm9ibGl2aW8udjEitgIKD1JlZ2lzdGVyUmVxdWVzdBINCgVlbWFpbBgBIAEoCRIRCglzYWx0X3VzZXIYAiABKAwSLAoKa2RmX3BhcmFtcxgDIAEoCzIYLm9ibGl2aW8udjEuQXJnb24yUGFyYW1zEhAKCGF1dGhfa2V5GAQgASgMEhAKCHZlcmlmaWVyGAUgASgMEhkKEXdyYXBwZWRfdmF1bHRfa2V5GAYgASgMEhUKDXJlY292ZXJ5X3NhbHQYByABKAwSIgoacmVjb3Zlcnlfd3JhcHBlZF92YXVsdF9rZXkYCCABKAwSFgoOcmVjb3ZlcnlfcHJvb2YYCSABKAwSKwoLZGV2aWNlX2luZm8YCiABKAsyFi5vYmxpdmlvLnYxLkRldmljZUluZm8SFAoMYmxpbmRfcGVwcGVyGAsgASgMIlIKEFJlZ2lzdGVyUmVzcG9uc2USDwoHdXNlcl9pZBgBIAEoCRItCgxhdXRoX3BheWxvYWQYAiABKAsyFy5vYmxpdmlvLnYxLkF1dGhQYXlsb2FkIiQKE0dldEtERlBhcmFtc1JlcXVlc3QSDQoFZW1haWwYASABKAkibQoUR2V0S0RGUGFyYW1zUmVzcG9uc2USEQoJc2FsdF91c2VyGAEgASgMEiwKCmtkZl9wYXJhbXMYAiABKAsyGC5vYmxpdmlvLnYxLkFyZ29uMlBhcmFtcxIUCgxibGluZF9wZXBwZXIYAyABKAwiYAoQQXV0aG9yaXplUmVxdWVzdBINCgVlbWFpbBgBIAEoCRIQCghhdXRoX2tleRgCIAEoDBIrCgtkZXZpY2VfaW5mbxgDIAEoCzIWLm9ibGl2aW8udjEuRGV2aWNlSW5mbyJzChFBdXRob3JpemVSZXNwb25zZRItCgxhdXRoX3BheWxvYWQYASABKAsyFy5vYmxpdmlvLnYxLkF1dGhQYXlsb2FkEi8KDW1mYV9jaGFsbGVuZ2UYAiABKAsyGC5vYmxpdmlvLnYxLk1GQUNoYWxsZW5nZSJzCgxNRkFDaGFsbGVuZ2USEgoKc2Vzc2lvbl9pZBgBIAEoCRIVCg10b3RwX3JlcXVpcmVkGAIgASgIEhkKEXdlYmF1dGhuX3JlcXVpcmVkGAMgASgIEh0KFXdlYmF1dGhuX29wdGlvbnNfanNvbhgEIAEoDCKJAQoSQ29tcGxldGVNRkFSZXF1ZXN0EhIKCnNlc3Npb25faWQYASABKAkSEQoJdG90cF9jb2RlGAIgASgJEh8KF3dlYmF1dGhuX2Fzc2VydGlvbl9qc29uGAMgASgMEisKC2RldmljZV9pbmZvGAQgASgLMhYub2JsaXZpby52MS5EZXZpY2VJbmZvIkQKE0NvbXBsZXRlTUZBUmVzcG9uc2USLQoMYXV0aF9wYXlsb2FkGAEgASgLMhcub2JsaXZpby52MS5BdXRoUGF5bG9hZCJZChNSZWZyZXNoVG9rZW5SZXF1ZXN0EhUKDXJlZnJlc2hfdG9rZW4YASABKAkSKwoLZGV2aWNlX2luZm8YAiABKAsyFi5vYmxpdmlvLnYxLkRldmljZUluZm8iRQoUUmVmcmVzaFRva2VuUmVzcG9uc2USLQoMYXV0aF9wYXlsb2FkGAEgASgLMhcub2JsaXZpby52MS5BdXRoUGF5bG9hZCIPCg1Mb2dvdXRSZXF1ZXN0IhAKDkxvZ291dFJlc3BvbnNlIhIKEEdldE15S2V5c1JlcXVlc3QimgEKEUdldE15S2V5c1Jlc3BvbnNlEhAKCHZlcmlmaWVyGAEgASgMEhkKEXdyYXBwZWRfdmF1bHRfa2V5GAIgASgMEhkKEXZhdWx0X2tleV92ZXJzaW9uGAMgASgNEiMKG2xvZ2luX3RvdHBfZW5jcnlwdGVkX3NlY3JldBgEIAEoDBIYChBsb2dpbl90b3RwX25vbmNlGAUgASgMIikKGEdldFJlY292ZXJ5UGFyYW1zUmVxdWVzdBINCgVlbWFpbBgBIAEoCSJgChlHZXRSZWNvdmVyeVBhcmFtc1Jlc3BvbnNlEhUKDXJlY292ZXJ5X3NhbHQYASABKAwSLAoKa2RmX3BhcmFtcxgCIAEoCzIYLm9ibGl2aW8udjEuQXJnb24yUGFyYW1zIj0KFFJlY292ZXJ5U3RhcnRSZXF1ZXN0Eg0KBWVtYWlsGAEgASgJEhYKDnJlY292ZXJ5X3Byb29mGAIgASgMIlgKFVJlY292ZXJ5U3RhcnRSZXNwb25zZRIbChNyZWNvdmVyeV9zZXNzaW9uX2lkGAEgASgJEiIKGnJlY292ZXJ5X3dyYXBwZWRfdmF1bHRfa2V5GAIgASgMIvUBChdSZWNvdmVyeUNvbXBsZXRlUmVxdWVzdBIbChNyZWNvdmVyeV9zZXNzaW9uX2lkGAEgASgJEhEKCXNhbHRfdXNlchgCIAEoDBIsCgprZGZfcGFyYW1zGAMgASgLMhgub2JsaXZpby52MS5BcmdvbjJQYXJhbXMSEAoIYXV0aF9rZXkYBCABKAwSEAoIdmVyaWZpZXIYBSABKAwSGQoRd3JhcHBlZF92YXVsdF9rZXkYBiABKAwSIwobbG9naW5fdG90cF9lbmNyeXB0ZWRfc2VjcmV0GAcgASgMEhgKEGxvZ2luX3RvdHBfbm9uY2UYCCABKAwiGgoYUmVjb3ZlcnlDb21wbGV0ZVJlc3BvbnNlIiMKElZlcmlmeUVtYWlsUmVxdWVzdBINCgV0b2tlbhgBIAEoCSIVChNWZXJpZnlFbWFpbFJlc3BvbnNlIioKGVJlc2VuZFZlcmlmaWNhdGlvblJlcXVlc3QSDQoFZW1haWwYASABKAkiHAoaUmVzZW5kVmVyaWZpY2F0aW9uUmVzcG9uc2UijgIKG0NoYW5nZU1hc3RlclBhc3N3b3JkUmVxdWVzdBIUCgxvbGRfYXV0aF9rZXkYASABKAwSFAoMbmV3X2F1dGhfa2V5GAIgASgMEhUKDW5ld19zYWx0X3VzZXIYAyABKAwSMAoObmV3X2tkZl9wYXJhbXMYBCABKAsyGC5vYmxpdmlvLnYxLkFyZ29uMlBhcmFtcxIUCgxuZXdfdmVyaWZpZXIYBSABKAwSHQoVbmV3X3dyYXBwZWRfdmF1bHRfa2V5GAYgASgMEicKH25ld19sb2dpbl90b3RwX2VuY3J5cHRlZF9zZWNyZXQYByABKAwSHAoUbmV3X2xvZ2luX3RvdHBfbm9uY2UYCCABKAwiHgocQ2hhbmdlTWFzdGVyUGFzc3dvcmRSZXNwb25zZTLWCAoLQXV0aFNlcnZpY2USRQoIUmVnaXN0ZXISGy5vYmxpdmlvLnYxLlJlZ2lzdGVyUmVxdWVzdBocLm9ibGl2aW8udjEuUmVnaXN0ZXJSZXNwb25zZRJRCgxHZXRLREZQYXJhbXMSHy5vYmxpdmlvLnYxLkdldEtERlBhcmFtc1JlcXVlc3QaIC5vYmxpdmlvLnYxLkdldEtERlBhcmFtc1Jlc3BvbnNlEkgKCUF1dGhvcml6ZRIcLm9ibGl2aW8udjEuQXV0aG9yaXplUmVxdWVzdBodLm9ibGl2aW8udjEuQXV0aG9yaXplUmVzcG9uc2USTgoLQ29tcGxldGVNRkESHi5vYmxpdmlvLnYxLkNvbXBsZXRlTUZBUmVxdWVzdBofLm9ibGl2aW8udjEuQ29tcGxldGVNRkFSZXNwb25zZRJRCgxSZWZyZXNoVG9rZW4SHy5vYmxpdmlvLnYxLlJlZnJlc2hUb2tlblJlcXVlc3QaIC5vYmxpdmlvLnYxLlJlZnJlc2hUb2tlblJlc3BvbnNlEmAKEUdldFJlY292ZXJ5UGFyYW1zEiQub2JsaXZpby52MS5HZXRSZWNvdmVyeVBhcmFtc1JlcXVlc3QaJS5vYmxpdmlvLnYxLkdldFJlY292ZXJ5UGFyYW1zUmVzcG9uc2USVAoNUmVjb3ZlcnlTdGFydBIgLm9ibGl2aW8udjEuUmVjb3ZlcnlTdGFydFJlcXVlc3QaIS5vYmxpdmlvLnYxLlJlY292ZXJ5U3RhcnRSZXNwb25zZRJdChBSZWNvdmVyeUNvbXBsZXRlEiMub2JsaXZpby52MS5SZWNvdmVyeUNvbXBsZXRlUmVxdWVzdBokLm9ibGl2aW8udjEuUmVjb3ZlcnlDb21wbGV0ZVJlc3BvbnNlEk4KC1ZlcmlmeUVtYWlsEh4ub2JsaXZpby52MS5WZXJpZnlFbWFpbFJlcXVlc3QaHy5vYmxpdmlvLnYxLlZlcmlmeUVtYWlsUmVzcG9uc2USYwoSUmVzZW5kVmVyaWZpY2F0aW9uEiUub2JsaXZpby52MS5SZXNlbmRWZXJpZmljYXRpb25SZXF1ZXN0GiYub2JsaXZpby52MS5SZXNlbmRWZXJpZmljYXRpb25SZXNwb25zZRI/CgZMb2dvdXQSGS5vYmxpdmlvLnYxLkxvZ291dFJlcXVlc3QaGi5vYmxpdmlvLnYxLkxvZ291dFJlc3BvbnNlEkgKCUdldE15S2V5cxIcLm9ibGl2aW8udjEuR2V0TXlLZXlzUmVxdWVzdBodLm9ibGl2aW8udjEuR2V0TXlLZXlzUmVzcG9uc2USaQoUQ2hhbmdlTWFzdGVyUGFzc3dvcmQSJy5vYmxpdmlvLnYxLkNoYW5nZU1hc3RlclBhc3N3b3JkUmVxdWVzdBooLm9ibGl2aW8udjEuQ2hhbmdlTWFzdGVyUGFzc3dvcmRSZXNwb25zZUKqAQoOY29tLm9ibGl2aW8udjFCCUF1dGhQcm90b1ABWkRnaXRodWIuY29tL3N4d2ViZGV2L29ibGl2aW8vaW50ZXJuYWwvYXBpL2dlbi9nby9vYmxpdmlvL3YxO29ibGl2aW92MaICA09YWKoCCk9ibGl2aW8uVjHKAgpPYmxpdmlvXFYx4gIWT2JsaXZpb1xWMVxHUEJNZXRhZGF0YeoCC09ibGl2aW86OlYxYgZwcm90bzM",
+    [file_oblivio_v1_common]
+  )
 
 /**
  * @generated from message oblivio.v1.RegisterRequest
@@ -21,19 +33,19 @@ export type RegisterRequest = Message<"oblivio.v1.RegisterRequest"> & {
   /**
    * @generated from field: string email = 1;
    */
-  email: string;
+  email: string
 
   /**
    * Argon2id parameters chosen by the client (typically t=3,m=128MiB,p=4).
    *
    * @generated from field: bytes salt_user = 2;
    */
-  saltUser: Uint8Array;
+  saltUser: Uint8Array
 
   /**
    * @generated from field: oblivio.v1.Argon2Params kdf_params = 3;
    */
-  kdfParams?: Argon2Params | undefined;
+  kdfParams?: Argon2Params | undefined
 
   /**
    * auth_key = HKDF-SHA256(master_key, info="oblivio/auth/v2", salt=salt_user).
@@ -41,45 +53,45 @@ export type RegisterRequest = Message<"oblivio.v1.RegisterRequest"> & {
    *
    * @generated from field: bytes auth_key = 4;
    */
-  authKey: Uint8Array;
+  authKey: Uint8Array
 
   /**
    * AES-GCM(master_key, "oblivio-verify"); 33+ bytes (version || nonce || ct || tag).
    *
    * @generated from field: bytes verifier = 5;
    */
-  verifier: Uint8Array;
+  verifier: Uint8Array
 
   /**
    * AES-GCM(master_key, vault_key); vault_key is generated client-side.
    *
    * @generated from field: bytes wrapped_vault_key = 6;
    */
-  wrappedVaultKey: Uint8Array;
+  wrappedVaultKey: Uint8Array
 
   /**
    * Recovery artefacts derived from recovery_code shown to the user once.
    *
    * @generated from field: bytes recovery_salt = 7;
    */
-  recoverySalt: Uint8Array;
+  recoverySalt: Uint8Array
 
   /**
    * @generated from field: bytes recovery_wrapped_vault_key = 8;
    */
-  recoveryWrappedVaultKey: Uint8Array;
+  recoveryWrappedVaultKey: Uint8Array
 
   /**
    * Argon2id(HKDF(recovery_key,"oblivio/auth/v2")) — server stores hashed proof.
    *
    * @generated from field: bytes recovery_proof = 9;
    */
-  recoveryProof: Uint8Array;
+  recoveryProof: Uint8Array
 
   /**
    * @generated from field: oblivio.v1.DeviceInfo device_info = 10;
    */
-  deviceInfo?: DeviceInfo | undefined;
+  deviceInfo?: DeviceInfo | undefined
 
   /**
    * Per-user pepper (16+ random bytes) mixed into the blind-index HKDF.
@@ -88,15 +100,16 @@ export type RegisterRequest = Message<"oblivio.v1.RegisterRequest"> & {
    *
    * @generated from field: bytes blind_pepper = 11;
    */
-  blindPepper: Uint8Array;
-};
+  blindPepper: Uint8Array
+}
 
 /**
  * Describes the message oblivio.v1.RegisterRequest.
  * Use `create(RegisterRequestSchema)` to create a new message.
  */
-export const RegisterRequestSchema: GenMessage<RegisterRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 0);
+export const RegisterRequestSchema: GenMessage<RegisterRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 0)
 
 /**
  * @generated from message oblivio.v1.RegisterResponse
@@ -105,20 +118,21 @@ export type RegisterResponse = Message<"oblivio.v1.RegisterResponse"> & {
   /**
    * @generated from field: string user_id = 1;
    */
-  userId: string;
+  userId: string
 
   /**
    * @generated from field: oblivio.v1.AuthPayload auth_payload = 2;
    */
-  authPayload?: AuthPayload | undefined;
-};
+  authPayload?: AuthPayload | undefined
+}
 
 /**
  * Describes the message oblivio.v1.RegisterResponse.
  * Use `create(RegisterResponseSchema)` to create a new message.
  */
-export const RegisterResponseSchema: GenMessage<RegisterResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 1);
+export const RegisterResponseSchema: GenMessage<RegisterResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 1)
 
 /**
  * @generated from message oblivio.v1.GetKDFParamsRequest
@@ -127,46 +141,49 @@ export type GetKDFParamsRequest = Message<"oblivio.v1.GetKDFParamsRequest"> & {
   /**
    * @generated from field: string email = 1;
    */
-  email: string;
-};
+  email: string
+}
 
 /**
  * Describes the message oblivio.v1.GetKDFParamsRequest.
  * Use `create(GetKDFParamsRequestSchema)` to create a new message.
  */
-export const GetKDFParamsRequestSchema: GenMessage<GetKDFParamsRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 2);
+export const GetKDFParamsRequestSchema: GenMessage<GetKDFParamsRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 2)
 
 /**
  * @generated from message oblivio.v1.GetKDFParamsResponse
  */
-export type GetKDFParamsResponse = Message<"oblivio.v1.GetKDFParamsResponse"> & {
-  /**
-   * @generated from field: bytes salt_user = 1;
-   */
-  saltUser: Uint8Array;
+export type GetKDFParamsResponse =
+  Message<"oblivio.v1.GetKDFParamsResponse"> & {
+    /**
+     * @generated from field: bytes salt_user = 1;
+     */
+    saltUser: Uint8Array
 
-  /**
-   * @generated from field: oblivio.v1.Argon2Params kdf_params = 2;
-   */
-  kdfParams?: Argon2Params | undefined;
+    /**
+     * @generated from field: oblivio.v1.Argon2Params kdf_params = 2;
+     */
+    kdfParams?: Argon2Params | undefined
 
-  /**
-   * Per-user pepper for the blind-index HKDF (plan §4.4). Treated as
-   * non-secret: an attacker that already has the salt knows the pepper too,
-   * and breaking the index still requires the vault_key.
-   *
-   * @generated from field: bytes blind_pepper = 3;
-   */
-  blindPepper: Uint8Array;
-};
+    /**
+     * Per-user pepper for the blind-index HKDF (plan §4.4). Treated as
+     * non-secret: an attacker that already has the salt knows the pepper too,
+     * and breaking the index still requires the vault_key.
+     *
+     * @generated from field: bytes blind_pepper = 3;
+     */
+    blindPepper: Uint8Array
+  }
 
 /**
  * Describes the message oblivio.v1.GetKDFParamsResponse.
  * Use `create(GetKDFParamsResponseSchema)` to create a new message.
  */
-export const GetKDFParamsResponseSchema: GenMessage<GetKDFParamsResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 3);
+export const GetKDFParamsResponseSchema: GenMessage<GetKDFParamsResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 3)
 
 /**
  * @generated from message oblivio.v1.AuthorizeRequest
@@ -175,25 +192,26 @@ export type AuthorizeRequest = Message<"oblivio.v1.AuthorizeRequest"> & {
   /**
    * @generated from field: string email = 1;
    */
-  email: string;
+  email: string
 
   /**
    * @generated from field: bytes auth_key = 2;
    */
-  authKey: Uint8Array;
+  authKey: Uint8Array
 
   /**
    * @generated from field: oblivio.v1.DeviceInfo device_info = 3;
    */
-  deviceInfo?: DeviceInfo | undefined;
-};
+  deviceInfo?: DeviceInfo | undefined
+}
 
 /**
  * Describes the message oblivio.v1.AuthorizeRequest.
  * Use `create(AuthorizeRequestSchema)` to create a new message.
  */
-export const AuthorizeRequestSchema: GenMessage<AuthorizeRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 4);
+export const AuthorizeRequestSchema: GenMessage<AuthorizeRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 4)
 
 /**
  * @generated from message oblivio.v1.AuthorizeResponse
@@ -206,20 +224,21 @@ export type AuthorizeResponse = Message<"oblivio.v1.AuthorizeResponse"> & {
    *
    * @generated from field: oblivio.v1.AuthPayload auth_payload = 1;
    */
-  authPayload?: AuthPayload | undefined;
+  authPayload?: AuthPayload | undefined
 
   /**
    * @generated from field: oblivio.v1.MFAChallenge mfa_challenge = 2;
    */
-  mfaChallenge?: MFAChallenge | undefined;
-};
+  mfaChallenge?: MFAChallenge | undefined
+}
 
 /**
  * Describes the message oblivio.v1.AuthorizeResponse.
  * Use `create(AuthorizeResponseSchema)` to create a new message.
  */
-export const AuthorizeResponseSchema: GenMessage<AuthorizeResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 5);
+export const AuthorizeResponseSchema: GenMessage<AuthorizeResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 5)
 
 /**
  * MFAChallenge tells the client which factors are required. Both flags can
@@ -232,32 +251,33 @@ export type MFAChallenge = Message<"oblivio.v1.MFAChallenge"> & {
   /**
    * @generated from field: string session_id = 1;
    */
-  sessionId: string;
+  sessionId: string
 
   /**
    * @generated from field: bool totp_required = 2;
    */
-  totpRequired: boolean;
+  totpRequired: boolean
 
   /**
    * @generated from field: bool webauthn_required = 3;
    */
-  webauthnRequired: boolean;
+  webauthnRequired: boolean
 
   /**
    * CredentialRequestOptions JSON (subset). Empty when webauthn_required=false.
    *
    * @generated from field: bytes webauthn_options_json = 4;
    */
-  webauthnOptionsJson: Uint8Array;
-};
+  webauthnOptionsJson: Uint8Array
+}
 
 /**
  * Describes the message oblivio.v1.MFAChallenge.
  * Use `create(MFAChallengeSchema)` to create a new message.
  */
-export const MFAChallengeSchema: GenMessage<MFAChallenge> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 6);
+export const MFAChallengeSchema: GenMessage<MFAChallenge> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 6)
 
 /**
  * @generated from message oblivio.v1.CompleteMFARequest
@@ -266,32 +286,33 @@ export type CompleteMFARequest = Message<"oblivio.v1.CompleteMFARequest"> & {
   /**
    * @generated from field: string session_id = 1;
    */
-  sessionId: string;
+  sessionId: string
 
   /**
    * Provide ONE of these.
    *
    * @generated from field: string totp_code = 2;
    */
-  totpCode: string;
+  totpCode: string
 
   /**
    * @generated from field: bytes webauthn_assertion_json = 3;
    */
-  webauthnAssertionJson: Uint8Array;
+  webauthnAssertionJson: Uint8Array
 
   /**
    * @generated from field: oblivio.v1.DeviceInfo device_info = 4;
    */
-  deviceInfo?: DeviceInfo | undefined;
-};
+  deviceInfo?: DeviceInfo | undefined
+}
 
 /**
  * Describes the message oblivio.v1.CompleteMFARequest.
  * Use `create(CompleteMFARequestSchema)` to create a new message.
  */
-export const CompleteMFARequestSchema: GenMessage<CompleteMFARequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 7);
+export const CompleteMFARequestSchema: GenMessage<CompleteMFARequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 7)
 
 /**
  * @generated from message oblivio.v1.CompleteMFAResponse
@@ -300,15 +321,16 @@ export type CompleteMFAResponse = Message<"oblivio.v1.CompleteMFAResponse"> & {
   /**
    * @generated from field: oblivio.v1.AuthPayload auth_payload = 1;
    */
-  authPayload?: AuthPayload | undefined;
-};
+  authPayload?: AuthPayload | undefined
+}
 
 /**
  * Describes the message oblivio.v1.CompleteMFAResponse.
  * Use `create(CompleteMFAResponseSchema)` to create a new message.
  */
-export const CompleteMFAResponseSchema: GenMessage<CompleteMFAResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 8);
+export const CompleteMFAResponseSchema: GenMessage<CompleteMFAResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 8)
 
 /**
  * @generated from message oblivio.v1.RefreshTokenRequest
@@ -317,76 +339,79 @@ export type RefreshTokenRequest = Message<"oblivio.v1.RefreshTokenRequest"> & {
   /**
    * @generated from field: string refresh_token = 1;
    */
-  refreshToken: string;
+  refreshToken: string
 
   /**
    * @generated from field: oblivio.v1.DeviceInfo device_info = 2;
    */
-  deviceInfo?: DeviceInfo | undefined;
-};
+  deviceInfo?: DeviceInfo | undefined
+}
 
 /**
  * Describes the message oblivio.v1.RefreshTokenRequest.
  * Use `create(RefreshTokenRequestSchema)` to create a new message.
  */
-export const RefreshTokenRequestSchema: GenMessage<RefreshTokenRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 9);
+export const RefreshTokenRequestSchema: GenMessage<RefreshTokenRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 9)
 
 /**
  * @generated from message oblivio.v1.RefreshTokenResponse
  */
-export type RefreshTokenResponse = Message<"oblivio.v1.RefreshTokenResponse"> & {
-  /**
-   * @generated from field: oblivio.v1.AuthPayload auth_payload = 1;
-   */
-  authPayload?: AuthPayload | undefined;
-};
+export type RefreshTokenResponse =
+  Message<"oblivio.v1.RefreshTokenResponse"> & {
+    /**
+     * @generated from field: oblivio.v1.AuthPayload auth_payload = 1;
+     */
+    authPayload?: AuthPayload | undefined
+  }
 
 /**
  * Describes the message oblivio.v1.RefreshTokenResponse.
  * Use `create(RefreshTokenResponseSchema)` to create a new message.
  */
-export const RefreshTokenResponseSchema: GenMessage<RefreshTokenResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 10);
+export const RefreshTokenResponseSchema: GenMessage<RefreshTokenResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 10)
 
 /**
  * @generated from message oblivio.v1.LogoutRequest
  */
-export type LogoutRequest = Message<"oblivio.v1.LogoutRequest"> & {
-};
+export type LogoutRequest = Message<"oblivio.v1.LogoutRequest"> & {}
 
 /**
  * Describes the message oblivio.v1.LogoutRequest.
  * Use `create(LogoutRequestSchema)` to create a new message.
  */
-export const LogoutRequestSchema: GenMessage<LogoutRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 11);
+export const LogoutRequestSchema: GenMessage<LogoutRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 11)
 
 /**
  * @generated from message oblivio.v1.LogoutResponse
  */
-export type LogoutResponse = Message<"oblivio.v1.LogoutResponse"> & {
-};
+export type LogoutResponse = Message<"oblivio.v1.LogoutResponse"> & {}
 
 /**
  * Describes the message oblivio.v1.LogoutResponse.
  * Use `create(LogoutResponseSchema)` to create a new message.
  */
-export const LogoutResponseSchema: GenMessage<LogoutResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 12);
+export const LogoutResponseSchema: GenMessage<LogoutResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 12)
 
 /**
  * @generated from message oblivio.v1.GetMyKeysRequest
  */
-export type GetMyKeysRequest = Message<"oblivio.v1.GetMyKeysRequest"> & {
-};
+export type GetMyKeysRequest = Message<"oblivio.v1.GetMyKeysRequest"> & {}
 
 /**
  * Describes the message oblivio.v1.GetMyKeysRequest.
  * Use `create(GetMyKeysRequestSchema)` to create a new message.
  */
-export const GetMyKeysRequestSchema: GenMessage<GetMyKeysRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 13);
+export const GetMyKeysRequestSchema: GenMessage<GetMyKeysRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 13)
 
 /**
  * @generated from message oblivio.v1.GetMyKeysResponse
@@ -395,17 +420,17 @@ export type GetMyKeysResponse = Message<"oblivio.v1.GetMyKeysResponse"> & {
   /**
    * @generated from field: bytes verifier = 1;
    */
-  verifier: Uint8Array;
+  verifier: Uint8Array
 
   /**
    * @generated from field: bytes wrapped_vault_key = 2;
    */
-  wrappedVaultKey: Uint8Array;
+  wrappedVaultKey: Uint8Array
 
   /**
    * @generated from field: uint32 vault_key_version = 3;
    */
-  vaultKeyVersion: number;
+  vaultKeyVersion: number
 
   /**
    * Login-TOTP envelope (AES-GCM under K_login_totp = HKDF(auth_key, ...)).
@@ -416,188 +441,200 @@ export type GetMyKeysResponse = Message<"oblivio.v1.GetMyKeysResponse"> & {
    *
    * @generated from field: bytes login_totp_encrypted_secret = 4;
    */
-  loginTotpEncryptedSecret: Uint8Array;
+  loginTotpEncryptedSecret: Uint8Array
 
   /**
    * @generated from field: bytes login_totp_nonce = 5;
    */
-  loginTotpNonce: Uint8Array;
-};
+  loginTotpNonce: Uint8Array
+}
 
 /**
  * Describes the message oblivio.v1.GetMyKeysResponse.
  * Use `create(GetMyKeysResponseSchema)` to create a new message.
  */
-export const GetMyKeysResponseSchema: GenMessage<GetMyKeysResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 14);
+export const GetMyKeysResponseSchema: GenMessage<GetMyKeysResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 14)
 
 /**
  * @generated from message oblivio.v1.GetRecoveryParamsRequest
  */
-export type GetRecoveryParamsRequest = Message<"oblivio.v1.GetRecoveryParamsRequest"> & {
-  /**
-   * @generated from field: string email = 1;
-   */
-  email: string;
-};
+export type GetRecoveryParamsRequest =
+  Message<"oblivio.v1.GetRecoveryParamsRequest"> & {
+    /**
+     * @generated from field: string email = 1;
+     */
+    email: string
+  }
 
 /**
  * Describes the message oblivio.v1.GetRecoveryParamsRequest.
  * Use `create(GetRecoveryParamsRequestSchema)` to create a new message.
  */
-export const GetRecoveryParamsRequestSchema: GenMessage<GetRecoveryParamsRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 15);
+export const GetRecoveryParamsRequestSchema: GenMessage<GetRecoveryParamsRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 15)
 
 /**
  * @generated from message oblivio.v1.GetRecoveryParamsResponse
  */
-export type GetRecoveryParamsResponse = Message<"oblivio.v1.GetRecoveryParamsResponse"> & {
-  /**
-   * Recovery KDF params currently mirror the master_key params; we keep them
-   * in a separate field so they can diverge later if we move to a faster KDF
-   * for recovery codes specifically.
-   *
-   * @generated from field: bytes recovery_salt = 1;
-   */
-  recoverySalt: Uint8Array;
+export type GetRecoveryParamsResponse =
+  Message<"oblivio.v1.GetRecoveryParamsResponse"> & {
+    /**
+     * Recovery KDF params currently mirror the master_key params; we keep them
+     * in a separate field so they can diverge later if we move to a faster KDF
+     * for recovery codes specifically.
+     *
+     * @generated from field: bytes recovery_salt = 1;
+     */
+    recoverySalt: Uint8Array
 
-  /**
-   * @generated from field: oblivio.v1.Argon2Params kdf_params = 2;
-   */
-  kdfParams?: Argon2Params | undefined;
-};
+    /**
+     * @generated from field: oblivio.v1.Argon2Params kdf_params = 2;
+     */
+    kdfParams?: Argon2Params | undefined
+  }
 
 /**
  * Describes the message oblivio.v1.GetRecoveryParamsResponse.
  * Use `create(GetRecoveryParamsResponseSchema)` to create a new message.
  */
-export const GetRecoveryParamsResponseSchema: GenMessage<GetRecoveryParamsResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 16);
+export const GetRecoveryParamsResponseSchema: GenMessage<GetRecoveryParamsResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 16)
 
 /**
  * @generated from message oblivio.v1.RecoveryStartRequest
  */
-export type RecoveryStartRequest = Message<"oblivio.v1.RecoveryStartRequest"> & {
-  /**
-   * @generated from field: string email = 1;
-   */
-  email: string;
+export type RecoveryStartRequest =
+  Message<"oblivio.v1.RecoveryStartRequest"> & {
+    /**
+     * @generated from field: string email = 1;
+     */
+    email: string
 
-  /**
-   * recovery_proof = HKDF(recovery_key, "oblivio/auth/v1").
-   *
-   * @generated from field: bytes recovery_proof = 2;
-   */
-  recoveryProof: Uint8Array;
-};
+    /**
+     * recovery_proof = HKDF(recovery_key, "oblivio/auth/v1").
+     *
+     * @generated from field: bytes recovery_proof = 2;
+     */
+    recoveryProof: Uint8Array
+  }
 
 /**
  * Describes the message oblivio.v1.RecoveryStartRequest.
  * Use `create(RecoveryStartRequestSchema)` to create a new message.
  */
-export const RecoveryStartRequestSchema: GenMessage<RecoveryStartRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 17);
+export const RecoveryStartRequestSchema: GenMessage<RecoveryStartRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 17)
 
 /**
  * @generated from message oblivio.v1.RecoveryStartResponse
  */
-export type RecoveryStartResponse = Message<"oblivio.v1.RecoveryStartResponse"> & {
-  /**
-   * recovery_session_id is a short-lived (15min) handle the client must
-   * present to RecoveryComplete. It also gates the rate-limit window so an
-   * attacker cannot brute-force recovery codes by hammering RecoveryStart.
-   *
-   * @generated from field: string recovery_session_id = 1;
-   */
-  recoverySessionId: string;
+export type RecoveryStartResponse =
+  Message<"oblivio.v1.RecoveryStartResponse"> & {
+    /**
+     * recovery_session_id is a short-lived (15min) handle the client must
+     * present to RecoveryComplete. It also gates the rate-limit window so an
+     * attacker cannot brute-force recovery codes by hammering RecoveryStart.
+     *
+     * @generated from field: string recovery_session_id = 1;
+     */
+    recoverySessionId: string
 
-  /**
-   * @generated from field: bytes recovery_wrapped_vault_key = 2;
-   */
-  recoveryWrappedVaultKey: Uint8Array;
-};
+    /**
+     * @generated from field: bytes recovery_wrapped_vault_key = 2;
+     */
+    recoveryWrappedVaultKey: Uint8Array
+  }
 
 /**
  * Describes the message oblivio.v1.RecoveryStartResponse.
  * Use `create(RecoveryStartResponseSchema)` to create a new message.
  */
-export const RecoveryStartResponseSchema: GenMessage<RecoveryStartResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 18);
+export const RecoveryStartResponseSchema: GenMessage<RecoveryStartResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 18)
 
 /**
  * @generated from message oblivio.v1.RecoveryCompleteRequest
  */
-export type RecoveryCompleteRequest = Message<"oblivio.v1.RecoveryCompleteRequest"> & {
-  /**
-   * @generated from field: string recovery_session_id = 1;
-   */
-  recoverySessionId: string;
+export type RecoveryCompleteRequest =
+  Message<"oblivio.v1.RecoveryCompleteRequest"> & {
+    /**
+     * @generated from field: string recovery_session_id = 1;
+     */
+    recoverySessionId: string
 
-  /**
-   * New auth artefacts derived from the freshly-chosen master_password.
-   *
-   * @generated from field: bytes salt_user = 2;
-   */
-  saltUser: Uint8Array;
+    /**
+     * New auth artefacts derived from the freshly-chosen master_password.
+     *
+     * @generated from field: bytes salt_user = 2;
+     */
+    saltUser: Uint8Array
 
-  /**
-   * @generated from field: oblivio.v1.Argon2Params kdf_params = 3;
-   */
-  kdfParams?: Argon2Params | undefined;
+    /**
+     * @generated from field: oblivio.v1.Argon2Params kdf_params = 3;
+     */
+    kdfParams?: Argon2Params | undefined
 
-  /**
-   * @generated from field: bytes auth_key = 4;
-   */
-  authKey: Uint8Array;
+    /**
+     * @generated from field: bytes auth_key = 4;
+     */
+    authKey: Uint8Array
 
-  /**
-   * @generated from field: bytes verifier = 5;
-   */
-  verifier: Uint8Array;
+    /**
+     * @generated from field: bytes verifier = 5;
+     */
+    verifier: Uint8Array
 
-  /**
-   * @generated from field: bytes wrapped_vault_key = 6;
-   */
-  wrappedVaultKey: Uint8Array;
+    /**
+     * @generated from field: bytes wrapped_vault_key = 6;
+     */
+    wrappedVaultKey: Uint8Array
 
-  /**
-   * Optional: re-encrypted login-TOTP envelope under the new K_login_totp.
-   * When the recovering client still has access to the TOTP secret it can
-   * recover the envelope from GetMyKeys (BEFORE recovery completes) by
-   * decrypting with the OLD auth_key, then re-seal here under the new
-   * auth_key. When the user lost their authenticator app these fields are
-   * empty and the server drops the stored TOTP — the user must set it up
-   * again after recovery.
-   *
-   * @generated from field: bytes login_totp_encrypted_secret = 7;
-   */
-  loginTotpEncryptedSecret: Uint8Array;
+    /**
+     * Optional: re-encrypted login-TOTP envelope under the new K_login_totp.
+     * When the recovering client still has access to the TOTP secret it can
+     * recover the envelope from GetMyKeys (BEFORE recovery completes) by
+     * decrypting with the OLD auth_key, then re-seal here under the new
+     * auth_key. When the user lost their authenticator app these fields are
+     * empty and the server drops the stored TOTP — the user must set it up
+     * again after recovery.
+     *
+     * @generated from field: bytes login_totp_encrypted_secret = 7;
+     */
+    loginTotpEncryptedSecret: Uint8Array
 
-  /**
-   * @generated from field: bytes login_totp_nonce = 8;
-   */
-  loginTotpNonce: Uint8Array;
-};
+    /**
+     * @generated from field: bytes login_totp_nonce = 8;
+     */
+    loginTotpNonce: Uint8Array
+  }
 
 /**
  * Describes the message oblivio.v1.RecoveryCompleteRequest.
  * Use `create(RecoveryCompleteRequestSchema)` to create a new message.
  */
-export const RecoveryCompleteRequestSchema: GenMessage<RecoveryCompleteRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 19);
+export const RecoveryCompleteRequestSchema: GenMessage<RecoveryCompleteRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 19)
 
 /**
  * @generated from message oblivio.v1.RecoveryCompleteResponse
  */
-export type RecoveryCompleteResponse = Message<"oblivio.v1.RecoveryCompleteResponse"> & {
-};
+export type RecoveryCompleteResponse =
+  Message<"oblivio.v1.RecoveryCompleteResponse"> & {}
 
 /**
  * Describes the message oblivio.v1.RecoveryCompleteResponse.
  * Use `create(RecoveryCompleteResponseSchema)` to create a new message.
  */
-export const RecoveryCompleteResponseSchema: GenMessage<RecoveryCompleteResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 20);
+export const RecoveryCompleteResponseSchema: GenMessage<RecoveryCompleteResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 20)
 
 /**
  * @generated from message oblivio.v1.VerifyEmailRequest
@@ -608,58 +645,62 @@ export type VerifyEmailRequest = Message<"oblivio.v1.VerifyEmailRequest"> & {
    *
    * @generated from field: string token = 1;
    */
-  token: string;
-};
+  token: string
+}
 
 /**
  * Describes the message oblivio.v1.VerifyEmailRequest.
  * Use `create(VerifyEmailRequestSchema)` to create a new message.
  */
-export const VerifyEmailRequestSchema: GenMessage<VerifyEmailRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 21);
+export const VerifyEmailRequestSchema: GenMessage<VerifyEmailRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 21)
 
 /**
  * @generated from message oblivio.v1.VerifyEmailResponse
  */
-export type VerifyEmailResponse = Message<"oblivio.v1.VerifyEmailResponse"> & {
-};
+export type VerifyEmailResponse = Message<"oblivio.v1.VerifyEmailResponse"> & {}
 
 /**
  * Describes the message oblivio.v1.VerifyEmailResponse.
  * Use `create(VerifyEmailResponseSchema)` to create a new message.
  */
-export const VerifyEmailResponseSchema: GenMessage<VerifyEmailResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 22);
+export const VerifyEmailResponseSchema: GenMessage<VerifyEmailResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 22)
 
 /**
  * @generated from message oblivio.v1.ResendVerificationRequest
  */
-export type ResendVerificationRequest = Message<"oblivio.v1.ResendVerificationRequest"> & {
-  /**
-   * @generated from field: string email = 1;
-   */
-  email: string;
-};
+export type ResendVerificationRequest =
+  Message<"oblivio.v1.ResendVerificationRequest"> & {
+    /**
+     * @generated from field: string email = 1;
+     */
+    email: string
+  }
 
 /**
  * Describes the message oblivio.v1.ResendVerificationRequest.
  * Use `create(ResendVerificationRequestSchema)` to create a new message.
  */
-export const ResendVerificationRequestSchema: GenMessage<ResendVerificationRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 23);
+export const ResendVerificationRequestSchema: GenMessage<ResendVerificationRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 23)
 
 /**
  * @generated from message oblivio.v1.ResendVerificationResponse
  */
-export type ResendVerificationResponse = Message<"oblivio.v1.ResendVerificationResponse"> & {
-};
+export type ResendVerificationResponse =
+  Message<"oblivio.v1.ResendVerificationResponse"> & {}
 
 /**
  * Describes the message oblivio.v1.ResendVerificationResponse.
  * Use `create(ResendVerificationResponseSchema)` to create a new message.
  */
-export const ResendVerificationResponseSchema: GenMessage<ResendVerificationResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 24);
+export const ResendVerificationResponseSchema: GenMessage<ResendVerificationResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 24)
 
 /**
  * --- ChangeMasterPassword (plan §7.2) ----------------------------------
@@ -672,77 +713,80 @@ export const ResendVerificationResponseSchema: GenMessage<ResendVerificationResp
  *
  * @generated from message oblivio.v1.ChangeMasterPasswordRequest
  */
-export type ChangeMasterPasswordRequest = Message<"oblivio.v1.ChangeMasterPasswordRequest"> & {
-  /**
-   * Proves possession of the OLD master_password.
-   *
-   * @generated from field: bytes old_auth_key = 1;
-   */
-  oldAuthKey: Uint8Array;
+export type ChangeMasterPasswordRequest =
+  Message<"oblivio.v1.ChangeMasterPasswordRequest"> & {
+    /**
+     * Proves possession of the OLD master_password.
+     *
+     * @generated from field: bytes old_auth_key = 1;
+     */
+    oldAuthKey: Uint8Array
 
-  /**
-   * Fresh artefacts derived from the NEW master_password.
-   *
-   * @generated from field: bytes new_auth_key = 2;
-   */
-  newAuthKey: Uint8Array;
+    /**
+     * Fresh artefacts derived from the NEW master_password.
+     *
+     * @generated from field: bytes new_auth_key = 2;
+     */
+    newAuthKey: Uint8Array
 
-  /**
-   * @generated from field: bytes new_salt_user = 3;
-   */
-  newSaltUser: Uint8Array;
+    /**
+     * @generated from field: bytes new_salt_user = 3;
+     */
+    newSaltUser: Uint8Array
 
-  /**
-   * @generated from field: oblivio.v1.Argon2Params new_kdf_params = 4;
-   */
-  newKdfParams?: Argon2Params | undefined;
+    /**
+     * @generated from field: oblivio.v1.Argon2Params new_kdf_params = 4;
+     */
+    newKdfParams?: Argon2Params | undefined
 
-  /**
-   * @generated from field: bytes new_verifier = 5;
-   */
-  newVerifier: Uint8Array;
+    /**
+     * @generated from field: bytes new_verifier = 5;
+     */
+    newVerifier: Uint8Array
 
-  /**
-   * @generated from field: bytes new_wrapped_vault_key = 6;
-   */
-  newWrappedVaultKey: Uint8Array;
+    /**
+     * @generated from field: bytes new_wrapped_vault_key = 6;
+     */
+    newWrappedVaultKey: Uint8Array
 
-  /**
-   * Optional re-encrypted login-TOTP envelope under the new K_login_totp.
-   * The client decrypts the old envelope (returned by GetMyKeys) with the
-   * OLD auth_key, then seals the secret under the new one. Empty when the
-   * user has no TOTP configured. See plan §17.2 — without this rotation
-   * path TOTP would silently break when auth_key changes.
-   *
-   * @generated from field: bytes new_login_totp_encrypted_secret = 7;
-   */
-  newLoginTotpEncryptedSecret: Uint8Array;
+    /**
+     * Optional re-encrypted login-TOTP envelope under the new K_login_totp.
+     * The client decrypts the old envelope (returned by GetMyKeys) with the
+     * OLD auth_key, then seals the secret under the new one. Empty when the
+     * user has no TOTP configured. See plan §17.2 — without this rotation
+     * path TOTP would silently break when auth_key changes.
+     *
+     * @generated from field: bytes new_login_totp_encrypted_secret = 7;
+     */
+    newLoginTotpEncryptedSecret: Uint8Array
 
-  /**
-   * @generated from field: bytes new_login_totp_nonce = 8;
-   */
-  newLoginTotpNonce: Uint8Array;
-};
+    /**
+     * @generated from field: bytes new_login_totp_nonce = 8;
+     */
+    newLoginTotpNonce: Uint8Array
+  }
 
 /**
  * Describes the message oblivio.v1.ChangeMasterPasswordRequest.
  * Use `create(ChangeMasterPasswordRequestSchema)` to create a new message.
  */
-export const ChangeMasterPasswordRequestSchema: GenMessage<ChangeMasterPasswordRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 25);
+export const ChangeMasterPasswordRequestSchema: GenMessage<ChangeMasterPasswordRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 25)
 
 /**
  * @generated from message oblivio.v1.ChangeMasterPasswordResponse
  */
-export type ChangeMasterPasswordResponse = Message<"oblivio.v1.ChangeMasterPasswordResponse"> & {
-};
+export type ChangeMasterPasswordResponse =
+  Message<"oblivio.v1.ChangeMasterPasswordResponse"> & {}
 
 /**
  * Describes the message oblivio.v1.ChangeMasterPasswordResponse.
  * Use `create(ChangeMasterPasswordResponseSchema)` to create a new message.
  */
-export const ChangeMasterPasswordResponseSchema: GenMessage<ChangeMasterPasswordResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_auth, 26);
+export const ChangeMasterPasswordResponseSchema: GenMessage<ChangeMasterPasswordResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_auth, 26)
 
 /**
  * AuthService handles registration, login, refresh and recovery for the
@@ -759,68 +803,68 @@ export const AuthService: GenService<{
    * @generated from rpc oblivio.v1.AuthService.Register
    */
   register: {
-    methodKind: "unary";
-    input: typeof RegisterRequestSchema;
-    output: typeof RegisterResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof RegisterRequestSchema
+    output: typeof RegisterResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.AuthService.GetKDFParams
    */
   getKDFParams: {
-    methodKind: "unary";
-    input: typeof GetKDFParamsRequestSchema;
-    output: typeof GetKDFParamsResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof GetKDFParamsRequestSchema
+    output: typeof GetKDFParamsResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.AuthService.Authorize
    */
   authorize: {
-    methodKind: "unary";
-    input: typeof AuthorizeRequestSchema;
-    output: typeof AuthorizeResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof AuthorizeRequestSchema
+    output: typeof AuthorizeResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.AuthService.CompleteMFA
    */
   completeMFA: {
-    methodKind: "unary";
-    input: typeof CompleteMFARequestSchema;
-    output: typeof CompleteMFAResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof CompleteMFARequestSchema
+    output: typeof CompleteMFAResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.AuthService.RefreshToken
    */
   refreshToken: {
-    methodKind: "unary";
-    input: typeof RefreshTokenRequestSchema;
-    output: typeof RefreshTokenResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof RefreshTokenRequestSchema
+    output: typeof RefreshTokenResponseSchema
+  }
   /**
    * Recovery (anonymous).
    *
    * @generated from rpc oblivio.v1.AuthService.GetRecoveryParams
    */
   getRecoveryParams: {
-    methodKind: "unary";
-    input: typeof GetRecoveryParamsRequestSchema;
-    output: typeof GetRecoveryParamsResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof GetRecoveryParamsRequestSchema
+    output: typeof GetRecoveryParamsResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.AuthService.RecoveryStart
    */
   recoveryStart: {
-    methodKind: "unary";
-    input: typeof RecoveryStartRequestSchema;
-    output: typeof RecoveryStartResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof RecoveryStartRequestSchema
+    output: typeof RecoveryStartResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.AuthService.RecoveryComplete
    */
   recoveryComplete: {
-    methodKind: "unary";
-    input: typeof RecoveryCompleteRequestSchema;
-    output: typeof RecoveryCompleteResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof RecoveryCompleteRequestSchema
+    output: typeof RecoveryCompleteResponseSchema
+  }
   /**
    * Email verification (anonymous). VerifyEmail consumes the token from
    * the user's clicked link; ResendVerification re-issues the link when
@@ -829,44 +873,42 @@ export const AuthService: GenService<{
    * @generated from rpc oblivio.v1.AuthService.VerifyEmail
    */
   verifyEmail: {
-    methodKind: "unary";
-    input: typeof VerifyEmailRequestSchema;
-    output: typeof VerifyEmailResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof VerifyEmailRequestSchema
+    output: typeof VerifyEmailResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.AuthService.ResendVerification
    */
   resendVerification: {
-    methodKind: "unary";
-    input: typeof ResendVerificationRequestSchema;
-    output: typeof ResendVerificationResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof ResendVerificationRequestSchema
+    output: typeof ResendVerificationResponseSchema
+  }
   /**
    * Authenticated endpoints.
    *
    * @generated from rpc oblivio.v1.AuthService.Logout
    */
   logout: {
-    methodKind: "unary";
-    input: typeof LogoutRequestSchema;
-    output: typeof LogoutResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof LogoutRequestSchema
+    output: typeof LogoutResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.AuthService.GetMyKeys
    */
   getMyKeys: {
-    methodKind: "unary";
-    input: typeof GetMyKeysRequestSchema;
-    output: typeof GetMyKeysResponseSchema;
-  },
+    methodKind: "unary"
+    input: typeof GetMyKeysRequestSchema
+    output: typeof GetMyKeysResponseSchema
+  }
   /**
    * @generated from rpc oblivio.v1.AuthService.ChangeMasterPassword
    */
   changeMasterPassword: {
-    methodKind: "unary";
-    input: typeof ChangeMasterPasswordRequestSchema;
-    output: typeof ChangeMasterPasswordResponseSchema;
-  },
-}> = /*@__PURE__*/
-  serviceDesc(file_oblivio_v1_auth, 0);
-
+    methodKind: "unary"
+    input: typeof ChangeMasterPasswordRequestSchema
+    output: typeof ChangeMasterPasswordResponseSchema
+  }
+}> = /*@__PURE__*/ serviceDesc(file_oblivio_v1_auth, 0)

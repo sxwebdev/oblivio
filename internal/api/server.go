@@ -15,7 +15,6 @@ import (
 	"github.com/tkcrm/mx/logger"
 
 	oblivio "github.com/sxwebdev/oblivio"
-	emailpkg "github.com/sxwebdev/oblivio/internal/email"
 	apiaudit "github.com/sxwebdev/oblivio/internal/api/audit"
 	apiauth "github.com/sxwebdev/oblivio/internal/api/auth"
 	apientries "github.com/sxwebdev/oblivio/internal/api/entries"
@@ -30,6 +29,7 @@ import (
 	"github.com/sxwebdev/oblivio/internal/audit"
 	"github.com/sxwebdev/oblivio/internal/auth"
 	"github.com/sxwebdev/oblivio/internal/config"
+	emailpkg "github.com/sxwebdev/oblivio/internal/email"
 	"github.com/sxwebdev/oblivio/internal/store"
 )
 

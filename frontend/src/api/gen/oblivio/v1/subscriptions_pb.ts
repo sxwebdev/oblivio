@@ -2,30 +2,44 @@
 // @generated from file oblivio/v1/subscriptions.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
-import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Timestamp } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { Message } from "@bufbuild/protobuf";
+import type {
+  GenEnum,
+  GenFile,
+  GenMessage,
+  GenService,
+} from "@bufbuild/protobuf/codegenv2"
+import {
+  enumDesc,
+  fileDesc,
+  messageDesc,
+  serviceDesc,
+} from "@bufbuild/protobuf/codegenv2"
+import type { Timestamp } from "@bufbuild/protobuf/wkt"
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt"
+import type { Message } from "@bufbuild/protobuf"
 
 /**
  * Describes the file oblivio/v1/subscriptions.proto.
  */
-export const file_oblivio_v1_subscriptions: GenFile = /*@__PURE__*/
-  fileDesc("Ch5vYmxpdmlvL3YxL3N1YnNjcmlwdGlvbnMucHJvdG8SCm9ibGl2aW8udjEiEgoQU3Vic2NyaWJlUmVxdWVzdCJDChFTdWJzY3JpYmVSZXNwb25zZRIuCgxub3RpZmljYXRpb24YASABKAsyGC5vYmxpdmlvLnYxLk5vdGlmaWNhdGlvbiJiCgxOb3RpZmljYXRpb24SKgoEa2luZBgBIAEoDjIcLm9ibGl2aW8udjEuTm90aWZpY2F0aW9uS2luZBImCgJhdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAqpQEKEE5vdGlmaWNhdGlvbktpbmQSIQodTk9USUZJQ0FUSU9OX0tJTkRfVU5TUEVDSUZJRUQQABIlCiFOT1RJRklDQVRJT05fS0lORF9FTlRSSUVTX1VQREFURUQQARImCiJOT1RJRklDQVRJT05fS0lORF9QUk9KRUNUU19VUERBVEVEEAISHwobTk9USUZJQ0FUSU9OX0tJTkRfSEVBUlRCRUFUEAMyYgoUU3Vic2NyaXB0aW9uc1NlcnZpY2USSgoJU3Vic2NyaWJlEhwub2JsaXZpby52MS5TdWJzY3JpYmVSZXF1ZXN0Gh0ub2JsaXZpby52MS5TdWJzY3JpYmVSZXNwb25zZTABQrMBCg5jb20ub2JsaXZpby52MUISU3Vic2NyaXB0aW9uc1Byb3RvUAFaRGdpdGh1Yi5jb20vc3h3ZWJkZXYvb2JsaXZpby9pbnRlcm5hbC9hcGkvZ2VuL2dvL29ibGl2aW8vdjE7b2JsaXZpb3YxogIDT1hYqgIKT2JsaXZpby5WMcoCCk9ibGl2aW9cVjHiAhZPYmxpdmlvXFYxXEdQQk1ldGFkYXRh6gILT2JsaXZpbzo6VjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
+export const file_oblivio_v1_subscriptions: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    "Ch5vYmxpdmlvL3YxL3N1YnNjcmlwdGlvbnMucHJvdG8SCm9ibGl2aW8udjEiEgoQU3Vic2NyaWJlUmVxdWVzdCJDChFTdWJzY3JpYmVSZXNwb25zZRIuCgxub3RpZmljYXRpb24YASABKAsyGC5vYmxpdmlvLnYxLk5vdGlmaWNhdGlvbiJiCgxOb3RpZmljYXRpb24SKgoEa2luZBgBIAEoDjIcLm9ibGl2aW8udjEuTm90aWZpY2F0aW9uS2luZBImCgJhdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAqpQEKEE5vdGlmaWNhdGlvbktpbmQSIQodTk9USUZJQ0FUSU9OX0tJTkRfVU5TUEVDSUZJRUQQABIlCiFOT1RJRklDQVRJT05fS0lORF9FTlRSSUVTX1VQREFURUQQARImCiJOT1RJRklDQVRJT05fS0lORF9QUk9KRUNUU19VUERBVEVEEAISHwobTk9USUZJQ0FUSU9OX0tJTkRfSEVBUlRCRUFUEAMyYgoUU3Vic2NyaXB0aW9uc1NlcnZpY2USSgoJU3Vic2NyaWJlEhwub2JsaXZpby52MS5TdWJzY3JpYmVSZXF1ZXN0Gh0ub2JsaXZpby52MS5TdWJzY3JpYmVSZXNwb25zZTABQrMBCg5jb20ub2JsaXZpby52MUISU3Vic2NyaXB0aW9uc1Byb3RvUAFaRGdpdGh1Yi5jb20vc3h3ZWJkZXYvb2JsaXZpby9pbnRlcm5hbC9hcGkvZ2VuL2dvL29ibGl2aW8vdjE7b2JsaXZpb3YxogIDT1hYqgIKT2JsaXZpby5WMcoCCk9ibGl2aW9cVjHiAhZPYmxpdmlvXFYxXEdQQk1ldGFkYXRh6gILT2JsaXZpbzo6VjFiBnByb3RvMw",
+    [file_google_protobuf_timestamp]
+  )
 
 /**
  * @generated from message oblivio.v1.SubscribeRequest
  */
-export type SubscribeRequest = Message<"oblivio.v1.SubscribeRequest"> & {
-};
+export type SubscribeRequest = Message<"oblivio.v1.SubscribeRequest"> & {}
 
 /**
  * Describes the message oblivio.v1.SubscribeRequest.
  * Use `create(SubscribeRequestSchema)` to create a new message.
  */
-export const SubscribeRequestSchema: GenMessage<SubscribeRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_subscriptions, 0);
+export const SubscribeRequestSchema: GenMessage<SubscribeRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_subscriptions, 0)
 
 /**
  * SubscribeResponse wraps a single push so the proto-lint rule (response
@@ -38,15 +52,16 @@ export type SubscribeResponse = Message<"oblivio.v1.SubscribeResponse"> & {
   /**
    * @generated from field: oblivio.v1.Notification notification = 1;
    */
-  notification?: Notification | undefined;
-};
+  notification?: Notification | undefined
+}
 
 /**
  * Describes the message oblivio.v1.SubscribeResponse.
  * Use `create(SubscribeResponseSchema)` to create a new message.
  */
-export const SubscribeResponseSchema: GenMessage<SubscribeResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_subscriptions, 1);
+export const SubscribeResponseSchema: GenMessage<SubscribeResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_subscriptions, 1)
 
 /**
  * @generated from message oblivio.v1.Notification
@@ -55,7 +70,7 @@ export type Notification = Message<"oblivio.v1.Notification"> & {
   /**
    * @generated from field: oblivio.v1.NotificationKind kind = 1;
    */
-  kind: NotificationKind;
+  kind: NotificationKind
 
   /**
    * Server-observed timestamp of the event. The client uses it only for
@@ -63,15 +78,16 @@ export type Notification = Message<"oblivio.v1.Notification"> & {
    *
    * @generated from field: google.protobuf.Timestamp at = 2;
    */
-  at?: Timestamp | undefined;
-};
+  at?: Timestamp | undefined
+}
 
 /**
  * Describes the message oblivio.v1.Notification.
  * Use `create(NotificationSchema)` to create a new message.
  */
-export const NotificationSchema: GenMessage<Notification> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_subscriptions, 2);
+export const NotificationSchema: GenMessage<Notification> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_subscriptions, 2)
 
 /**
  * NotificationKind enumerates the categories of changes the client may
@@ -105,8 +121,9 @@ export enum NotificationKind {
 /**
  * Describes the enum oblivio.v1.NotificationKind.
  */
-export const NotificationKindSchema: GenEnum<NotificationKind> = /*@__PURE__*/
-  enumDesc(file_oblivio_v1_subscriptions, 0);
+export const NotificationKindSchema: GenEnum<NotificationKind> =
+  /*@__PURE__*/
+  enumDesc(file_oblivio_v1_subscriptions, 0)
 
 /**
  * SubscriptionsService is a thin server-streaming endpoint backed by Postgres
@@ -131,10 +148,8 @@ export const SubscriptionsService: GenService<{
    * @generated from rpc oblivio.v1.SubscriptionsService.Subscribe
    */
   subscribe: {
-    methodKind: "server_streaming";
-    input: typeof SubscribeRequestSchema;
-    output: typeof SubscribeResponseSchema;
-  },
-}> = /*@__PURE__*/
-  serviceDesc(file_oblivio_v1_subscriptions, 0);
-
+    methodKind: "server_streaming"
+    input: typeof SubscribeRequestSchema
+    output: typeof SubscribeResponseSchema
+  }
+}> = /*@__PURE__*/ serviceDesc(file_oblivio_v1_subscriptions, 0)

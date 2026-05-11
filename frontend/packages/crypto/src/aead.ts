@@ -22,7 +22,11 @@ export async function encryptBlob(
     key,
     plaintext as unknown as ArrayBuffer
   )
-  return concat(new Uint8Array([ENVELOPE_VERSION_V1]), nonce, new Uint8Array(ct))
+  return concat(
+    new Uint8Array([ENVELOPE_VERSION_V1]),
+    nonce,
+    new Uint8Array(ct)
+  )
 }
 
 // Decrypt a `version(1) || nonce(12) || ciphertext+tag` envelope.

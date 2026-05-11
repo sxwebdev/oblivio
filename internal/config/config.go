@@ -23,8 +23,8 @@ type Config struct {
 
 // ServerConfig holds HTTP/ConnectRPC server settings.
 type ServerConfig struct {
-	Addr      string `yaml:"addr" validate:"required" default:":8080"`
-	TLS       TLSConfig
+	Addr string `yaml:"addr" validate:"required" default:":8080"`
+	TLS  TLSConfig
 	// PublicURL is the externally-visible base URL (e.g. https://oblivio.example.com).
 	// Used to build links in transactional emails. When empty the verification
 	// link falls back to "addr" which is fine in dev but useless from outside.

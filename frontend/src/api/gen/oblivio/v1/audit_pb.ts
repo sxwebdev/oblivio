@@ -2,17 +2,31 @@
 // @generated from file oblivio/v1/audit.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
-import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Timestamp } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { Message } from "@bufbuild/protobuf";
+import type {
+  GenEnum,
+  GenFile,
+  GenMessage,
+  GenService,
+} from "@bufbuild/protobuf/codegenv2"
+import {
+  enumDesc,
+  fileDesc,
+  messageDesc,
+  serviceDesc,
+} from "@bufbuild/protobuf/codegenv2"
+import type { Timestamp } from "@bufbuild/protobuf/wkt"
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt"
+import type { Message } from "@bufbuild/protobuf"
 
 /**
  * Describes the file oblivio/v1/audit.proto.
  */
-export const file_oblivio_v1_audit: GenFile = /*@__PURE__*/
-  fileDesc("ChZvYmxpdmlvL3YxL2F1ZGl0LnByb3RvEgpvYmxpdmlvLnYxIpQCCgpBdWRpdEVudHJ5EgoKAmlkGAEgASgDEicKBmFjdGlvbhgCIAEoDjIXLm9ibGl2aW8udjEuQXVkaXRBY3Rpb24SFgoJdGFyZ2V0X2lkGAMgASgJSACIAQESDwoCaXAYBCABKAlIAYgBARIXCgp1c2VyX2FnZW50GAUgASgJSAKIAQESFQoNbWV0YWRhdGFfanNvbhgGIAEoDBIRCglwcmV2X2hhc2gYByABKAwSEQoJc2VsZl9oYXNoGAggASgMEi4KCmNyZWF0ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wQgwKCl90YXJnZXRfaWRCBQoDX2lwQg0KC191c2VyX2FnZW50IuwBChBMaXN0QXVkaXRSZXF1ZXN0EiwKBmFjdGlvbhgBIAEoDjIXLm9ibGl2aW8udjEuQXVkaXRBY3Rpb25IAIgBARItCgRmcm9tGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgBiAEBEisKAnRvGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgCiAEBEhYKCWN1cnNvcl9pZBgEIAEoA0gDiAEBEg0KBWxpbWl0GAUgASgNQgkKB19hY3Rpb25CBwoFX2Zyb21CBQoDX3RvQgwKCl9jdXJzb3JfaWQibAoRTGlzdEF1ZGl0UmVzcG9uc2USJwoHZW50cmllcxgBIAMoCzIWLm9ibGl2aW8udjEuQXVkaXRFbnRyeRIbCg5uZXh0X2N1cnNvcl9pZBgCIAEoA0gAiAEBQhEKD19uZXh0X2N1cnNvcl9pZCrbBQoLQXVkaXRBY3Rpb24SHAoYQVVESVRfQUNUSU9OX1VOU1BFQ0lGSUVEEAASGQoVQVVESVRfQUNUSU9OX1JFR0lTVEVSEAESFgoSQVVESVRfQUNUSU9OX0xPR0lOEAISFwoTQVVESVRfQUNUSU9OX0xPR09VVBADEhgKFEFVRElUX0FDVElPTl9SRUZSRVNIEAQSIAocQVVESVRfQUNUSU9OX1BBU1NXT1JEX0NIQU5HRRAFEh8KG0FVRElUX0FDVElPTl9SRUNPVkVSWV9TVEFSVBAGEiIKHkFVRElUX0FDVElPTl9SRUNPVkVSWV9DT01QTEVURRAHEiIKHkFVRElUX0FDVElPTl9XRUJBVVRITl9SRUdJU1RFUhAIEiAKHEFVRElUX0FDVElPTl9XRUJBVVRITl9SRU1PVkUQCRIcChhBVURJVF9BQ1RJT05fVE9UUF9FTkFCTEUQChIdChlBVURJVF9BQ1RJT05fVE9UUF9ESVNBQkxFEAsSHwobQVVESVRfQUNUSU9OX1BST0pFQ1RfQ1JFQVRFEAwSHwobQVVESVRfQUNUSU9OX1BST0pFQ1RfVVBEQVRFEA0SHwobQVVESVRfQUNUSU9OX1BST0pFQ1RfREVMRVRFEA4SHQoZQVVESVRfQUNUSU9OX0VOVFJZX0NSRUFURRAPEh0KGUFVRElUX0FDVElPTl9FTlRSWV9VUERBVEUQEBIbChdBVURJVF9BQ1RJT05fRU5UUllfVklFVxAREh0KGUFVRElUX0FDVElPTl9FTlRSWV9ERUxFVEUQEhIiCh5BVURJVF9BQ1RJT05fU0VTU0lPTl9URVJNSU5BVEUQExIfChtBVURJVF9BQ1RJT05fQUNDT1VOVF9ERUxFVEUQFBIdChlBVURJVF9BQ1RJT05fRU1BSUxfVkVSSUZZEBUSHQoZQVVESVRfQUNUSU9OX0VNQUlMX1JFU0VORBAWMlgKDEF1ZGl0U2VydmljZRJICglMaXN0QXVkaXQSHC5vYmxpdmlvLnYxLkxpc3RBdWRpdFJlcXVlc3QaHS5vYmxpdmlvLnYxLkxpc3RBdWRpdFJlc3BvbnNlQqsBCg5jb20ub2JsaXZpby52MUIKQXVkaXRQcm90b1ABWkRnaXRodWIuY29tL3N4d2ViZGV2L29ibGl2aW8vaW50ZXJuYWwvYXBpL2dlbi9nby9vYmxpdmlvL3YxO29ibGl2aW92MaICA09YWKoCCk9ibGl2aW8uVjHKAgpPYmxpdmlvXFYx4gIWT2JsaXZpb1xWMVxHUEJNZXRhZGF0YeoCC09ibGl2aW86OlYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
+export const file_oblivio_v1_audit: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    "ChZvYmxpdmlvL3YxL2F1ZGl0LnByb3RvEgpvYmxpdmlvLnYxIpQCCgpBdWRpdEVudHJ5EgoKAmlkGAEgASgDEicKBmFjdGlvbhgCIAEoDjIXLm9ibGl2aW8udjEuQXVkaXRBY3Rpb24SFgoJdGFyZ2V0X2lkGAMgASgJSACIAQESDwoCaXAYBCABKAlIAYgBARIXCgp1c2VyX2FnZW50GAUgASgJSAKIAQESFQoNbWV0YWRhdGFfanNvbhgGIAEoDBIRCglwcmV2X2hhc2gYByABKAwSEQoJc2VsZl9oYXNoGAggASgMEi4KCmNyZWF0ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wQgwKCl90YXJnZXRfaWRCBQoDX2lwQg0KC191c2VyX2FnZW50IuwBChBMaXN0QXVkaXRSZXF1ZXN0EiwKBmFjdGlvbhgBIAEoDjIXLm9ibGl2aW8udjEuQXVkaXRBY3Rpb25IAIgBARItCgRmcm9tGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgBiAEBEisKAnRvGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgCiAEBEhYKCWN1cnNvcl9pZBgEIAEoA0gDiAEBEg0KBWxpbWl0GAUgASgNQgkKB19hY3Rpb25CBwoFX2Zyb21CBQoDX3RvQgwKCl9jdXJzb3JfaWQibAoRTGlzdEF1ZGl0UmVzcG9uc2USJwoHZW50cmllcxgBIAMoCzIWLm9ibGl2aW8udjEuQXVkaXRFbnRyeRIbCg5uZXh0X2N1cnNvcl9pZBgCIAEoA0gAiAEBQhEKD19uZXh0X2N1cnNvcl9pZCrbBQoLQXVkaXRBY3Rpb24SHAoYQVVESVRfQUNUSU9OX1VOU1BFQ0lGSUVEEAASGQoVQVVESVRfQUNUSU9OX1JFR0lTVEVSEAESFgoSQVVESVRfQUNUSU9OX0xPR0lOEAISFwoTQVVESVRfQUNUSU9OX0xPR09VVBADEhgKFEFVRElUX0FDVElPTl9SRUZSRVNIEAQSIAocQVVESVRfQUNUSU9OX1BBU1NXT1JEX0NIQU5HRRAFEh8KG0FVRElUX0FDVElPTl9SRUNPVkVSWV9TVEFSVBAGEiIKHkFVRElUX0FDVElPTl9SRUNPVkVSWV9DT01QTEVURRAHEiIKHkFVRElUX0FDVElPTl9XRUJBVVRITl9SRUdJU1RFUhAIEiAKHEFVRElUX0FDVElPTl9XRUJBVVRITl9SRU1PVkUQCRIcChhBVURJVF9BQ1RJT05fVE9UUF9FTkFCTEUQChIdChlBVURJVF9BQ1RJT05fVE9UUF9ESVNBQkxFEAsSHwobQVVESVRfQUNUSU9OX1BST0pFQ1RfQ1JFQVRFEAwSHwobQVVESVRfQUNUSU9OX1BST0pFQ1RfVVBEQVRFEA0SHwobQVVESVRfQUNUSU9OX1BST0pFQ1RfREVMRVRFEA4SHQoZQVVESVRfQUNUSU9OX0VOVFJZX0NSRUFURRAPEh0KGUFVRElUX0FDVElPTl9FTlRSWV9VUERBVEUQEBIbChdBVURJVF9BQ1RJT05fRU5UUllfVklFVxAREh0KGUFVRElUX0FDVElPTl9FTlRSWV9ERUxFVEUQEhIiCh5BVURJVF9BQ1RJT05fU0VTU0lPTl9URVJNSU5BVEUQExIfChtBVURJVF9BQ1RJT05fQUNDT1VOVF9ERUxFVEUQFBIdChlBVURJVF9BQ1RJT05fRU1BSUxfVkVSSUZZEBUSHQoZQVVESVRfQUNUSU9OX0VNQUlMX1JFU0VORBAWMlgKDEF1ZGl0U2VydmljZRJICglMaXN0QXVkaXQSHC5vYmxpdmlvLnYxLkxpc3RBdWRpdFJlcXVlc3QaHS5vYmxpdmlvLnYxLkxpc3RBdWRpdFJlc3BvbnNlQqsBCg5jb20ub2JsaXZpby52MUIKQXVkaXRQcm90b1ABWkRnaXRodWIuY29tL3N4d2ViZGV2L29ibGl2aW8vaW50ZXJuYWwvYXBpL2dlbi9nby9vYmxpdmlvL3YxO29ibGl2aW92MaICA09YWKoCCk9ibGl2aW8uVjHKAgpPYmxpdmlvXFYx4gIWT2JsaXZpb1xWMVxHUEJNZXRhZGF0YeoCC09ibGl2aW86OlYxYgZwcm90bzM",
+    [file_google_protobuf_timestamp]
+  )
 
 /**
  * @generated from message oblivio.v1.AuditEntry
@@ -21,55 +35,56 @@ export type AuditEntry = Message<"oblivio.v1.AuditEntry"> & {
   /**
    * @generated from field: int64 id = 1;
    */
-  id: bigint;
+  id: bigint
 
   /**
    * @generated from field: oblivio.v1.AuditAction action = 2;
    */
-  action: AuditAction;
+  action: AuditAction
 
   /**
    * @generated from field: optional string target_id = 3;
    */
-  targetId?: string | undefined;
+  targetId?: string | undefined
 
   /**
    * @generated from field: optional string ip = 4;
    */
-  ip?: string | undefined;
+  ip?: string | undefined
 
   /**
    * @generated from field: optional string user_agent = 5;
    */
-  userAgent?: string | undefined;
+  userAgent?: string | undefined
 
   /**
    * @generated from field: bytes metadata_json = 6;
    */
-  metadataJson: Uint8Array;
+  metadataJson: Uint8Array
 
   /**
    * @generated from field: bytes prev_hash = 7;
    */
-  prevHash: Uint8Array;
+  prevHash: Uint8Array
 
   /**
    * @generated from field: bytes self_hash = 8;
    */
-  selfHash: Uint8Array;
+  selfHash: Uint8Array
 
   /**
    * @generated from field: google.protobuf.Timestamp created_at = 9;
    */
-  createdAt?: Timestamp | undefined;
-};
+  createdAt?: Timestamp | undefined
+}
 
 /**
  * Describes the message oblivio.v1.AuditEntry.
  * Use `create(AuditEntrySchema)` to create a new message.
  */
-export const AuditEntrySchema: GenMessage<AuditEntry> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_audit, 0);
+export const AuditEntrySchema: GenMessage<AuditEntry> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_audit, 0)
 
 /**
  * @generated from message oblivio.v1.ListAuditRequest
@@ -78,37 +93,38 @@ export type ListAuditRequest = Message<"oblivio.v1.ListAuditRequest"> & {
   /**
    * @generated from field: optional oblivio.v1.AuditAction action = 1;
    */
-  action?: AuditAction | undefined;
+  action?: AuditAction | undefined
 
   /**
    * @generated from field: optional google.protobuf.Timestamp from = 2;
    */
-  from?: Timestamp | undefined;
+  from?: Timestamp | undefined
 
   /**
    * @generated from field: optional google.protobuf.Timestamp to = 3;
    */
-  to?: Timestamp | undefined;
+  to?: Timestamp | undefined
 
   /**
    * @generated from field: optional int64 cursor_id = 4;
    */
-  cursorId?: bigint | undefined;
+  cursorId?: bigint | undefined
 
   /**
    * server caps at 200; 0 → default 50
    *
    * @generated from field: uint32 limit = 5;
    */
-  limit: number;
-};
+  limit: number
+}
 
 /**
  * Describes the message oblivio.v1.ListAuditRequest.
  * Use `create(ListAuditRequestSchema)` to create a new message.
  */
-export const ListAuditRequestSchema: GenMessage<ListAuditRequest> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_audit, 1);
+export const ListAuditRequestSchema: GenMessage<ListAuditRequest> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_audit, 1)
 
 /**
  * @generated from message oblivio.v1.ListAuditResponse
@@ -117,20 +133,21 @@ export type ListAuditResponse = Message<"oblivio.v1.ListAuditResponse"> & {
   /**
    * @generated from field: repeated oblivio.v1.AuditEntry entries = 1;
    */
-  entries: AuditEntry[];
+  entries: AuditEntry[]
 
   /**
    * @generated from field: optional int64 next_cursor_id = 2;
    */
-  nextCursorId?: bigint | undefined;
-};
+  nextCursorId?: bigint | undefined
+}
 
 /**
  * Describes the message oblivio.v1.ListAuditResponse.
  * Use `create(ListAuditResponseSchema)` to create a new message.
  */
-export const ListAuditResponseSchema: GenMessage<ListAuditResponse> = /*@__PURE__*/
-  messageDesc(file_oblivio_v1_audit, 2);
+export const ListAuditResponseSchema: GenMessage<ListAuditResponse> =
+  /*@__PURE__*/
+  messageDesc(file_oblivio_v1_audit, 2)
 
 /**
  * @generated from enum oblivio.v1.AuditAction
@@ -255,8 +272,9 @@ export enum AuditAction {
 /**
  * Describes the enum oblivio.v1.AuditAction.
  */
-export const AuditActionSchema: GenEnum<AuditAction> = /*@__PURE__*/
-  enumDesc(file_oblivio_v1_audit, 0);
+export const AuditActionSchema: GenEnum<AuditAction> =
+  /*@__PURE__*/
+  enumDesc(file_oblivio_v1_audit, 0)
 
 /**
  * AuditService exposes a per-user, read-only view of the hash-chained
@@ -270,10 +288,8 @@ export const AuditService: GenService<{
    * @generated from rpc oblivio.v1.AuditService.ListAudit
    */
   listAudit: {
-    methodKind: "unary";
-    input: typeof ListAuditRequestSchema;
-    output: typeof ListAuditResponseSchema;
-  },
-}> = /*@__PURE__*/
-  serviceDesc(file_oblivio_v1_audit, 0);
-
+    methodKind: "unary"
+    input: typeof ListAuditRequestSchema
+    output: typeof ListAuditResponseSchema
+  }
+}> = /*@__PURE__*/ serviceDesc(file_oblivio_v1_audit, 0)

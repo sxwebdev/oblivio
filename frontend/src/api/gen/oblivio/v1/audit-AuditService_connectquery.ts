@@ -2,9 +2,9 @@
 // @generated from file oblivio/v1/audit.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import { AuditService } from "./audit_pb";
+import { AuditService } from "./audit_pb"
 
 /**
  * @generated from rpc oblivio.v1.AuditService.ListAudit
  */
-export const listAudit = AuditService.method.listAudit;
+export const listAudit = AuditService.method.listAudit
