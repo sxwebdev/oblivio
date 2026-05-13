@@ -1,85 +1,87 @@
-# Аудиторский отчёт — Oblivio (zero-knowledge password manager)
+# Audit Report — Oblivio (zero-knowledge password manager)
 
-**Аудит проведён по состоянию на коммит `3d34895` ветки `init-repo`.**
-Скоп: серверный Go (`internal/**`, `cmd/oblivio`), клиентская крипта (`frontend/packages/crypto/src/**`), миграции, проектная архитектура из `docs/oblivio.md`.
+**Audit performed against commit `3d34895` on branch `init-repo`.**
+Scope: server-side Go (`internal/**`, `cmd/oblivio`), client-side crypto
+(`frontend/packages/crypto/src/**`), migrations, and the project
+architecture from `docs/oblivio.md`.
 
 ---
 
-## 1. Топ-5 критических проблем
+## 1. Top 5 critical issues
 
-### 1.1. Recovery code никогда не ротируется — постоянный backdoor к vault_key
+### 1.1. The recovery code is never rotated — a permanent backdoor to `vault_key`
 
-**Где:** [sql/queries/user_vault/user_vault.sql:17-27](../sql/queries/user_vault/user_vault.sql#L17-L27) и явный комментарий в этой же query:
+**Where:** [sql/queries/user_vault/user_vault.sql:17-27](../sql/queries/user_vault/user_vault.sql#L17-L27), and the explicit comment in the same query:
 
 > "The recovery-related material (salt + wrapped) stays put so the same recovery code can still be used (the client should generate a new one after a successful recovery, but that is a UX nicety — not enforced)."
 
-`CompleteRecovery` обновляет `verifier`, `wrapped_vault_key`, `vault_key_version`, но **не трогает** `recovery_salt`, `recovery_wrapped_vault_key`, `recovery_proof_hash`. То же самое делает `ChangeMasterPassword` — [internal/api/auth/service.go:724-730](../internal/api/auth/service.go#L724-L730).
+`CompleteRecovery` updates `verifier`, `wrapped_vault_key`, and `vault_key_version`, but **does not touch** `recovery_salt`, `recovery_wrapped_vault_key`, or `recovery_proof_hash`. The same goes for `ChangeMasterPassword` — see [internal/api/auth/service.go:724-730](../internal/api/auth/service.go#L724-L730).
 
-`vault_key` не ротируется при recovery (только переоборачивается под новый master_key). Следовательно `recovery_wrapped_vault_key = AES-GCM(recovery_key, vault_key)` остаётся валидным навечно для того же `recovery_code`.
+`vault_key` is not rotated on recovery (only re-wrapped under the new `master_key`). So `recovery_wrapped_vault_key = AES-GCM(recovery_key, vault_key)` stays valid forever under the same `recovery_code`.
 
-**Эксплуатация.** Пользователь регистрируется в 2025, сохраняет recovery_code в облачную заметку. В 2027 меняет master_password 5 раз, проходит через recovery. В 2028 атакующий получает доступ к старой заметке — у него **актуальный** recovery_code, дающий доступ ко всему текущему vault'у. Никаких признаков компрометации в audit_log нет (recovery flow никогда не использовался атакующим до этого момента).
+**Exploitation.** A user registers in 2025, stores their recovery code in a cloud note. In 2027 they change their master password five times and go through a recovery. In 2028 an attacker gets hold of the old note — they now hold a **current** recovery code that grants access to the entire current vault. The audit log shows no signs of compromise (the recovery flow was never previously triggered by the attacker).
 
-В архитектурном документе §17 этот недостаток **не зафиксирован**. Это нарушение принципа forward secrecy для recovery-канала.
+The architecture document §17 **does not record** this gap. It violates forward secrecy for the recovery channel.
 
-**Как чинить.**
+**How to fix.**
 
-1. В `RecoveryComplete` обязательно требовать у клиента новые `recovery_salt`, `recovery_wrapped_vault_key`, `recovery_proof_hash` (клиент генерирует новый recovery_code, показывает пользователю, перешифровывает текущий vault_key). Аналогично — в `ChangeMasterPassword` (опционально, с UI-флагом).
-2. Альтернатива покрепче: при recovery ротировать сам `vault_key` (с пере-обёртыванием всех `wrapped_item_key` под новый vault_key — дорого, но семантически правильно).
-3. Минимум: invalid-date `recovery_used_at` после recovery и требовать явного `RegenerateRecoveryCode` перед тем как `recovery_proof_hash` снова становится валидным.
+1. In `RecoveryComplete`, require the client to send new `recovery_salt`, `recovery_wrapped_vault_key`, and `recovery_proof_hash` (the client generates a fresh recovery code, displays it to the user, and re-encrypts the current `vault_key`). Do the same for `ChangeMasterPassword` (optionally, behind a UI flag).
+2. A stronger alternative: rotate the `vault_key` itself on recovery (and re-wrap every `wrapped_item_key` under the new `vault_key` — expensive but semantically correct).
+3. Minimum bar: clear `recovery_used_at` after a recovery and require an explicit `RegenerateRecoveryCode` call before `recovery_proof_hash` becomes valid again.
 
-**Серьёзность:** High. Это идёт против всего zero-knowledge нарратива.
+**Severity:** High. This contradicts the entire zero-knowledge narrative.
 
 ---
 
-### 1.2. Audit-anchor не проверяется на «чистом» проходе — защита от tampering фиктивна
+### 1.2. The audit anchor isn't checked on a "clean" pass — tamper protection is a façade
 
-**Где:** [internal/jobs/audit_chain_verify.go:62-86](../internal/jobs/audit_chain_verify.go#L62-L86)
+**Where:** [internal/jobs/audit_chain_verify.go:62-86](../internal/jobs/audit_chain_verify.go#L62-L86)
 
 ```go
 if res.OK() {
     // ...
-    return nil  // ← anchor НЕ проверяется
+    return nil  // ← anchor is NOT checked
 }
 // only on chain MISMATCH:
 if err := w.verifyAnchor(ctx, res.Head); err != nil { ... }
 ```
 
-Логика worker'а: если SHA-256 chain согласована с `system_state.audit_chain_head` → выйти без проверки anchor. Anchor проверяется **только** когда chain уже расходится.
+The worker's logic: if the SHA-256 chain matches `system_state.audit_chain_head`, exit without verifying the anchor. The anchor is checked **only** when the chain has already diverged.
 
-Но цель anchor — ловить атакующего, который **согласованно** переписал и строки `audit_log`, и `audit_chain_head`. В таком сценарии:
+But the anchor's whole point is to catch an attacker who **consistently** rewrote both the `audit_log` rows _and_ `audit_chain_head`. In that scenario:
 
-- chain hash == stored_head → `res.OK() == true` → выходим.
-- Anchor никогда не консультируется.
-- Атакующий полностью замёл следы.
+- chain hash == stored_head → `res.OK() == true` → we exit.
+- The anchor is never consulted.
+- The attacker has fully covered their tracks.
 
-Это та самая атака, против которой anchor нужен. Текущая реализация ловит только некогерентные правки (которые и старый chain без anchor поймал бы).
+This is exactly the attack the anchor was supposed to defend against. The current implementation only catches incoherent edits (which the old chain without an anchor would have caught too).
 
-Дополнительно [internal/audit/verify.go:67-119](../internal/audit/verify.go#L67-L119) — анкор не учитывает high-water-mark: в `audit_chain_anchors` хранится только `head`, без `audit_log.id`, до которого он подписан. Поэтому даже исправленная логика не сможет различить «легитимно ушли вперёд от анкора» и «переписали историю».
+Additionally, [internal/audit/verify.go:67-119](../internal/audit/verify.go#L67-L119): the anchor does not capture a high-water mark — `audit_chain_anchors` stores only `head`, without the `audit_log.id` it was signed up to. So even fixed logic cannot distinguish "we legitimately moved forward past the anchor" from "history was rewritten".
 
-**Эксплуатация (model: внутренний оператор / DBA или RCE на DB-хосте).**
+**Exploitation (model: internal operator / DBA, or RCE on the DB host).**
 
-1. Получить SQL-доступ к `audit_log` и `system_state`.
-2. Удалить/изменить N последних строк (например, `entry_view` для записи с паролем от банка).
-3. Пересчитать `self_hash` для оставшихся.
-4. Записать новый `audit_chain_head`.
-5. Audit verify job на следующем прогоне: chain согласован, OK, anchor не проверяется. Tampering не обнаружено.
+1. Get SQL access to `audit_log` and `system_state`.
+2. Delete or alter the last N rows (for example, the `entry_view` row for the user's bank password).
+3. Recompute `self_hash` for the remaining rows.
+4. Write a new `audit_chain_head`.
+5. The next audit-verify run: chain matches, OK, anchor never consulted. Tampering is not detected.
 
-**Как чинить.**
+**How to fix.**
 
-1. `AuditChainAnchorWorker.Work` должен записывать `(head, last_audit_id, signature, signer_id)` — фиксируя высоту якоря.
-2. `AuditChainVerifyWorker.Work` должен **всегда** загружать последний anchor и:
-   - Перепроверять chain до `last_audit_id` (батчами), сравнивать с `anchor.head`.
-   - Если `current_head != anchor.head`, всё равно убеждаться, что rows `[1..anchor.last_audit_id]` дают `anchor.head` (т.е. история до момента подписи неизменна; вперёд можно идти).
-   - Проверять `ed25519.Verify(pub, anchor.head || anchor.last_audit_id, anchor.signature)` — id должен входить в подпись.
-3. Alarm на: signature invalid; `anchor.head != computed_hash_at_anchor_height`.
+1. `AuditChainAnchorWorker.Work` should record `(head, last_audit_id, signature, signer_id)` — pinning the anchor's height.
+2. `AuditChainVerifyWorker.Work` should **always** load the latest anchor and:
+   - Recompute the chain up to `last_audit_id` (in batches) and compare with `anchor.head`.
+   - If `current_head != anchor.head`, still verify that rows `[1..anchor.last_audit_id]` produce `anchor.head` (i.e. history up to the signing moment is unchanged; moving forward from there is allowed).
+   - Verify `ed25519.Verify(pub, anchor.head || anchor.last_audit_id, anchor.signature)` — the id must be covered by the signature.
+3. Alarm on: signature invalid; `anchor.head != computed_hash_at_anchor_height`.
 
-**Серьёзность:** High. Эта защита заявлена как защита от DB-доступного атакующего; сейчас она не работает.
+**Severity:** High. The protection is advertised as defence against a DB-only attacker; right now it does not work.
 
 ---
 
-### 1.3. Permanent account lockout DoS — пять провальных попыток никогда не сбрасывают `failed_attempts`
+### 1.3. Permanent account lockout DoS — five failed attempts never reset `failed_attempts`
 
-**Где:** [sql/queries/user_auth/user_auth.sql:12-20](../sql/queries/user_auth/user_auth.sql#L12-L20)
+**Where:** [sql/queries/user_auth/user_auth.sql:12-20](../sql/queries/user_auth/user_auth.sql#L12-L20)
 
 ```sql
 SET failed_attempts = failed_attempts + 1,
@@ -89,20 +91,20 @@ SET failed_attempts = failed_attempts + 1,
     END
 ```
 
-`failed_attempts` сбрасывается **только** при `ResetFailedLogin` (вызывается на успешном login) или `UpsertUserAuth` (recovery / change password). Сам счётчик никогда не уменьшается со временем.
+`failed_attempts` is reset **only** in `ResetFailedLogin` (called on a successful login) or `UpsertUserAuth` (recovery / change password). The counter itself never decreases with time.
 
-**Сценарий вечной блокировки.** Атакующий знает email жертвы.
+**Permanent-lockout scenario.** The attacker knows the victim's email.
 
-1. Шлёт 5 wrong-password Authorize → `failed_attempts=5`, lockout 15 min.
-2. Жертва ждёт 15 мин — может зайти? Нет: атакующий снова шлёт 1 wrong-password каждые 15 мин. Условие `failed_attempts(6) + 1 >= 5` всегда true → `locked_until = now + 15min`. Каждый wrong-password продлевает lockout, пока жертва не сделает успешный login. Жертва не может сделать успешный login, потому что `locked_until.After(time.Now())` всегда true.
+1. Sends 5 wrong-password `Authorize` calls → `failed_attempts=5`, lockout 15 min.
+2. The victim waits 15 minutes — can they log in? No: the attacker sends one more wrong-password every 15 min. The condition `failed_attempts(6) + 1 >= 5` is always true → `locked_until = now + 15min`. Every wrong-password extends the lockout until the victim manages a successful login. The victim cannot manage a successful login, because `locked_until.After(time.Now())` is always true.
 
-Per-email rate-limit (5/min для Authorize в `rate_limit.go`) **не помогает** — атакующему нужна одна попытка раз в 15 минут (1/900 запросов в секунду), это глубоко под любым rate-лимитом.
+The per-email rate limit (5/min for `Authorize` in `rate_limit.go`) **does not help** — the attacker needs one attempt every 15 minutes (1/900 RPS), which is far below any rate limit.
 
-**Стоимость атаки:** один HTTP-запрос каждые 15 минут навечно блокирует выбранный email.
+**Attack cost:** one HTTP request every 15 minutes permanently locks the chosen email.
 
-**Как чинить.**
+**How to fix.**
 
-1. Сбрасывать `failed_attempts` если `locked_until IS NOT NULL AND locked_until < now()`:
+1. Reset `failed_attempts` when `locked_until IS NOT NULL AND locked_until < now()`:
 
    ```sql
    SET failed_attempts = CASE
@@ -117,43 +119,43 @@ Per-email rate-limit (5/min для Authorize в `rate_limit.go`) **не помо
    END
    ```
 
-2. Дополнительно: задавать TTL для `failed_attempts` (например, скользящее окно 1 час) или экспоненциальный backoff (`5min, 15min, 1h, 4h, capped`).
-3. И вообще для unauthenticated DoS-blocker'а account-level lockout — антипаттерн. Лучше rate-limit per-IP + per-email + CAPTCHA после N неудач, без блокировки самого аккаунта.
+2. Additionally: give `failed_attempts` a TTL (e.g. a 1 h sliding window) or use exponential backoff (`5min, 15min, 1h, 4h, capped`).
+3. More broadly, account-level lockout as an unauthenticated-DoS blocker is an antipattern. The better option is per-IP + per-email rate limiting + CAPTCHA after N failures, without blocking the account itself.
 
-**Серьёзность:** High (DoS-vector конкретно против выбранного пользователя).
+**Severity:** High (DoS vector against a specifically chosen user).
 
 ---
 
-### 1.4. `dummyAuthHash` использует неправильные Argon2-параметры — user-enumeration через тайминг
+### 1.4. `dummyAuthHash` uses the wrong Argon2 parameters — user enumeration via timing
 
-**Где:** [internal/api/auth/service.go:1147-1166](../internal/api/auth/service.go#L1147-L1166)
+**Where:** [internal/api/auth/service.go:1147-1166](../internal/api/auth/service.go#L1147-L1166)
 
 ```go
 h, err := auth.HashAuthKey(seed, auth.Argon2Params{T: 3, MKiB: 65536, P: 1})
 ```
 
-Dummy hash считается с `m=64 MiB, p=1`. Реальный пользователь хранит PHC с параметрами `s.argon2 = {T:3, MKiB:131072, P:4}` (из `Argon2Server` config). При `VerifyAuthKey` параметры берутся из PHC-строки → реальная проверка занимает ~100-200ms (128 MiB, 4 потока), фиктивная ~30-50ms (64 MiB, 1 поток).
+The dummy hash is computed with `m=64 MiB, p=1`. A real user stores PHC with parameters `s.argon2 = {T:3, MKiB:131072, P:4}` (from the `Argon2Server` config). On `VerifyAuthKey` the parameters are taken from the PHC string → the real verify takes ~100–200 ms (128 MiB, 4 threads), while the dummy verify takes ~30–50 ms (64 MiB, 1 thread).
 
-Разница 50-150ms через TLS-стенку измеряется при N≥30 запросах. Это **возвращает** user-enumeration timing channel, который anti-enumeration ветка `dummyAuthHash` должна была закрыть.
+A 50–150 ms gap across the TLS boundary is measurable at N≥30 requests. This **reintroduces** the user-enumeration timing channel that the `dummyAuthHash` anti-enumeration branch was supposed to close.
 
-Кроме того:
+In addition:
 
-- Для несуществующего email `Authorize` пропускает `GetUserAuth` + lockout-check (это +1 DB round-trip = ещё ~3-10ms разницы).
-- При locked аккаунте `Authorize` возвращается **мгновенно** до VerifyAuthKey — locked-vs-unknown-vs-unlocked различимы тривиально.
+- For a non-existent email, `Authorize` skips `GetUserAuth` + the lockout check (one DB round-trip = another ~3–10 ms of difference).
+- For a locked account, `Authorize` returns **instantly** before `VerifyAuthKey` — locked vs. unknown vs. unlocked are trivially distinguishable.
 
-**Как чинить.**
+**How to fix.**
 
-1. `dummyAuthHash` лениво считать с **теми же** параметрами, что `s.argon2`. Лучше — передать в `NewService` и оставить в поле структуры.
-2. На locked-ветке всё равно вызывать `auth.VerifyAuthKey(authKey, dummyAuthHash())` (или sleep до общей wall-clock).
-3. На unknown-email-ветке выровнять DB-roundtrip: сделать пустой `SELECT 1` или просто пропустить lookup и сразу dummy-verify.
+1. Compute `dummyAuthHash` lazily with **the same** parameters as `s.argon2`. Better still — pass it into `NewService` and keep it in the struct.
+2. On the locked branch, still call `auth.VerifyAuthKey(authKey, dummyAuthHash())` (or sleep to the common wall-clock total).
+3. On the unknown-email branch, even out the DB round-trip: do an empty `SELECT 1`, or skip the lookup and go straight to the dummy verify.
 
-**Серьёзность:** Medium-High. У вас явно стоит anti-enumeration goal, и три отдельных побочных канала его рушат.
+**Severity:** Medium-High. You explicitly stated an anti-enumeration goal, and three separate side channels defeat it.
 
 ---
 
-### 1.5. `rotateLoginTOTPInTx` молча сбрасывает TOTP при частичных данных
+### 1.5. `rotateLoginTOTPInTx` silently drops TOTP on partial input
 
-**Где:** [internal/api/auth/service.go:986-1012](../internal/api/auth/service.go#L986-L1012)
+**Where:** [internal/api/auth/service.go:986-1012](../internal/api/auth/service.go#L986-L1012)
 
 ```go
 if len(newEncrypted) > 0 && len(newNonce) > 0 {
@@ -163,99 +165,99 @@ if len(newEncrypted) > 0 && len(newNonce) > 0 {
 return repo.DeleteUserLoginTOTP(ctx, userID)
 ```
 
-Если клиент по любому багу отправил `newEncrypted != ""` но `newNonce == ""` (или наоборот) — оба значения должны быть либо непустыми, либо пустыми, но код просто падает в `DELETE`. У пользователя **тихо удаляется второй фактор**, причём операцию инициировал не он, а его клиент при `ChangeMasterPassword`/`RecoveryComplete`.
+If the client sends `newEncrypted != ""` but `newNonce == ""` (or vice versa) due to any bug — both should be either non-empty or empty — the code silently falls into `DELETE`. The user's **second factor silently disappears**, and the operation was not initiated by them, but by their client during `ChangeMasterPassword` / `RecoveryComplete`.
 
-Дополнительно: я смотрю на схему `user_login_totp` — там колонка `nonce` хранится отдельно. Но `OpenLoginTOTPSecret` ([internal/auth/login_totp.go:67-80](../internal/auth/login_totp.go#L67-L80)) и `AESGCMOpen` ([internal/crypto/aead.go:31-56](../internal/crypto/aead.go#L31-L56)) ожидают envelope `version(1) || nonce(12) || ct+tag` — нонс **уже в составе** `encrypted_secret`. Колонка `nonce` мёртвая, никогда не читается для расшифровки.
+Additionally: the `user_login_totp` schema stores `nonce` as a separate column. But `OpenLoginTOTPSecret` ([internal/auth/login_totp.go:67-80](../internal/auth/login_totp.go#L67-L80)) and `AESGCMOpen` ([internal/crypto/aead.go:31-56](../internal/crypto/aead.go#L31-L56)) expect the envelope `version(1) || nonce(12) || ct+tag` — the nonce is **already inside** `encrypted_secret`. The `nonce` column is dead, never read for decryption.
 
-Это означает:
+This means:
 
-- Сам факт того, что rotateLoginTOTPInTx разделяет `newEncrypted` и `newNonce` — артефакт устаревшей схемы.
-- На клиенте при ChangeMasterPassword/RecoveryComplete нужно следить, чтобы оба поля заполнялись согласованно — это лишний инвариант, который легко нарушить.
+- The fact that `rotateLoginTOTPInTx` splits `newEncrypted` and `newNonce` is an artifact of an outdated schema.
+- On the client side, during `ChangeMasterPassword` / `RecoveryComplete`, both fields must be kept in sync — an extra invariant that is easy to violate.
 
-**Как чинить.**
+**How to fix.**
 
-1. Удалить колонку `user_login_totp.nonce` (миграция-down: оставить, для миграции — игнорировать).
-2. Убрать `nonce` из `Setup`/`Enable`/`Disable`/`RotateLoginTOTP` proto-полей.
-3. `rotateLoginTOTPInTx`: явная ошибка `InvalidArgument` при `len(newEncrypted) > 0 != len(newNonce) > 0` (если nonce пока что не дропнули из API).
-4. Лучше — заменить на единственный параметр `envelope []byte`: пустой == drop, непустой == upsert.
+1. Drop the `user_login_totp.nonce` column (down migration: keep; migration: ignore).
+2. Remove `nonce` from `Setup` / `Enable` / `Disable` / `RotateLoginTOTP` proto fields.
+3. `rotateLoginTOTPInTx`: return an explicit `InvalidArgument` error when `len(newEncrypted) > 0 != len(newNonce) > 0` (if `nonce` is not yet dropped from the API).
+4. Better — replace with a single `envelope []byte` parameter: empty == drop, non-empty == upsert.
 
-**Серьёзность:** Medium (тихая потеря 2FA после рутинной операции).
-
----
-
-## 2. Архитектурные предложения
-
-### 2.1. SQLite + Litestream вместо Postgres — серьёзный кандидат
-
-**Проблема в текущей архитектуре.** Self-hosted менеджер на единственного пользователя содержит:
-
-- pgxpool, миграции через golang-migrate с iofs, RLS с custom GUC, FOR UPDATE для audit chain, LISTEN/NOTIFY для SSE.
-- Конфигурация Postgres (`verify-full`, TLS-сертификаты, pgaudit, бэкап через wal-g/pgBackRest).
-- В docker-compose: оператор должен поднимать ещё один контейнер с PG, заботиться о volume, секретах БД, миграциях.
-
-При том, что 99% пользователей — это один человек на инстанс, и **все ценное всё равно зашифровано клиентом**. То есть SQL фактически используется как KV-store с индексами.
-
-**Альтернатива.** SQLite + WAL + Litestream (continuous replication в S3-совместимый бакет с object lock).
-
-| Что приобретаем                                                | Что теряем                                                                                  |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Один бинарь + один файл — `oblivio start` на bare VPS работает | LISTEN/NOTIFY — заменяется на in-process pub/sub (один процесс)                             |
-| Бэкап = `cp` файла (или Litestream point-in-time)              | Multi-instance HA — нужно либо primary/replica на уровне SQLite, либо отказ                 |
-| Нет network attack surface на БД                               | Concurrent writes сериализуются (single writer) — но это и так наш bottleneck в audit chain |
-| Восстановление = поставить файл и стартовать                   | RLS — заменяется на тривиальный `WHERE user_id = ?` (уже есть везде)                        |
-| Тесты быстрее на порядок                                       | Конкурентные writes не масштабируются — но для self-hosted это не задача                    |
-
-Стоимость миграции: pgx → `mattn/go-sqlite3` или `modernc.org/sqlite`, переписать ~15 миграций (SQL-диалект почти совпадает), убрать River (см. 2.3), убрать LISTEN/NOTIFY (см. 2.4), убрать RLS-помощники. ~3-5 человеко-дней.
-
-**Рекомендация:** не делать прямо сейчас, но осознанно проверить: «если у нас 1 vault на пользователя и data зашифрована — зачем нам Postgres?». Если ответа кроме «привычка/опыт» нет — рассмотреть.
+**Severity:** Medium (silent loss of 2FA after a routine operation).
 
 ---
 
-### 2.2. Audit-chain с external anchor — overkill; либо упростить, либо переделать
+## 2. Architectural suggestions
 
-**Проблема.** Anchor Ed25519 живёт на той же машине, что и сам сервер ([internal/audit/anchor.go:60-115](../internal/audit/anchor.go#L60-L115)). Приватный ключ в файле `data/secrets/audit_signer.json` под 0600. Атакующий с RCE на хост получает:
+### 2.1. SQLite + Litestream instead of Postgres — a serious candidate
 
-- DB-доступ (через тот же процесс).
-- Приватный ключ.
-- → может переподписать любую chain.
+**Problem with the current architecture.** A self-hosted single-user manager hauls in:
 
-То есть anchor защищает только от атакующего с **DB-only** доступом (например, утечка дампа БД). А если DB живёт на той же машине что и приложение, такой атакующий редок.
+- `pgxpool`, golang-migrate via iofs, RLS with custom GUC, `FOR UPDATE` for the audit chain, `LISTEN/NOTIFY` for SSE.
+- Postgres configuration (`verify-full`, TLS certificates, pgaudit, backup via wal-g / pgBackRest).
+- In docker-compose: the operator must bring up another container for PG, manage the volume, DB secrets, migrations.
 
-В §17.4 написано, что это «целевая модель — local signer для single-node, Vault transit для multi-node». Но Vault transit пока не подключён.
+All this while 99% of users are one person per instance, and **everything valuable is encrypted on the client anyway**. SQL is effectively used as a KV store with indexes.
 
-Кроме того, в текущей реализации anchor не работает корректно (см. 1.2). Чтобы починить, нужно ещё разработать корректную схему high-water-mark.
+**Alternative.** SQLite + WAL + Litestream (continuous replication to an S3-compatible bucket with Object Lock).
 
-**Альтернатива A: упростить.** Убрать external anchor целиком. Хэш-цепочка в `audit_log + system_state.audit_chain_head` ловит инциденты `1) случайной порчи`, `2) частичной правки таблицы аудита через SQL без обновления head`. Это уже хорошее свойство. Если ОС-уровень безопасности достаточен (нет shared DB-доступа), anchor ничего не добавляет.
+| What we gain                                                | What we lose                                                                                       |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| One binary + one file — `oblivio start` works on a bare VPS | `LISTEN/NOTIFY` — replaced with in-process pub/sub (single process)                                |
+| Backup = `cp` the file (or Litestream point-in-time)        | Multi-instance HA — needs SQLite primary/replica or a deliberate no                                |
+| No network attack surface on the DB                         | Concurrent writes serialise (single writer) — but that's already our bottleneck in the audit chain |
+| Restore = drop the file in place and start                  | RLS — replaced by trivial `WHERE user_id = ?` (already everywhere anyway)                          |
+| Tests are an order of magnitude faster                      | Concurrent writes don't scale — but for self-hosted, that's not the goal                           |
 
-**Альтернатива B: переделать на Vault transit.** Подписи производит Vault, приватный ключ никогда не покидает Vault. Это реальная DB-only защита. ~2 дня работы.
+Migration cost: pgx → `mattn/go-sqlite3` or `modernc.org/sqlite`, rewrite ~15 migrations (the SQL dialect is largely the same), drop River (see 2.3), drop LISTEN/NOTIFY (see 2.4), drop RLS helpers. About 3–5 person-days.
 
-**Альтернатива C: transparency log.** Раз в час публиковать `(head, height)` на внешний WORM-стор (например, `s3://oblivio-anchors/2026-05-12T14:00:00.json`) с Object Lock. Это даёт неоспоримый внешний witness — атакующий с DB-доступом не может ретроактивно подписать прошлый head.
-
-**Рекомендация.** Для single-user self-hosted: убрать. Для multi-tenant SaaS: Vault transit. Гибридная local-signer-on-disk схема — худшее из обоих миров.
-
-**Дополнительно — переусложнение модели угроз.** В однопользовательском менеджере паролей audit-log читает только сам user, и сам же все мутации делает. Атакующий, который пишет в его audit_log — это атакующий, который уже владеет аккаунтом. Защита `prev_hash → self_hash` нужна для compliance/forensics, а не для блокировки атак. Целевые ограничения: «sysadmin не может тихо стереть свои действия» — но sysadmin одновременно и user, и DBA в self-hosted. То есть chain — для feature, не для security. Сократить и не подавать как security boundary.
+**Recommendation:** don't do this right now, but ask the question deliberately: "if we have one vault per user and the data is encrypted — why do we need Postgres?". If there's no answer beyond "habit / experience" — consider it.
 
 ---
 
-### 2.3. River jobs — overkill для 8 периодических задач
+### 2.2. Audit chain with external anchor — overkill; either simplify or redesign
 
-**Проблема.** [internal/jobs/service.go:42-132](../internal/jobs/service.go#L42-L132) поднимает River client с 8 worker'ами:
+**Problem.** The Ed25519 anchor lives on the same machine as the server ([internal/audit/anchor.go:60-115](../internal/audit/anchor.go#L60-L115)). The private key is in `data/secrets/audit_signer.json` under mode 0600. An attacker with RCE on the host gets:
 
-- audit_chain_verify (1/day)
-- audit_chain_anchor (1/hour)
-- sessions_gc, auth_tokens_gc, idempotency_gc, mfa_gc, recovery_gc, rate_limit_gc
+- DB access (through the same process).
+- The private key.
+- → can re-sign any chain.
 
-Все — TTL-cleanup'ы и periodic alarms. Ни одна не retry-чувствительна (если sessions_gc упал, следующий прогон через час всё подметёт).
+So the anchor only defends against an attacker with **DB-only** access (e.g. a DB dump leak). And if the DB lives on the same machine as the application, such attackers are rare.
 
-River приносит:
+§17.4 says this is "the target model — local signer for single-node, Vault transit for multi-node". But Vault transit is not yet wired up.
 
-- ~10 таблиц в БД для своего state (`river_job`, `river_leader`, и т.д.).
+On top of that, in the current implementation the anchor does not work correctly (see 1.2). Fixing it also requires designing a proper high-water-mark scheme.
+
+**Alternative A: simplify.** Remove the external anchor entirely. The hash chain in `audit_log + system_state.audit_chain_head` catches `1) accidental corruption` and `2) partial edits to the audit table via SQL without updating the head`. That is already a useful property. If OS-level security is sufficient (no shared DB access), the anchor adds nothing.
+
+**Alternative B: redesign onto Vault transit.** Signatures performed by Vault, the private key never leaves Vault. That gives real DB-only protection. ~2 days of work.
+
+**Alternative C: transparency log.** Publish `(head, height)` to an external WORM store hourly (e.g. `s3://oblivio-anchors/2026-05-12T14:00:00.json`) with Object Lock. That gives an undeniable external witness — a DB-resident attacker cannot retroactively sign a past head.
+
+**Recommendation.** For single-user self-hosted: remove. For multi-tenant SaaS: Vault transit. A hybrid local-signer-on-disk scheme is the worst of both worlds.
+
+**Additionally — overcomplicated threat model.** In a single-user password manager, only the user reads their audit log and only the user produces mutations. An attacker writing into the user's `audit_log` is an attacker who already owns the account. The `prev_hash → self_hash` protection is needed for compliance/forensics, not for blocking attacks. The intended constraint is "the sysadmin cannot silently erase their own actions" — but in self-hosted, sysadmin == user == DBA. The chain is a feature, not a security boundary. Trim it back and don't sell it as a security boundary.
+
+---
+
+### 2.3. River jobs — overkill for 8 periodic tasks
+
+**Problem.** [internal/jobs/service.go:42-132](../internal/jobs/service.go#L42-L132) starts a River client with 8 workers:
+
+- `audit_chain_verify` (1/day)
+- `audit_chain_anchor` (1/hour)
+- `sessions_gc`, `auth_tokens_gc`, `idempotency_gc`, `mfa_gc`, `recovery_gc`, `rate_limit_gc`
+
+All are TTL cleanups and periodic alarms. None are retry-sensitive (if `sessions_gc` fails, the next run an hour later sweeps everything up).
+
+River brings:
+
+- ~10 tables in the DB for its own state (`river_job`, `river_leader`, etc.).
 - Lock-based leader election.
-- Backoff politicies, retry logic.
+- Backoff policies, retry logic.
 
-Для 8 cron-like задач без бизнес-результата это лютый overkill. Если бы был хоть один user-triggered job (email sending, password import, etc) — оправдано. Здесь — нет.
+For 8 cron-like tasks with no business outcome this is extreme overkill. If even one user-triggered job existed (email sending, password import, etc.) it would be justified. Here — no.
 
-**Альтернатива.** `internal/jobs/service.go` ~50 строк:
+**Alternative.** `internal/jobs/service.go`, about 50 lines:
 
 ```go
 go func() {
@@ -263,247 +265,247 @@ go func() {
     defer t.Stop()
     for { select { case <-ctx.Done(): return; case <-t.C: runVerify(ctx) } }
 }()
-// ... 7 раз
+// ... seven more times
 ```
 
-Или `xutils/scheduler`/`robfig/cron` если хочется crontab-нотацию.
+Or `xutils/scheduler` / `robfig/cron` if you want crontab notation.
 
-**Стоимость:** -3 миграций (River-схема), -50 строк wiring, минус транзитивная зависимость от `river/riverdriver/riverpgxv5`.
+**Cost:** −3 migrations (River schema), −50 lines of wiring, minus the transitive dependency on `river/riverdriver/riverpgxv5`.
 
-**Что теряем:** persistent retry (но эти задачи и так idempotent), distributed leader-election (single-node deploy её не использует).
+**What we lose:** persistent retry (but these jobs are already idempotent), distributed leader election (the single-node deploy doesn't use it).
 
-**Серьёзность:** Low (работает, просто тяжелее необходимого). Имеет смысл при следующем рефакторинге.
-
----
-
-### 2.4. SSE через LISTEN/NOTIFY — реальный риск; вполне можно заменить
-
-**Проблема.** [internal/api/subscriptions/service.go:51-104](../internal/api/subscriptions/service.go#L51-L104) — на каждый активный SSE-stream держится **отдельное PG-соединение** (LISTEN bind to session). Pool ёмкостью K соединений = максимум K одновременных подписчиков. При reconnect-шторме (deploy, network blip) клиенты гонят retry → пул выгребается → новые login'ы залипают.
-
-Дополнительные риски:
-
-- `pg_notify` payload ограничен **8000 байт** (асимптотически). Если когда-то добавите детальный payload — придёте к лимиту.
-- Если канал переполнен (`max_locks_per_transaction` или backlog), сообщения **молча теряются**.
-- Один LISTEN connection на стрим = `conn.Acquire(ctx)` блокирующий, без таймаута → DoS-вектор: открыть 100 streams, выгрести пул, после чего все API-запросы стопаются.
-
-Heartbeat каждые 25 секунд (`heartbeatInterval`) хорошо, но `WaitForNotification` с `context.WithTimeout` создаёт **новый таймер на каждый цикл** — не очень дёшево при тысячах подключений.
-
-**Альтернатива A: long-polling.** Клиент шлёт `Poll` каждые 10-30 секунд. Сервер отвечает мгновенно если что-то изменилось (cached counter в Redis или in-process), иначе ждёт до таймаута. **Не нужны** LISTEN/NOTIFY, не нужен дополнительный пул соединений, не нужен heartbeat.
-
-Для single-user менеджера паролей это нормально — нет real-time-критики, изменения происходят редко (на каждый Create/Update).
-
-**Альтернатива B: in-process pub/sub.** Если перейти на single-process (SQLite, см. 2.1), publish напрямую в in-memory bus → SSE-stream. Никаких DB connections, ничего.
-
-**Альтернатива C: оставить SSE, но через in-process broker.** Каждый mutation handler делает `broker.Publish(userID, kind)`. Каждый Subscribe слушает `broker.Subscribe(userID)`. Cross-instance — отдельная задача (см. multi-instance ниже).
-
-**Рекомендация.** Для self-hosted: long-poll или in-process. Для multi-instance: оставить LISTEN/NOTIFY, но **отслеживать** утечку соединений через прометей-метрику `subscriptions_active_connections` и ограничивать.
+**Severity:** Low (it works, just heavier than necessary). Makes sense at the next refactor.
 
 ---
 
-### 2.5. Rate-limit через Postgres ConsumeRateLimit — корректно, но болезненно
+### 2.4. SSE via LISTEN/NOTIFY — a real risk; entirely replaceable
 
-**Где:** [sql/queries/rate_limit_buckets/rate_limit_buckets.sql:11-27](../sql/queries/rate_limit_buckets/rate_limit_buckets.sql#L11-L27)
+**Problem.** [internal/api/subscriptions/service.go:51-104](../internal/api/subscriptions/service.go#L51-L104) — every active SSE stream holds **a separate PG connection** (LISTEN bound to that session). A pool of K connections caps you at K concurrent subscribers. On a reconnect storm (deploy, network blip) clients all retry → the pool drains → new logins start blocking.
 
-Каждый анонимный запрос делает `INSERT ... ON CONFLICT DO UPDATE`. Это:
+Additional risks:
 
-- Полная транзакция со записью в WAL.
-- Row-level lock на бакете.
-- Round-trip в БД.
+- A `pg_notify` payload is capped at **8000 bytes** (asymptotically). If you ever add a detailed payload, you'll hit the limit.
+- If the channel is overflowing (`max_locks_per_transaction` or backlog), messages **are silently dropped**.
+- One LISTEN connection per stream = `conn.Acquire(ctx)` blocking without a timeout → DoS vector: open 100 streams, drain the pool, and all API requests stall.
 
-При запросах 100 req/sec на `GetKDFParams` это 100 WAL-записей в секунду только для rate-limit. На любом не-минимальном инстансе Postgres это нагрузка, плюс генерирует мусор в bloat'е.
+A 25-second heartbeat (`heartbeatInterval`) is good, but `WaitForNotification` with `context.WithTimeout` creates **a new timer per loop iteration** — not particularly cheap at thousands of connections.
 
-Fail-open на DB-ошибке ([internal/api/middleware/rate_limit.go:105-110](../internal/api/middleware/rate_limit.go#L105-L110)) — **усиливает атаку**: атакующий, который заодно нагрузит DB параллельной нагрузкой, отключит rate-limit (запросы будут долгие, таймаут 500ms сработает, fail-open вернёт true → Argon2-amplification).
+**Alternative A: long-polling.** The client sends `Poll` every 10–30 seconds. The server responds immediately if something has changed (a cached counter in Redis or in-process), or waits until timeout. **No** LISTEN/NOTIFY, no extra connection pool, no heartbeat.
 
-**Альтернатива A: вернуться к in-memory с честным single-node-only.** Для self-hosted это норма; multi-instance явно требует sticky session. ~30 строк кода `golang.org/x/time/rate.Limiter`.
+For a single-user password manager this is fine — there is no real-time criticality, and changes are rare (one per Create / Update).
 
-**Альтернатива B: Redis с TTL-keys + Lua.** Стандартная схема, не требует WAL.
+**Alternative B: in-process pub/sub.** If we move to a single process (SQLite, see 2.1), publish directly into an in-memory bus → SSE stream. No DB connections, nothing.
 
-**Альтернатива C: оставить Postgres, но с unlogged table и fail-closed.** `CREATE UNLOGGED TABLE rate_limit_buckets ...` — нет WAL-writes; перезапуск БД теряет состояние (это для rate-limit допустимо). Fail-closed: если DB не отвечает за 500ms — return 503, не пропускать. Это устраняет amplification-вектор за счёт временного user-impact'а во время DB-outage'а.
+**Alternative C: keep SSE but go through an in-process broker.** Every mutation handler does `broker.Publish(userID, kind)`. Every `Subscribe` listens on `broker.Subscribe(userID)`. Cross-instance is a separate problem (see multi-instance below).
 
-**Рекомендация.** Для текущей нагрузки (self-hosted) — В (unlogged). Для масштаба — Redis.
-
----
-
-### 2.6. ConnectRPC — ценность только для streaming, который один. REST + EventSource проще
-
-**Текущая ситуация.** Используется ConnectRPC + buf-generated stubs для Go и TS. Из всех сервисов streaming используется только в `SubscriptionsService.Subscribe`. Остальное — unary.
-
-ConnectRPC даёт:
-
-- Auto-generated клиент в TS.
-- Proto-versioning (но `oblivio/v1` пока единственная, миграция вне роадмапа).
-- Бинарный wire-format для бэкап-эффективности (но трафик в основном это encrypted_blob, который у нас уже raw bytes).
-
-Альтернатива — REST + JSON + OpenAPI-spec. Каждая ручка явная, легче дебажить, нет proto-toolchain в CI.
-
-**Я не рекомендую переходить** (стоимость > выгоды; ConnectRPC работает). Но это honest tradeoff в roadmap-стиле «если бы делал с нуля». Для отдельного browser extension или mobile-клиента — proto-stubs реально полезны; через 1-2 года это окупит инвестиции.
+**Recommendation.** Self-hosted: long-poll or in-process. Multi-instance: keep LISTEN/NOTIFY, but **monitor** connection leaks via a `subscriptions_active_connections` Prometheus metric and bound them.
 
 ---
 
-### 2.7. MFAKEK — три источника, два неверных пути; упростить до одного обязательного
+### 2.5. Postgres-backed `ConsumeRateLimit` — correct, but painful
 
-**Где:** [internal/auth/mfa_kek.go:42-79](../internal/auth/mfa_kek.go#L42-L79)
+**Where:** [sql/queries/rate_limit_buckets/rate_limit_buckets.sql:11-27](../sql/queries/rate_limit_buckets/rate_limit_buckets.sql#L11-L27)
 
-Три источника:
+Every anonymous request does `INSERT ... ON CONFLICT DO UPDATE`. That means:
 
-1. Seed из аргумента (предположительно из Vault).
-2. `OBLIVIO_MFA_KEK_SEED` env-var (caller resolve).
+- A full transaction with a WAL write.
+- A row-level lock on the bucket.
+- A round-trip to the DB.
+
+At 100 req/s on `GetKDFParams` that's 100 WAL writes per second just for rate limiting. On any non-minimal Postgres instance that's load, plus it generates bloat.
+
+Fail-open on a DB error ([internal/api/middleware/rate_limit.go:105-110](../internal/api/middleware/rate_limit.go#L105-L110)) **amplifies the attack**: an attacker who also loads up the DB with parallel traffic disables rate limiting (queries become slow, the 500 ms timeout fires, fail-open returns true → Argon2 amplification).
+
+**Alternative A: revert to in-memory, honestly single-node only.** For self-hosted that's the norm; multi-instance explicitly requires sticky sessions. ~30 lines of `golang.org/x/time/rate.Limiter`.
+
+**Alternative B: Redis with TTL keys + Lua.** A standard pattern, no WAL needed.
+
+**Alternative C: keep Postgres, but use an unlogged table and fail-closed.** `CREATE UNLOGGED TABLE rate_limit_buckets ...` — no WAL writes; DB restarts lose state (acceptable for rate limiting). Fail-closed: if the DB doesn't respond within 500 ms — return 503, don't let it through. That eliminates the amplification vector at the cost of brief user impact during a DB outage.
+
+**Recommendation.** For current load (self-hosted) — C (unlogged). For scale — Redis.
+
+---
+
+### 2.6. ConnectRPC — only valuable for the one streaming endpoint; REST + EventSource is simpler
+
+**Current state.** ConnectRPC + buf-generated stubs for Go and TS. Of all services, streaming is only used in `SubscriptionsService.Subscribe`. Everything else is unary.
+
+ConnectRPC gives us:
+
+- An auto-generated TS client.
+- Proto-versioning (but `oblivio/v1` is the only version, and a migration is not on the roadmap).
+- A binary wire format for backup efficiency (but most of the traffic is `encrypted_blob`, which is already raw bytes).
+
+The alternative — REST + JSON + OpenAPI spec. Every endpoint explicit, easier to debug, no proto toolchain in CI.
+
+**I don't recommend switching** (cost > benefit; ConnectRPC works). But it's an honest tradeoff in the "if I started from scratch" sense. For a separate browser extension or mobile client, proto stubs are genuinely useful; in 1–2 years that pays back the investment.
+
+---
+
+### 2.7. MFAKEK — three sources, two of them wrong; collapse to one mandatory
+
+**Where:** [internal/auth/mfa_kek.go:42-79](../internal/auth/mfa_kek.go#L42-L79)
+
+Three sources:
+
+1. Seed from the argument (presumably from Vault).
+2. `OBLIVIO_MFA_KEK_SEED` environment variable (resolved by the caller).
 3. Per-instance random fallback.
 
-(3) делает multi-instance deploy **тихо неработающим** для cross-instance MFA challenge: challenge созданный на инстансе A не расшифровывается на инстансе B (разные KEK). `IsInstanceLocal()` экспонируется, но операторы могут забыть проверить и боль обнаружат продакшн-пользователи.
+(3) makes multi-instance deployment **silently broken** for cross-instance MFA challenges: a challenge created on instance A is not decryptable on instance B (different KEKs). `IsInstanceLocal()` is exposed, but operators may forget to check it and discover the pain in production.
 
-Аналогично в audit anchor: `LocalSigner` на диск vs hypothetical VaultTransitSigner — но второй пока не реализован.
+A parallel case in the audit anchor: `LocalSigner` on disk vs. a hypothetical `VaultTransitSigner` — but the latter is not implemented.
 
-**Альтернатива.** При старте сервера если `OBLIVIO_MFA_KEK_SEED` (или Vault path) не задан — **отказать в старте** с явной ошибкой. Не пытаться быть «полезным» через random fallback. Документировать: «для dev-режима задайте сид-нибудь, для прода — настоящий sealed seed».
+**Alternative.** At server startup, if `OBLIVIO_MFA_KEK_SEED` (or a Vault path) is not set — **refuse to start** with an explicit error. Don't try to be "helpful" via a random fallback. Document: "for dev mode, set any seed; for prod, use a real sealed seed".
 
-Аналогичный подход к `OBLIVIO_MASTER_SEED` (JWT signing) — там [internal/auth/secrets.go:97-145](../internal/auth/secrets.go#L97-L145) тоже падает в on-disk `secrets.json` с big WARN. Это менее опасно (single-node deploy в норме работает), но всё ещё surprise-shaped.
+The same approach for `OBLIVIO_MASTER_SEED` (JWT signing) — there [internal/auth/secrets.go:97-145](../internal/auth/secrets.go#L97-L145) also falls back to on-disk `secrets.json` with a big WARN. That is less dangerous (single-node deploys usually work), but still surprise-shaped.
 
-**Стоимость:** -30 строк, +1 строка в `start.go` (документация при ошибке).
-
----
-
-### 2.8. Vault интеграция — пока неоплачиваемая ценность
-
-Из docs: «HashiCorp Vault (опционально) для серверных секретов». В коде реальной Vault-интеграции нет (видел упоминание `xconfigvault` в config layer). Все три «защищаемых» сидов (jwt-access, jwt-refresh, MFA KEK) спокойно поднимаются из `OBLIVIO_MASTER_SEED` / `OBLIVIO_MFA_KEK_SEED` env-var через HKDF. Это лучшее из обоих миров: env-var-friendly (12-factor), и при необходимости env подгружается из Vault Agent / sealed-secrets.
-
-**Рекомендация.** Убрать Vault из roadmap'а как обязательный (или вообще как поддерживаемый mode). Документировать «12-factor secrets» как канон. Если кто-то использует Vault — пусть прокидывает через Vault Agent sidecar в env-vars.
+**Cost:** −30 lines, +1 line in `start.go` (a docs link in the error).
 
 ---
 
-## 3. Переусложнённое
+### 2.8. Vault integration — value still unrealised
 
-### 3.1. `internal/audit/chain.go` canonicalJSON
+From the docs: "HashiCorp Vault (optional) for server-side secrets". The code has no real Vault integration (I saw a mention of `xconfigvault` in the config layer). All three "protected" seeds (jwt-access, jwt-refresh, MFA KEK) are perfectly usable from `OBLIVIO_MASTER_SEED` / `OBLIVIO_MFA_KEK_SEED` env vars via HKDF. That's the best of both worlds: env-var-friendly (12-factor), and Vault Agent / sealed-secrets can populate them as needed.
 
-[internal/audit/chain.go:208-267](../internal/audit/chain.go#L208-L267) — 60 строк ручного сортированного JSON-кодировщика (`marshalSorted`, `encodeSorted`, `sortStrings` insertion-sort) ради детерминизма SHA-256 над `audit_log.metadata`.
+**Recommendation.** Drop Vault from the roadmap as mandatory (or even as a supported mode). Document "12-factor secrets" as the canon. If someone uses Vault — let them inject through a Vault Agent sidecar into env vars.
 
-Стандарт Go (`encoding/json`) уже **гарантирует** сортировку ключей для `map[string]X` с 1.12. Гарантирует только верхний уровень — но `metadata` в audit это пользовательский JSON произвольной вложенности, поэтому ручной обход нужен.
+---
 
-Альтернатива: использовать [`github.com/gibson042/canonicaljson-go`](https://github.com/gibson042/canonicaljson-go) (RFC 8785) или просто `json.Marshal(any)` после `json.Unmarshal → map[string]any` рекурсивно (что и делается, но криво).
+## 3. Overcomplicated
 
-Стоимость замены: ~5 строк, минус 60 строк кастомного кода. Дополнительный бонус — соответствие RFC 8785, можно потом тривиально верифицировать сторонним инструментом.
+### 3.1. `internal/audit/chain.go` canonical JSON
+
+[internal/audit/chain.go:208-267](../internal/audit/chain.go#L208-L267) — 60 lines of hand-rolled sorted-JSON encoding (`marshalSorted`, `encodeSorted`, an insertion-sort `sortStrings`) for SHA-256 determinism over `audit_log.metadata`.
+
+Go's `encoding/json` already **guarantees** key sorting for `map[string]X` since 1.12. It only guarantees the top level — but `metadata` in audit is user-supplied JSON of arbitrary depth, so a manual walk is required.
+
+Alternative: use [`github.com/gibson042/canonicaljson-go`](https://github.com/gibson042/canonicaljson-go) (RFC 8785), or just `json.Marshal(any)` after `json.Unmarshal → map[string]any` recursively (which is what is happening, awkwardly).
+
+Cost: ~5 lines, minus 60 lines of custom code. Bonus: RFC 8785 conformance lets a third-party tool trivially verify the chain.
 
 ### 3.2. `internal/audit/chain.go` insertion-sort
 
-`sortStrings` ([line 271-277](../internal/audit/chain.go#L271-L277)) — собственный insertion-sort строк. В standard library есть `slices.Sort`. -7 строк.
+`sortStrings` ([line 271-277](../internal/audit/chain.go#L271-L277)) is a custom string insertion-sort. The standard library has `slices.Sort`. −7 lines.
 
-### 3.3. `pseudoSaltSecret` / `pseudoBlindPepper` / `dummyAuthHash` — три отдельных anti-enumeration механизма
+### 3.3. `pseudoSaltSecret` / `pseudoBlindPepper` / `dummyAuthHash` — three separate anti-enumeration mechanisms
 
-[internal/api/auth/service.go:1101-1166](../internal/api/auth/service.go#L1101-L1166) держит три отдельных fallback'a:
+[internal/api/auth/service.go:1101-1166](../internal/api/auth/service.go#L1101-L1166) maintains three separate fallbacks:
 
-- `pseudoSalt(email)` — HMAC от секрета процесса, для GetKDFParams.
-- `pseudoBlindPepper(email)` — HMAC с префиксом, для того же.
-- `dummyAuthHash()` — фиксированный Argon2id PHC, для Authorize.
+- `pseudoSalt(email)` — HMAC of a process secret, for `GetKDFParams`.
+- `pseudoBlindPepper(email)` — HMAC with a prefix, for the same.
+- `dummyAuthHash()` — a fixed Argon2id PHC, for `Authorize`.
 
-Унифицировать: один helper `pseudoCredentials(email) → (salt, blind_pepper, argon_params)` плюс один `dummyVerifyTime()` для тайминга. Семантика остаётся, экономия 30 строк.
+Unify: one helper `pseudoCredentials(email) → (salt, blind_pepper, argon_params)` plus one `dummyVerifyTime()` for timing. Semantics preserved, ~30 lines saved.
 
-### 3.4. `audit_chain_anchor` + `audit_chain_verify` + Ed25519 LocalSigner
+### 3.4. `audit_chain_anchor` + `audit_chain_verify` + Ed25519 `LocalSigner`
 
-В сумме ~250 строк ([internal/audit/anchor.go](../internal/audit/anchor.go) + [internal/jobs/audit_chain_anchor.go](../internal/jobs/audit_chain_anchor.go) + anchor-handling в verify) для функциональности, которая в текущей реализации ничего не защищает (см. 1.2). Если решаем не чинить, эти 250 строк можно удалить целиком вместе с миграцией 010, репозиторием `repo_audit_chain_anchors`, и `Signer` интерфейсом.
+Together about 250 lines ([internal/audit/anchor.go](../internal/audit/anchor.go) + [internal/jobs/audit_chain_anchor.go](../internal/jobs/audit_chain_anchor.go) + anchor handling in verify) for functionality that, in the current implementation, protects nothing (see 1.2). If we decide not to fix it, those 250 lines go away entirely along with migration 010, the `repo_audit_chain_anchors` repository, and the `Signer` interface.
 
-### 3.5. Параллельные KEK-источники для разных целей
+### 3.5. Parallel KEK sources for different purposes
 
-`MFAKEK` ([internal/auth/mfa_kek.go](../internal/auth/mfa_kek.go)) — отдельный KEK ровно для одного use-case: шифрование `auth_key` в `mfa_challenges`. Audit anchor использует свой Ed25519 ключ. JWT signing — свой пара. Email-verification токены — SHA-256 без ключа.
+`MFAKEK` ([internal/auth/mfa_kek.go](../internal/auth/mfa_kek.go)) — a dedicated KEK for exactly one use case: encrypting `auth_key` in `mfa_challenges`. The audit anchor uses its own Ed25519 key. JWT signing has its own pair. Email-verification tokens use SHA-256 without a key.
 
-Можно унифицировать: единый process-wide `KEK` (производится из `OBLIVIO_MASTER_SEED` через HKDF с разными info-метками). Тогда:
+These can be unified: one process-wide `KEK` derived from `OBLIVIO_MASTER_SEED` via HKDF with different info labels. Then:
 
-- `K_mfa_at_rest = HKDF(seed, "oblivio/mfa-kek/v1")` — то же что сейчас.
-- `K_audit_signer = HKDF(seed, "oblivio/audit-signer/v1")` → детерминированный seed для Ed25519. Не нужен `audit_signer.json` на диск.
-- `JWT_access = HKDF(seed, "oblivio/jwt-access/v1")` — уже так.
+- `K_mfa_at_rest = HKDF(seed, "oblivio/mfa-kek/v1")` — same as today.
+- `K_audit_signer = HKDF(seed, "oblivio/audit-signer/v1")` → a deterministic seed for Ed25519. No need for `audit_signer.json` on disk.
+- `JWT_access = HKDF(seed, "oblivio/jwt-access/v1")` — already this way.
 
-Удаляется отдельный файл `audit_signer.json`, отдельная функция `NewMFAKEK`, отдельный fallback с random per-instance.
+We remove a separate `audit_signer.json` file, a separate `NewMFAKEK` function, and a separate per-instance random fallback.
 
-Стоимость: ~3 часа работы. Экономия — упрощение mental model: один сид, всё остальное детерминировано.
-
----
-
-## 4. Quick wins (час-два каждое)
-
-**4.1.** [internal/auth/argon2.go:32](../internal/auth/argon2.go#L32) — `argon2Sem` инициализируется глобально при init пакета через `runtime.NumCPU()`. Это вызывается ДО загрузки конфигурации; конфиг затем перезаписывает через `SetArgon2Concurrency`. Между моментами init и Set возможен Hash/Verify (если что-то очень рано). Лучше — явный конструктор и инстанс в Manager, без глобала.
-
-**4.2.** [internal/auth/argon2.go:59-71](../internal/auth/argon2.go#L59-L71) — `acquireArgon2` использует `context.Background()`. Если запрос отменён клиентом во время ожидания в очереди — мы всё равно ждём слот, тратим CPU, потом считаем Argon2 и отбрасываем. Принимать `ctx` параметром и пробрасывать в `Acquire`.
-
-**4.3.** [internal/audit/chain.go:79-83](../internal/audit/chain.go#L79-L83) — `Append` использует `IsoLevel: pgx.ReadCommitted` + `FOR UPDATE`. RR/Serializable не нужны, ReadCommitted OK. Но `defer tx.Rollback` после Commit — это всегда вызывает Rollback на закоммиченной транзакции и возвращает ошибку (pgx логирует). Стандартный паттерн — `committed bool` (как в [internal/api/middleware/rls.go:52-57](../internal/api/middleware/rls.go#L52-L57)).
-
-**4.4.** [internal/api/subscriptions/service.go:67](../internal/api/subscriptions/service.go#L67) — `conn.Exec(ctx, fmt.Sprintf("LISTEN %s", quoteIdent(channel)))`. `quoteIdent` хороший, но `fmt.Sprintf` с user-derived строкой в SQL остаётся code-smell. Если когда-то ChannelName начнёт принимать что-то кроме UUID, легко уронить безопасность. Добавить assert или вынести whitelist символов.
-
-**4.5.** [internal/api/middleware/idempotency.go:117](../internal/api/middleware/idempotency.go#L117) — `InsertIdempotencyEntry` без `ON CONFLICT DO NOTHING`. При концурентной гонке за тем же ключом будет PK-violation и операция выполнится дважды (см. также в разделе 5). Изменить на `INSERT ... ON CONFLICT (user_id, key) DO NOTHING`.
-
-**4.6.** [internal/audit/anchor.go:96-110](../internal/audit/anchor.go#L96-L110) — `NewLocalSigner` создаёт файл с правами 0600, но не проверяет существующий файл на достаточную приватность. Если по ошибке `chmod 0644` — мы доверяем readable-ko файлу. Добавить `os.Stat` + проверку `Mode().Perm() == 0o600`.
-
-**4.7.** [internal/auth/secrets.go:32-41](../internal/auth/secrets.go#L32-L41) — `AccessSecret()` возвращает `string(s.access.Bytes())` — `string()` копирует в иммутабельную heap-память, обнулить нельзя. Это противоречит обещанию memguard. Лучше — передавать `[]byte` дальше; tokenmanager должен принимать `[]byte`.
-
-**4.8.** [internal/audit/chain.go:130-138](../internal/audit/chain.go#L130-L138) — `audit_chain_head` хранится как JSON-encoded hex-string в JSONB. Лишний слой кодирования: JSONB вокруг `"deadbeef..."` вместо просто BYTEA. Дополнительные `json.Marshal`/`Unmarshal` на каждый append. Поменять column type на BYTEA или хотя бы TEXT, убрать round-trip.
-
-**4.9.** [sql/queries/audit_chain_anchors/audit_chain_anchors.sql:6-9](../sql/queries/audit_chain_anchors/audit_chain_anchors.sql#L6-L9) — `GetLatestAuditChainAnchor` по `ORDER BY signed_at DESC`. Если две подписи в один момент времени (clock-microsecond), порядок недетерминирован. Лучше `ORDER BY signed_at DESC, id DESC LIMIT 1` (id — BIGSERIAL).
-
-**4.10.** [internal/api/auth/service.go:1106-1114](../internal/api/auth/service.go#L1106-L1114) — `pseudoSaltSecret` использует fallback на all-zeros при `rand.Read` error. Никогда не должно случиться, но если случилось — все unknown email возвращают **одинаковый** salt = `HMAC(zeros, email)`, который в принципе предсказуем (атакующему достаточно знать секрет = zeros). Лучше `panic(err)` чем silent zero.
-
-**4.11.** [internal/api/auth/service.go:329](../internal/api/auth/service.go#L329) — после успешного `auth_key`-verify CompleteMFA проверяет TOTP через `s.mfa.Peek` (а не `Take`). Если TOTP fails, challenge не consumed, можно brute-force. Per-IP rate-limit для CompleteMFA отсутствует ([rate_limit.go:170-196](../internal/api/middleware/rate_limit.go#L170-L196) — нет в списке). 6 цифр = 10^6 = миллион, при ~3000 req/sec можно сбрутить за 5 минут (как раз TTL). Добавить CompleteMFA в rate-limit map + consume challenge на N неудачных попыток.
-
-**4.12.** Метрика `failed_attempts` (per-account lockout) и `RateLimitDropsTotal` (per-IP/email) дают нам **два** механизма. Они могут противоречить (rate-limit пропустил, account-lockout заблокировал) и оба требуют отдельной настройки. Унифицировать в `auth_login_attempts(email, ip, at)` логе с скользящим окном; lockout — следствие политики, а не побочный counter.
-
-**4.13.** [internal/api/middleware/rate_limit.go:54](../internal/api/middleware/rate_limit.go#L54) — `proceduresWithRateLimit` не включает `/oblivio.v1.AuthService/CompleteMFA`. Добавить.
+Cost: ~3 hours of work. The benefit is a simpler mental model: one seed, everything else deterministic.
 
 ---
 
-## 5. Что не трогать
+## 4. Quick wins (an hour or two each)
 
-**5.1. AAD-binding на entries/projects ([frontend/src/lib/vault-crypto.ts:112-148](../frontend/src/lib/vault-crypto.ts#L112-L148)).** Структура `${itemId}|${version}|${vaultId}|item` корректно защищает от swap-атаки даже на уровне честного сервера: подменить запись пользователя A под пользователя B невозможно (vault_id = user_id различен, AAD не валидируется). Verifier при подмене получит ошибку AES-GCM tag.
+**4.1.** [internal/auth/argon2.go:32](../internal/auth/argon2.go#L32) — `argon2Sem` is initialised globally at package init via `runtime.NumCPU()`. That happens BEFORE config is loaded; config then overwrites it via `SetArgon2Concurrency`. Between init and Set, a Hash/Verify call could race (if anything runs that early). Better: an explicit constructor and an instance on Manager, no global.
 
-**5.2. RLS политика и FORCE ROW LEVEL SECURITY ([sql/migrations/005_rls_policies.up.sql](../sql/migrations/005_rls_policies.up.sql)).** Использование двух GUC (`app.current_user_id` для пер-юзера, `app.bypass_rls` для системы), `app_is_system()` и `app_current_user_id()` через `current_setting(..., true)` — sound. FORCE RLS правильно поставлен. Audit_log read-only для пользователя, insert только для system — корректно.
+**4.2.** [internal/auth/argon2.go:59-71](../internal/auth/argon2.go#L59-L71) — `acquireArgon2` uses `context.Background()`. If a request is cancelled by the client while waiting in the queue, we still wait for a slot, burn CPU, compute Argon2, and throw it away. Accept `ctx` as a parameter and pass it through to `Acquire`.
 
-**5.3. Envelope-формат `version(1) || nonce(12) || ct+tag` ([internal/crypto/aead.go](../internal/crypto/aead.go), [frontend/packages/crypto/src/aead.ts](../frontend/packages/crypto/src/aead.ts)).** Go и TS реализации идентичны, версионный байт даёт upgrade path. Само AAD на v1 не покрывает version byte, но decode rejects unknown version до AEAD-операции — этого достаточно.
+**4.3.** [internal/audit/chain.go:79-83](../internal/audit/chain.go#L79-L83) — `Append` uses `IsoLevel: pgx.ReadCommitted` + `FOR UPDATE`. RR / Serializable are not needed, ReadCommitted is fine. But `defer tx.Rollback` after Commit always calls Rollback on an already committed transaction and returns an error (pgx logs it). The standard pattern is a `committed bool` flag (see [internal/api/middleware/rls.go:52-57](../internal/api/middleware/rls.go#L52-L57)).
 
-**5.4. Refresh-token reuse-detection ([internal/auth/manager.go:188-209](../internal/auth/manager.go#L188-L209)).** Подход с `current_refresh_key` стампом и `bytes.Equal` для определения reuse корректен. Есть гонка (см. mini-finding в разделе 4), но базовая идея верная.
+**4.4.** [internal/api/subscriptions/service.go:67](../internal/api/subscriptions/service.go#L67) — `conn.Exec(ctx, fmt.Sprintf("LISTEN %s", quoteIdent(channel)))`. `quoteIdent` is fine, but `fmt.Sprintf` with a user-derived string in SQL is still a code smell. If `ChannelName` ever takes anything other than a UUID, security regresses easily. Add an assert or whitelist the character set.
 
-**5.5. tokenmanager + PG-backed store.** Отделение access/refresh ключей с разными TTL и хранение `SessionData` per-session в PG — solid. Sessions UI работает.
+**4.5.** [internal/api/middleware/idempotency.go:117](../internal/api/middleware/idempotency.go#L117) — `InsertIdempotencyEntry` without `ON CONFLICT DO NOTHING`. A concurrent race on the same key causes a PK violation and the operation runs twice (see also section 5). Change to `INSERT ... ON CONFLICT (user_id, key) DO NOTHING`.
 
-**5.6. Argon2 semaphore ([internal/auth/argon2.go:30-71](../internal/auth/argon2.go#L30-L71)).** Логика правильная (acquire/release вокруг IDKey). Comments объясняют почему context.Background — окей. SetArgon2Concurrency safe для startup-only wiring.
+**4.6.** [internal/audit/anchor.go:96-110](../internal/audit/anchor.go#L96-L110) — `NewLocalSigner` creates the file with 0600 permissions, but does not check that an existing file is private enough. If someone accidentally `chmod 0644`'d it, we trust a world-readable file. Add an `os.Stat` + a `Mode().Perm() == 0o600` check.
 
-**5.7. MFAStore.Take = атомарный DELETE RETURNING ([internal/auth/mfa_store.go:130-152](../internal/auth/mfa_store.go#L130-L152)).** SQL уровень гарантирует, что только один caller получит row. Peek + Take в WebAuthn flow — корректный паттерн для гонки assertion-validation и cleanup.
+**4.7.** [internal/auth/secrets.go:32-41](../internal/auth/secrets.go#L32-L41) — `AccessSecret()` returns `string(s.access.Bytes())` — `string()` copies into immutable heap memory that cannot be zeroed. That contradicts the memguard promise. Better — pass `[]byte` through; tokenmanager should accept `[]byte`.
 
-**5.8. memguard в DeriveLoginTOTPKey ([internal/auth/login_totp.go:44-56](../internal/auth/login_totp.go#L44-L56)).** `NewBufferFromBytes` стирает source, defer Destroy на буфер — правильно. Замена `string(secret)` на byte-slice вариант (ValidateTOTPCodeBytes) — реальное улучшение.
+**4.8.** [internal/audit/chain.go:130-138](../internal/audit/chain.go#L130-L138) — `audit_chain_head` is stored as a JSON-encoded hex string inside JSONB. An extra encoding layer: JSONB wrapping `"deadbeef..."` instead of just BYTEA. Extra `json.Marshal` / `Unmarshal` per append. Change the column type to BYTEA, or at worst TEXT, and remove the round-trip.
 
-**5.9. Anti-enumeration с pseudoSalt для GetKDFParams ([internal/api/auth/service.go:236-242](../internal/api/auth/service.go#L236-L242)).** Концепция верная (стабильные псевдо-параметры для unknown email). Реализация имеет два issue (см. 1.4 и 4.10), но переделывать «с нуля» не нужно.
+**4.9.** [sql/queries/audit_chain_anchors/audit_chain_anchors.sql:6-9](../sql/queries/audit_chain_anchors/audit_chain_anchors.sql#L6-L9) — `GetLatestAuditChainAnchor` orders by `signed_at DESC`. With two signatures at the same instant (clock microsecond), the ordering is undefined. Better: `ORDER BY signed_at DESC, id DESC LIMIT 1` (id is BIGSERIAL).
 
-**5.10. ConnectRPC interceptor chain.** Anonymous allowlist + Bearer-token middleware + RLS interceptor + audit-log interceptor + idempotency middleware — раскладка слоёв корректная.
+**4.10.** [internal/api/auth/service.go:1106-1114](../internal/api/auth/service.go#L1106-L1114) — `pseudoSaltSecret` falls back to all-zeros on a `rand.Read` error. Should never happen, but if it did, every unknown email returns **the same** salt = `HMAC(zeros, email)`, which is in principle predictable (the attacker only needs to know the secret = zeros). Better `panic(err)` than silent zero.
 
-**5.11. memguard покрытие на server-side keys ([internal/auth/secrets.go](../internal/auth/secrets.go)).** Использование `NewBufferFromBytes` для access/refresh seeds правильно. Один issue с `string()` копией (4.7) — мелочь.
+**4.11.** [internal/api/auth/service.go:329](../internal/api/auth/service.go#L329) — after a successful `auth_key` verify, `CompleteMFA` checks the TOTP via `s.mfa.Peek` (not `Take`). If the TOTP fails, the challenge is not consumed and can be brute-forced. There is no per-IP rate limit on `CompleteMFA` ([rate_limit.go:170-196](../internal/api/middleware/rate_limit.go#L170-L196) — not in the list). 6 digits = 10^6 = a million; at ~3000 req/s you brute-force in 5 minutes (exactly the TTL). Add `CompleteMFA` to the rate-limit map and consume the challenge after N failed attempts.
+
+**4.12.** Two metrics: `failed_attempts` (per-account lockout) and `RateLimitDropsTotal` (per-IP / email) give us **two** mechanisms. They can disagree (rate-limit let through, account-lockout blocked) and both require separate tuning. Unify behind an `auth_login_attempts(email, ip, at)` log with a sliding window; lockout becomes a policy result, not a side counter.
+
+**4.13.** [internal/api/middleware/rate_limit.go:54](../internal/api/middleware/rate_limit.go#L54) — `proceduresWithRateLimit` does not include `/oblivio.v1.AuthService/CompleteMFA`. Add it.
 
 ---
 
-## 6. Что сделал бы по-другому с нуля
+## 5. What not to touch
 
-День времени, такой же ТЗ — zero-knowledge password manager на single-user self-hosted базовый сценарий, mobile/extension в будущем.
+**5.1. AAD binding on entries / projects ([frontend/src/lib/vault-crypto.ts:112-148](../frontend/src/lib/vault-crypto.ts#L112-L148)).** The structure `${itemId}|${version}|${vaultId}|item` correctly defends against swap attacks even from an honest server: substituting user A's entry for user B's is impossible (different `vault_id = user_id`, AAD won't validate). The verifier fails AES-GCM tag on substitution.
 
-**Стек.**
+**5.2. RLS policies and FORCE ROW LEVEL SECURITY ([sql/migrations/005_rls_policies.up.sql](../sql/migrations/005_rls_policies.up.sql)).** Using two GUCs (`app.current_user_id` per user, `app.bypass_rls` for the system), `app_is_system()`, and `app_current_user_id()` via `current_setting(..., true)` — sound. FORCE RLS is correctly applied. `audit_log` read-only for the user, insert only for the system — correct.
 
-- **Хранилище:** SQLite + WAL + Litestream → S3 с Object Lock. Один файл, бэкап тривиальный, нет network attack surface.
-- **Транспорт:** REST + JSON + OpenAPI-spec. С OpenAPI генерируется TS-клиент. Streaming — single SSE endpoint `/events` с long-poll fallback.
-- **Server framework:** Go + chi/echo + standard library `database/sql`. Без mx-launcher (overkill для одного бинаря).
-- **Криптомодель:** идентичная текущей. Argon2id master_key, HKDF auth_key, vault_key/item_key/blind_index — этот пласт у вас отличный.
-- **2FA:** только WebAuthn в MVP. Login-TOTP добавляет огромную сложность (server-side secret derived from auth_key, ChangeMasterPassword rotation, recovery rotation) ради совместимости с Google Authenticator. Современный flow — passkeys, и пользователь начинает с регистрации passkey'а; TOTP добавляется опционально как low-tech backup. **В MVP — пропустить, добавить во второй спринт.**
+**5.3. Envelope format `version(1) || nonce(12) || ct+tag` ([internal/crypto/aead.go](../internal/crypto/aead.go), [frontend/packages/crypto/src/aead.ts](../frontend/packages/crypto/src/aead.ts)).** Go and TS implementations are identical, the version byte provides an upgrade path. The AAD on v1 does not cover the version byte, but decode rejects unknown versions before the AEAD operation — that's enough.
 
-**Что выкидываем.**
+**5.4. Refresh-token reuse detection ([internal/auth/manager.go:188-209](../internal/auth/manager.go#L188-L209)).** The approach of stamping `current_refresh_key` and using `bytes.Equal` to detect reuse is correct. There is a race (see a mini-finding in section 4), but the basic idea is sound.
 
-- **Postgres.** SQLite single-writer достаточен для single-user.
-- **RLS.** Один user-bound query — `WHERE user_id = ?`. Не нужен GUC + interceptor + bypass.
-- **River jobs.** Goroutine + ticker × 4 (verify, sessions GC, idempotency GC, mfa GC). Хватает.
-- **Audit external anchor.** В single-user self-hosted нет threat-model'и, где он реально помогает. Hash chain в DB остаётся.
-- **MFAKEK.** MFA challenge живёт в in-memory store (как было до миграции на PG). TTL 5 минут, sticky session не нужен (один процесс).
-- **Postgres LISTEN/NOTIFY.** In-process pub/sub broker. SSE подключён напрямую.
-- **Rate-limit в Postgres.** `golang.org/x/time/rate` per-IP + per-email, in-memory. Single-node only задокументировано.
-- **Vault.** Только env-vars. `OBLIVIO_SEED` (32+ bytes hex/base64) обязателен при старте; всё остальное (JWT, MFAKEK если будет, anchor) выводится через HKDF.
-- **ConnectRPC.** REST + OpenAPI-codegen.
-- **memguard на сервере.** Реально защищает только JWT seed и K_login_totp (если TOTP остаётся). Для остального — обычный Go GC. Honestly документировать "memguard для JWT seed only".
+**5.5. `tokenmanager` + PG-backed store.** Separating access / refresh keys with different TTLs and storing per-session `SessionData` in PG — solid. The Sessions UI works.
 
-**Что добавляем.**
+**5.6. Argon2 semaphore ([internal/auth/argon2.go:30-71](../internal/auth/argon2.go#L30-L71)).** Logic is correct (acquire/release around IDKey). Comments explain why `context.Background` is OK. `SetArgon2Concurrency` is safe for startup-only wiring.
 
-- **Recovery code rotation на RecoveryComplete + ChangeMasterPassword** (см. 1.1).
-- **Audit-chain без external anchor** — но с **append-only** уровня файловой системы: SQLite таблица audit_log на дополнительной WORM-FS (`overlayfs` поверх read-only nfs/s3-mount, или просто `chattr +a` на ext4-файле). Это даёт honest «нельзя удалить строку, не алертив».
-- **External witness через append-to-file**: каждую N-ю строку дублировать в plain-text лог `audit.log` в WORM-папке. По периметру — Litestream бэкап с object-lock.
+**5.7. `MFAStore.Take` = atomic `DELETE RETURNING` ([internal/auth/mfa_store.go:130-152](../internal/auth/mfa_store.go#L130-L152)).** The SQL layer guarantees that only one caller wins the row. Peek + Take in the WebAuthn flow is the correct pattern for the race between assertion validation and cleanup.
 
-**Структура proto-style (но JSON).**
+**5.8. memguard in `DeriveLoginTOTPKey` ([internal/auth/login_totp.go:44-56](../internal/auth/login_totp.go#L44-L56)).** `NewBufferFromBytes` wipes the source; `defer Destroy` on the buffer — correct. Replacing `string(secret)` with the byte-slice variant (`ValidateTOTPCodeBytes`) is a real improvement.
+
+**5.9. Anti-enumeration via `pseudoSalt` for `GetKDFParams` ([internal/api/auth/service.go:236-242](../internal/api/auth/service.go#L236-L242)).** The concept is correct (stable pseudo-parameters for unknown emails). The implementation has two issues (see 1.4 and 4.10), but does not need a from-scratch rewrite.
+
+**5.10. ConnectRPC interceptor chain.** Anonymous allow-list + Bearer-token middleware + RLS interceptor + audit-log interceptor + idempotency middleware — the layer ordering is correct.
+
+**5.11. memguard coverage on server-side keys ([internal/auth/secrets.go](../internal/auth/secrets.go)).** Using `NewBufferFromBytes` for the access / refresh seeds is correct. The one issue with the `string()` copy (4.7) is a small thing.
+
+---
+
+## 6. What I would do differently from scratch
+
+One day, same brief — a zero-knowledge password manager whose baseline scenario is single-user self-hosted, with mobile / extension in the future.
+
+**Stack.**
+
+- **Storage:** SQLite + WAL + Litestream → S3 with Object Lock. One file, trivial backup, no network attack surface on the DB.
+- **Transport:** REST + JSON + OpenAPI spec. The OpenAPI generates the TS client. Streaming is a single SSE endpoint `/events` with long-poll fallback.
+- **Server framework:** Go + chi/echo + the standard library `database/sql`. No mx-launcher (overkill for one binary).
+- **Crypto model:** identical to the current one. Argon2id master_key, HKDF auth_key, vault_key / item_key / blind_index — that layer is excellent as-is.
+- **2FA:** WebAuthn only in the MVP. Login-TOTP adds enormous complexity (server-side secret derived from `auth_key`, ChangeMasterPassword rotation, recovery rotation) for the sake of compatibility with Google Authenticator. The modern flow is passkeys, and the user starts by registering a passkey; TOTP is added optionally as a low-tech backup. **MVP — skip; add in sprint two.**
+
+**What we throw out.**
+
+- **Postgres.** SQLite single-writer is enough for a single user.
+- **RLS.** A single user-bound query is `WHERE user_id = ?`. No GUC + interceptor + bypass needed.
+- **River jobs.** A goroutine + ticker × 4 (verify, sessions GC, idempotency GC, mfa GC). Enough.
+- **Audit external anchor.** In single-user self-hosted there is no threat model where it really helps. The DB hash chain stays.
+- **MFAKEK.** MFA challenge lives in an in-memory store (as it did before the PG migration). 5-minute TTL, no sticky session needed (single process).
+- **Postgres LISTEN/NOTIFY.** In-process pub/sub broker. SSE is plugged in directly.
+- **Postgres-based rate limiting.** `golang.org/x/time/rate` per IP + per email, in-memory. Single-node only is documented.
+- **Vault.** Env vars only. `OBLIVIO_SEED` (32+ bytes hex/base64) is mandatory at startup; everything else (JWT, MFAKEK if we keep it, anchor) is derived via HKDF.
+- **ConnectRPC.** REST + OpenAPI codegen.
+- **memguard on the server.** It genuinely protects only the JWT seed and `K_login_totp` (if TOTP stays). For everything else — plain Go GC. Honestly document "memguard for the JWT seed only".
+
+**What we add.**
+
+- **Recovery code rotation on `RecoveryComplete` + `ChangeMasterPassword`** (see 1.1).
+- **Audit chain without external anchor** — but with **append-only** at the filesystem level: the SQLite audit_log table on an extra WORM FS (`overlayfs` on top of a read-only nfs / s3 mount, or just `chattr +a` on an ext4 file). That gives an honest "you can't delete a row without alerting".
+- **External witness via append-to-file:** duplicate every Nth row into a plain-text log `audit.log` in a WORM folder. At the perimeter — Litestream backup with object-lock.
+
+**Proto-like structure (but JSON).**
 
 ```text
 POST /v1/auth/register       (anonymous, rate-limited)
@@ -518,26 +520,26 @@ GET  /v1/projects            (auth)
 GET  /v1/events              (auth, SSE, long-poll)
 ```
 
-**Скорость разработки.** Меньше пайплайна (buf + protoc + Connect TS-stubs + Vite), быстрее change cycle. Один бинарь — деплой через `scp + systemd`, оператор-friendly.
+**Development velocity.** Less pipeline (buf + protoc + Connect TS stubs + Vite), faster change cycle. One binary — deploy via `scp + systemd`, operator-friendly.
 
-**Чего лишаемся.** Multi-instance, multi-tenant SaaS — не масштабируемся без рефакторинга. Это сознательный выбор: «self-hosted менеджер на одного человека / на семью» ≠ «cloud SaaS как Bitwarden».
+**What we lose.** Multi-instance, multi-tenant SaaS — won't scale without a refactor. That's a deliberate choice: "self-hosted manager for one person / one family" ≠ "cloud SaaS like Bitwarden".
 
-**Длина MVP.** ~10к строк Go + ~5к строк TS, против текущих ~30к + 10к. Снижение площади атаки и поверхности поддержки в 2-3 раза.
+**MVP size.** ~10k lines of Go + ~5k lines of TS, versus the current ~30k + 10k. A 2–3× reduction in attack surface and support surface.
 
 ---
 
 ## Summary
 
-Текущая реализация — добротная zero-knowledge архитектура с правильным разделением «крипта на клиенте, ciphertext + metadata на сервере». Криптографические примитивы корректны, AEAD-envelopes согласованы Go↔TS, HKDF-info-метки версионированы, RLS правильно подключён.
+The current implementation is a solid zero-knowledge architecture with the right split — "crypto on the client, ciphertext + metadata on the server". Cryptographic primitives are correct, AEAD envelopes are aligned Go↔TS, HKDF info labels are versioned, RLS is wired properly.
 
-Главные дефекты — **не в крипте, а в политиках вокруг неё**:
+The main defects are **not in the crypto, but in the policies around it**:
 
-1. Recovery code как permanent backdoor (§1.1).
-2. Audit anchor, который не запускается на «чистом» chain (§1.2).
-3. DoS-vector через permanent account lockout (§1.3).
-4. Timing-сайдканалы в anti-enumeration (§1.4).
-5. Тихий drop TOTP при частичных данных в rotation (§1.5).
+1. Recovery code as a permanent backdoor (§1.1).
+2. The audit anchor that doesn't run on a "clean" chain (§1.2).
+3. DoS vector via permanent account lockout (§1.3).
+4. Timing side channels in anti-enumeration (§1.4).
+5. Silent TOTP drop on partial input during rotation (§1.5).
 
-И «честный архитектурный накладной налог» — комбинация Postgres + River + LISTEN/NOTIFY + Vault + memguard + ConnectRPC даёт хорошую защиту, но **для текущей цели** (self-hosted single-user менеджер) overkill ровно в той части, где он сделан красиво.
+And the "honest architectural overhead" — the combination of Postgres + River + LISTEN/NOTIFY + Vault + memguard + ConnectRPC gives good protection, but **for the current goal** (self-hosted single-user manager) it is overkill in precisely the parts that are beautifully engineered.
 
-Документ §17 «known limitations» честный, но **должен пополниться** позициями §1.1, §1.2, §1.3, §1.4 — это не reified compromises, это найденные баги.
+§17 "known limitations" is honest, but **should be expanded** with items §1.1, §1.2, §1.3, §1.4 — those are not reified compromises, they are found bugs.

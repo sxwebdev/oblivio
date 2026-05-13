@@ -1,91 +1,93 @@
-# Oblivio — план реализации
+# Oblivio — implementation plan
 
-Облачный мульти-юзерский менеджер секретов. Сервер + WebUI (Go + React,
-zero-knowledge крипта на клиенте). Высокая планка надёжности: ZK-модель,
-audit-chain, memguard на сервере, RLS как defence-in-depth.
+A cloud, multi-user secrets manager. Server + WebUI (Go + React, with
+zero-knowledge crypto on the client). High reliability bar: ZK model,
+audit chain, memguard on the server, RLS as defence-in-depth.
 
 ---
 
-## 1. Контекст
+## 1. Context
 
-`oblivio` — облачный мульти-юзерский менеджер секретов: пароли, заметки,
-TOTP-секреты, custom-поля, организованные по проектам. Модель: `server + WebUI`
-(без TUI/GUI), позже — mobile / desktop GUI / browser extension.
+`oblivio` is a cloud, multi-user secrets manager: passwords, notes,
+TOTP secrets, custom fields, organised by projects. Model: `server + WebUI`
+(no TUI/GUI), later — mobile / desktop GUI / browser extension.
 
-**Что хранит пользователь:**
+**What the user stores:**
 
-- Проекты (логические группы записей).
-- Записи (entries), привязанные к проекту. Тип записи (`entry_kind`): `login`,
-  `totp`, `card`, `identity`, `ssh_key`, `note`. Заметки — это просто
-  `kind='note'` с другим набором полей в `encrypted_blob`. Отдельной таблицы
-  `notes` нет.
-- TOTP-секреты (RFC 6238) — поле в записи `kind='login'` (`has_totp=true`)
-  или отдельная запись `kind='totp'`.
+- Projects (logical groups of entries).
+- Entries belonging to a project. The entry kind (`entry_kind`) is one
+  of `login`, `totp`, `card`, `identity`, `ssh_key`, `note`. Notes are
+  simply `kind='note'` with a different set of fields in the
+  `encrypted_blob`. There is no separate `notes` table.
+- TOTP secrets (RFC 6238) — either a field on a `kind='login'` entry
+  (`has_totp=true`) or a standalone `kind='totp'` entry.
 
-**Один аккаунт = один пользователь.** Нет организаций, команд, sharing,
-RBAC-ролей. Каждый юзер — изолированный vault. Если позже понадобятся team-vaults,
-архитектура их допускает, но MVP их не делает.
+**One account = one user.** No organisations, teams, sharing, or
+RBAC roles. Every user is an isolated vault. If team vaults are needed
+later, the architecture allows them, but the MVP does not implement them.
 
-**Принципиальные решения, утверждённые пользователем:**
+**Decisions confirmed by the user:**
 
-| Развилка                       | Выбор                                        |
-| ------------------------------ | -------------------------------------------- |
-| Криптомодель                   | Zero-knowledge (вся крипта на клиенте)       |
-| Хранилище зашифрованных данных | Только Postgres                              |
-| K_root для серверных секретов  | Admin secret + HashiCorp Vault               |
-| Восстановление мастер-пароля   | Recovery code, выдаваемый при регистрации    |
-| Транспорт                      | ConnectRPC + buf (вместо текущего gofiber)   |
-| Vault-структура                | Один vault на пользователя, проекты — внутри |
-| 2FA                            | TOTP + WebAuthn/Passkey сразу в MVP          |
-| Текущие остатки в скелете      | Полная зачистка перед реализацией            |
+| Branch                             | Choice                                           |
+| ---------------------------------- | ------------------------------------------------ |
+| Crypto model                       | Zero-knowledge (all crypto on the client)        |
+| Encrypted-data storage             | Postgres only                                    |
+| K_root for server-side secrets     | Admin secret + HashiCorp Vault                   |
+| Master-password recovery           | Recovery code issued at registration             |
+| Transport                          | ConnectRPC + buf (replacing the current gofiber) |
+| Vault structure                    | One vault per user, projects live inside         |
+| 2FA                                | TOTP + WebAuthn/Passkey from MVP                 |
+| Existing leftovers in the skeleton | Full sweep before implementation                 |
 
-**Целевые клиенты:** WebUI сейчас, mobile / desktop GUI / browser extension позже.
-Архитектура должна позволять подключать новые клиенты без изменения серверного контракта.
+**Target clients:** WebUI now, mobile / desktop GUI / browser extension
+later. The architecture must let new clients plug in without changes to
+the server contract.
 
 ---
 
 ## 2. Threat model
 
-| Угроза                                            | Защита                                                                                                                                                                                                          |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Кража диска / БД                                  | Все ценные данные зашифрованы клиентскими ключами; сервер не имеет ключей расшифровки                                                                                                                           |
-| Honest-but-curious оператор сервера               | То же — даже root-доступ к Postgres не даёт plaintext                                                                                                                                                           |
-| Активный взлом сервера и подмена ciphertext       | AAD = `vault_id\|item_id\|version`; ротация item version; integrity log; client side проверка подписей                                                                                                          |
-| Утечка серверных секретов (Vault token, JWT keys) | `memguard.LockedBuffer` в RAM сервера, Vault для root-of-trust, ротация ключей JWT                                                                                                                              |
-| Brute-force мастер-пароля                         | Argon2id `t=3, m=128 MiB, p=4`; per-user salt; rate-limit на `/auth/kdf-params` и `/auth/login`                                                                                                                 |
-| Перехват пароля в TLS                             | TLS 1.3 only, HSTS preload, `verify-full` к Postgres                                                                                                                                                            |
-| XSS на WebUI                                      | Strict CSP с Trusted Types, нет inline-скриптов, нет third-party CDN, lockfile lint, SRI                                                                                                                        |
-| Кража токена / cookie                             | `__Host-` cookie, `HttpOnly`, `Secure`, `SameSite=Strict`; rotating refresh токены; revoke при logout                                                                                                           |
-| Утечка через буфер обмена                         | Auto-clear через 30s, проверка содержимого перед очисткой                                                                                                                                                       |
-| Утечка через swap / coredump (server)             | `memguard` для JWT-ключей и временно-производных KDF-материалов; на хосте — отключить swap или включить swap-encryption. Plaintext, передаваемый в `crypto/aes`, всё равно копируется в обычную heap — см. §8.3 |
-| Утечка через swap / coredump (desktop GUI на Go)  | `memguard` для K_master/K_vault/K_item на десктопе                                                                                                                                                              |
-| Утечка через DevTools / Redux DevTools (Web)      | Расшифровка только при клике "View"/"Copy"; Redux DevTools отключён в проде                                                                                                                                     |
-| Phishing / replay логина                          | WebAuthn рекомендуется как обязательный 2-й фактор для прод-аккаунтов. UV (PIN/biometric) пока не форсится — см. §17                                                                                            |
-| Auto-lock                                         | По бездействию (`visibilitychange`/таймер), `beforeunload`, ручной lock                                                                                                                                         |
-| Tamper / rollback на сервере                      | Audit-chain в Postgres (см. §6.5); head хранится в `system_state` той же БД — внешний якорь не реализован, см. §17                                                                                              |
-| Honest-but-curious оператор: TOTP login-secret    | Defence-in-depth: secret шифруется ключом из `auth_key`, который сервер не хранит. Но в момент login сервер видит plaintext в RAM — это не ZK, см. §5.3                                                         |
+| Threat                                         | Mitigation                                                                                                                                                                                      |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Disk / DB theft                                | All valuable data is encrypted with client-side keys; the server has no decryption keys                                                                                                         |
+| Honest-but-curious server operator             | Same — even root access to Postgres yields no plaintext                                                                                                                                         |
+| Active server breach + ciphertext substitution | AAD = `vault_id\|item_id\|version`; item version rotation; integrity log; client-side signature verification                                                                                    |
+| Server-secret leak (Vault token, JWT keys)     | `memguard.LockedBuffer` in server RAM, Vault for root-of-trust, JWT key rotation                                                                                                                |
+| Master-password brute force                    | Argon2id `t=3, m=128 MiB, p=4`; per-user salt; rate-limit on `/auth/kdf-params` and `/auth/login`                                                                                               |
+| Password interception in TLS                   | TLS 1.3 only, HSTS preload, `verify-full` to Postgres                                                                                                                                           |
+| WebUI XSS                                      | Strict CSP with Trusted Types, no inline scripts, no third-party CDN, lockfile lint, SRI                                                                                                        |
+| Token / cookie theft                           | `__Host-` cookie, `HttpOnly`, `Secure`, `SameSite=Strict`; rotating refresh tokens; revoke on logout                                                                                            |
+| Clipboard leak                                 | Auto-clear after 30 s, validates content before clearing                                                                                                                                        |
+| Swap / coredump leak (server)                  | `memguard` for JWT keys and short-lived KDF-derived material; on the host — disable swap or enable swap encryption. The plaintext fed to `crypto/aes` still lands in regular heap — see §8.3    |
+| Swap / coredump leak (Go desktop GUI)          | `memguard` for K_master / K_vault / K_item on desktop                                                                                                                                           |
+| DevTools / Redux DevTools leak (Web)           | Decryption only on click "View" / "Copy"; Redux DevTools disabled in prod                                                                                                                       |
+| Phishing / login replay                        | WebAuthn recommended as a mandatory second factor for prod accounts. UV (PIN/biometric) is not yet forced — see §17                                                                             |
+| Auto-lock                                      | On inactivity (`visibilitychange` / timer), `beforeunload`, manual lock                                                                                                                         |
+| Server tamper / rollback                       | Audit chain in Postgres (see §6.5); the head lives in `system_state` in the same DB — no external anchor implemented, see §17                                                                   |
+| Honest-but-curious operator: TOTP login secret | Defence in depth: the secret is encrypted with a key derived from `auth_key`, which the server does not store. But during login the server sees the plaintext in RAM — that is not ZK, see §5.3 |
 
-**Из скопа исключаются** (для MVP, можно добавить позже): supply-chain атака на собственные
-NPM-зависимости (минимизация числа deps + lockfile lint + SBOM), фишинговые
-поддельные клиенты (защита через WebAuthn — origin binding).
+**Out of scope** (for the MVP, can be added later): supply-chain
+attacks against our own NPM dependencies (mitigated via minimal deps +
+lockfile lint + SBOM), and phishing fake clients (mitigated by
+WebAuthn — origin binding).
 
 ---
 
-## 3. Архитектура высокого уровня
+## 3. High-level architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │ Web client (React + Vite + Tailwind + shadcn)                       │
 │ + TanStack Router/Query + Zustand                                   │
 │                                                                     │
-│ Crypto core (изолированный TS пакет @oblivio/crypto):               │
+│ Crypto core (isolated TS package @oblivio/crypto):                  │
 │   • Argon2id WASM (multi-thread, COOP/COEP)                         │
 │   • WebCrypto AES-GCM-256                                           │
-│   • Дерево ключей: master → vault → item                            │
+│   • Key tree: master → vault → item                                 │
 │   • TOTP RFC 6238                                                   │
-│   • Blind-index HMAC-SHA256                                         │
+│   • Blind index HMAC-SHA256                                         │
 │                                                                     │
-│ Видит plaintext только в момент использования.                      │
+│ Sees plaintext only at the moment of use.                           │
 └──────────────┬──────────────────────────────────────────────────────┘
                │ HTTPS + ConnectRPC (protobuf)
                │ Bearer access token + refresh token
@@ -96,320 +98,350 @@ NPM-зависимости (минимизация числа deps + lockfile li
 │ — ConnectRPC handlers (AuthService, VaultService, …)                │
 │ — connectrpc.com/authn middleware + rbacconnect                     │
 │ — sxwebdev/tokenmanager: access (20 min) + refresh (30 days)        │
-│ — Argon2id для server-side хеша auth_key (двух-стадийное KDF)       │
-│ — memguard для JWT ключей, Vault token, lockout state               │
+│ — Argon2id for the server-side hash of auth_key (two-stage KDF)     │
+│ — memguard for JWT keys, Vault token, lockout state                 │
 │ — Audit log writer (append-only, hash-chained)                      │
 │ — Prometheus metrics, structured logs                               │
 │                                                                     │
-│ Хранит: ciphertext, salt, kdf_params, verifier, hash(auth_key),     │
+│ Stores: ciphertext, salt, kdf_params, verifier, hash(auth_key),     │
 │         wrapped_recovery_key, project_blob, entry_blob, note_blob,  │
 │         WebAuthn public keys, sessions, audit                       │
 │                                                                     │
-│ Не видит: master_password, master_key, vault_key, item_key,         │
-│           plaintext полей, totp_secret, plaintext заметок           │
+│ Does not see: master_password, master_key, vault_key, item_key,     │
+│               field plaintexts, totp_secret, note plaintext         │
 └──────┬──────────────────────────────────────┬───────────────────────┘
        │                                      │
        ▼                                      ▼
 ┌──────────────────┐                ┌──────────────────────────────┐
 │ Postgres 18      │                │ HashiCorp Vault              │
-│ TLS verify-full  │                │ (KV для admin_secret,        │
-│ pgxpool          │                │  PKI для TLS, transit для    │
-│ RLS включён      │                │  подписи JWT при ротации)    │
+│ TLS verify-full  │                │ (KV for admin_secret,        │
+│ pgxpool          │                │  PKI for TLS, transit for    │
+│ RLS enabled      │                │  signing JWT on rotation)    │
 │ pgaudit          │                │ AppRole / Kubernetes auth    │
 └──────────────────┘                └──────────────────────────────┘
 ```
 
-**Postgres** — единственное хранилище данных. Pebble + TPM stub из текущего скелета удаляются:
-при ZK сервер не имеет ключей и расшифровывать ciphertext не может, а anti-tamper решается
-через append-only audit-chain в той же Postgres.
+**Postgres** is the only data store. The Pebble + TPM stub from the
+current skeleton is removed: under ZK the server has no keys and cannot
+decrypt ciphertext, and anti-tamper is solved by the append-only audit
+chain in the same Postgres.
 
-**Vault** обслуживает только серверные секреты, никогда — пользовательские.
+**Vault** handles only server-side secrets, never user data.
 
 ---
 
-## 4. Криптографическая схема (zero-knowledge)
+## 4. Cryptographic scheme (zero-knowledge)
 
-### 4.1 Жизненный цикл ключей
+### 4.1 Key lifecycle
 
 ```
-master_password (только в браузере)
+master_password (browser only)
     │
-    │ Argon2id(salt_user, kdf_params)         params per-user из БД
+    │ Argon2id(salt_user, kdf_params)         params per user from the DB
     ▼
-master_key (32 байта)
+master_key (32 bytes)
     │
     ├──► auth_key = HKDF-SHA256(master_key, info="oblivio/auth/v1", salt=email)
     │      │
-    │      └──► отправляется на сервер при login
-    │           сервер хранит argon2id(auth_key) для проверки
+    │      └──► sent to the server on login
+    │           the server stores argon2id(auth_key) for verification
     │
     └──► AES-GCM unwrap
          │
          ▼
-    vault_key (32 байта, случайный, генерируется при регистрации)
+    vault_key (32 bytes, random, generated at registration)
          │
-         ├──► AES-GCM unwrap (для каждой записи)
+         ├──► AES-GCM unwrap (per entry)
          │     │
          │     ▼
-         │   item_key (32 байта на запись/заметку/проект, случайный)
+         │   item_key (32 bytes per entry/note/project, random)
          │     │
          │     │ AES-GCM
          │     ▼
-         │   ciphertext поля (title, username, password, url, notes,
-         │                    totp_secret, custom_fields)
+         │   field ciphertext (title, username, password, url, notes,
+         │                     totp_secret, custom_fields)
          │
-         └──► HMAC-SHA256 для blind index (поиск по точному совпадению title)
+         └──► HMAC-SHA256 for the blind index (exact-match search by title)
 ```
 
-**Двух-стадийное KDF** (как в Bitwarden web vault):
+**Two-stage KDF** (as in the Bitwarden web vault):
 
-- `master_key` используется только для шифрования и никогда не покидает клиент.
-- `auth_key` отправляется на сервер при login и регистрации. Сервер хранит
-  `argon2id(auth_key)` — это серверный пароль, который не позволяет раскрыть
-  `master_password` (нужно обратить два слоя KDF).
-- Это классическая схема ZK-аутентификации без OPAQUE/aPAKE.
+- `master_key` is used only for encryption and never leaves the client.
+- `auth_key` is sent to the server on login and registration. The
+  server stores `argon2id(auth_key)` — that is the server-side
+  password, which does not let the server recover `master_password`
+  (two KDF layers would have to be inverted).
+- That is the classic ZK auth scheme without OPAQUE / aPAKE.
 
-**Замечание про HKDF salt.** В реализации `auth_key` выводится через
-`HKDF-SHA256(master_key, info="oblivio/auth/v1", salt=lowercase(email))`.
-Email — публичная низкоэнтропийная величина: схема работает, но (а) HKDF salt
-по best practice — случайный, (б) смена email потребует пере-вывода `auth_key`
-и `auth_key_hash`. Целевое улучшение — мигрировать salt на per-user `salt_user`
-(уже хранится в БД), чтобы email можно было менять без переаутентификации.
-См. §17.
+**Note on the HKDF salt.** In the implementation `auth_key` is derived
+via `HKDF-SHA256(master_key, info="oblivio/auth/v1", salt=lowercase(email))`.
+Email is a public, low-entropy value: the scheme works, but (a) HKDF
+salt best practice is random, and (b) changing email requires
+re-deriving `auth_key` and `auth_key_hash`. The target improvement is
+to migrate the salt to a per-user `salt_user` (already stored in the
+DB), so the email can change without re-authentication. See §17.
 
-### 4.2 Параметры Argon2id
+### 4.2 Argon2id parameters
 
-| Слой                                 | t (iters) | m (KiB)          | p (threads)  |
-| ------------------------------------ | --------- | ---------------- | ------------ |
-| Client `master_key` (per-user из БД) | 3         | 131072 (128 MiB) | 1 (см. ниже) |
-| Server `argon2(auth_key)`            | 3         | 131072 (128 MiB) | 4            |
+| Layer                                 | t (iters) | m (KiB)          | p (threads)   |
+| ------------------------------------- | --------- | ---------------- | ------------- |
+| Client `master_key` (per-user, in DB) | 3         | 131072 (128 MiB) | 1 (see below) |
+| Server `argon2(auth_key)`             | 3         | 131072 (128 MiB) | 4             |
 
-Параметры клиентского KDF хранятся в `user_kdf_params` per-user, чтобы поднять их
-впоследствии без миграции миллионов записей. Серверные — фиксированы в коде, версионируются.
+Client KDF parameters live in `user_kdf_params` per user, so they can
+be raised later without migrating millions of records. Server params
+are pinned in code and versioned.
 
-**Клиентский parallelism.** Multi-thread Argon2id в браузере требует COOP/COEP
-заголовков и `crossOriginIsolated`. На страницах без изоляции клиент принудительно
-использует `p=1` (single-thread). На устройствах с жёсткими лимитами памяти
-(в первую очередь iOS Safari, где WASM-инстанс может OOM-нуть на 128 MiB) сейчас
-fallback на меньшее `m` **не реализован** — пользователь на старом iPhone может
-не суметь залогиниться. Это open issue в §17; решение — runtime device-detect и
-per-device параметры с сохранением единого `salt_user`.
+**Client parallelism.** Multi-thread Argon2id in the browser requires
+COOP/COEP headers and `crossOriginIsolated`. On pages without isolation
+the client is forced to `p=1` (single-thread). On devices with hard
+memory limits (primarily iOS Safari, where a WASM instance can OOM at
+128 MiB) a fallback to a smaller `m` is **not** implemented yet — a
+user on an old iPhone may fail to log in. This is an open issue in
+§17; the resolution is runtime device detection and per-device
+parameters with a single shared `salt_user`.
 
-**Серверная concurrency.** Каждый `Authorize` запускает Argon2id с m=128 MiB.
-Без semaphore сервер может OOM при флуде анонимных логинов — это известный
-DoS-вектор; митигация сейчас — rate-limit middleware (см. §7.4). Жёсткий
-concurrency-cap планируется (см. §17).
+**Server concurrency.** Every `Authorize` runs Argon2id with m=128 MiB.
+Without a semaphore the server can OOM under a flood of anonymous
+logins — that is a known DoS vector; the current mitigation is the
+rate-limit middleware (see §7.4). A hard concurrency cap is planned
+(see §17).
 
-### 4.3 AEAD и AAD
+### 4.3 AEAD and AAD
 
-- AEAD: **AES-256-GCM** через WebCrypto (нативный, constant-time).
-- Nonce: 12 байт случайных (CSPRNG); полный envelope: `nonce(12) || ciphertext || tag(16)`.
-- AAD для item: `item_id || version || vault_id || "item"` — защита от swap- и
-  rollback-атак.
-- AAD для wrapped key: `parent_id || child_id || version || "wrap"`.
-- AAD для recovery wrap: `user_id || "recovery"`.
+- AEAD: **AES-256-GCM** via WebCrypto (native, constant-time).
+- Nonce: 12 random bytes (CSPRNG); full envelope: `nonce(12) || ciphertext || tag(16)`.
+- AAD for an item: `item_id || version || vault_id || "item"` —
+  protects against swap and rollback attacks.
+- AAD for a wrapped key: `parent_id || child_id || version || "wrap"`.
+- AAD for the recovery wrap: `user_id || "recovery"`.
 
-### 4.4 Blind index для поиска по title
+### 4.4 Blind index for title search
 
 ```
 title_hash = HMAC-SHA256(K_blind, lowercase(NFKC(title)))
 K_blind = HKDF-SHA256(vault_key, info="oblivio/blind/v1")
 ```
 
-Колонка `title_hash BYTEA` индексируется с `(user_id, title_hash)`. Точное совпадение —
-без plaintext. Полнотекстовый поиск делается на клиенте после расшифровки списка.
+The `title_hash BYTEA` column is indexed by `(user_id, title_hash)`.
+Exact match without plaintext. Full-text search is done on the client
+after decrypting the list.
 
 ### 4.5 Recovery
 
-При регистрации генерируется `recovery_code` (128 бит, base32 в формате типа
-`XXXX-XXXX-XXXX-XXXX-XXXX`). Клиент:
+At registration a `recovery_code` is generated (128 bits, base32 in a
+format like `XXXX-XXXX-XXXX-XXXX-XXXX`). The client:
 
-1. Выводит `recovery_key = Argon2id(recovery_code, recovery_salt, params)`.
-2. Шифрует `vault_key` ключом `recovery_key` → `recovery_wrapped_vault_key`.
-3. Сохраняет `recovery_salt` и `recovery_wrapped_vault_key` на сервере.
-4. Показывает recovery_code пользователю **ровно один раз** для ручного копирования
-   (на странице с предупреждением о том, что это последняя возможность).
-   Автоматический копир в clipboard **не делаем** — clipboard может быть перехвачен
-   расширениями/процессами, окно перехвата с auto-clear через 30s избыточно.
-   Пользователь обязан сохранить код вне приложения (бумага, менеджер другого вендора).
+1. Derives `recovery_key = Argon2id(recovery_code, recovery_salt, params)`.
+2. Encrypts `vault_key` with `recovery_key` → `recovery_wrapped_vault_key`.
+3. Saves `recovery_salt` and `recovery_wrapped_vault_key` on the server.
+4. Shows the recovery code to the user **exactly once** for manual
+   copying (on a page warning that this is the last opportunity).
+   Automatic clipboard copy is **not** done — the clipboard can be
+   intercepted by extensions / processes, and the 30 s auto-clear
+   window is excessive. The user must save the code outside the
+   application (paper, another vendor's manager).
 
-При потере мастер-пароля пользователь вводит recovery_code, получает
-`recovery_wrapped_vault_key + recovery_salt`, восстанавливает `vault_key`,
-выбирает новый `master_password`, перешифровывает только `wrapped_vault_key`
-(не сами записи) и обновляет `verifier` + `auth_key_hash`.
+If the master password is lost, the user enters the recovery code,
+gets `recovery_wrapped_vault_key + recovery_salt`, recovers
+`vault_key`, picks a new `master_password`, re-encrypts only the
+`wrapped_vault_key` (not the records themselves) and updates the
+`verifier` + `auth_key_hash`.
 
-### 4.6 Версионирование крипто-протокола
+### 4.6 Crypto-protocol versioning
 
-Текущий envelope-формат: `nonce(12) || ciphertext || tag(16)`. **Версионный байт
-внутри ciphertext-envelope пока не введён** — формат однозначно дешифруется
-текущим алгоритмом, и любая ротация алгоритма потребует либо миграции всех
-blob-ов, либо введения version-byte с decoder-registry. Это known limitation:
-до первого реального протокол-апгрейда (XChaCha20-Poly1305 / post-quantum)
-вводить дополнительный байт нет смысла, но при апгрейде он должен появиться
-вместе с reader-side dispatcher (см. §17).
+Current envelope format: `nonce(12) || ciphertext || tag(16)`. **A
+version byte inside the ciphertext envelope is not yet introduced** —
+the format is unambiguously decoded by the current algorithm, and any
+algorithm rotation will require either migrating every blob or
+introducing a version byte with a decoder registry. This is a known
+limitation: until the first real protocol upgrade
+(XChaCha20-Poly1305 / post-quantum) there is no reason to add the
+extra byte, but at the upgrade it must appear together with a
+reader-side dispatcher (see §17).
 
-Версионирование вне envelope уже есть: `user_vault.vault_key_version` и
-`system_state.crypto_protocol_version` позволяют делать stepped rollout.
+Versioning outside the envelope already exists:
+`user_vault.vault_key_version` and `system_state.crypto_protocol_version`
+allow a stepped rollout.
 
 ---
 
-## 5. Аутентификация и сессии
+## 5. Authentication and sessions
 
-### 5.1 Регистрация
+### 5.1 Registration
 
 ```
-1. Клиент: пользователь вводит email + master_password.
-2. Клиент: salt_user = randbytes(16); recovery_salt = randbytes(16).
-3. Клиент: master_key = Argon2id(master_password, salt_user, kdf_params).
-4. Клиент: auth_key = HKDF(master_key, "oblivio/auth/v1", email).
-5. Клиент: vault_key = randbytes(32).
-6. Клиент: wrapped_vault_key = AES-GCM(master_key, vault_key, AAD="vault-wrap").
-7. Клиент: verifier = AES-GCM(master_key, "oblivio-verify").
-8. Клиент: recovery_code = generate(); recovery_key = Argon2id(recovery_code, recovery_salt).
-9. Клиент: recovery_wrapped_vault_key = AES-GCM(recovery_key, vault_key, AAD="recovery").
-10. Клиент: POST AuthService.Register {
+1. Client: user enters email + master_password.
+2. Client: salt_user = randbytes(16); recovery_salt = randbytes(16).
+3. Client: master_key = Argon2id(master_password, salt_user, kdf_params).
+4. Client: auth_key = HKDF(master_key, "oblivio/auth/v1", email).
+5. Client: vault_key = randbytes(32).
+6. Client: wrapped_vault_key = AES-GCM(master_key, vault_key, AAD="vault-wrap").
+7. Client: verifier = AES-GCM(master_key, "oblivio-verify").
+8. Client: recovery_code = generate(); recovery_key = Argon2id(recovery_code, recovery_salt).
+9. Client: recovery_wrapped_vault_key = AES-GCM(recovery_key, vault_key, AAD="recovery").
+10. Client: POST AuthService.Register {
         email, salt_user, kdf_params, auth_key,
         verifier, wrapped_vault_key,
         recovery_salt, recovery_wrapped_vault_key,
     }
-11. Сервер: argon2id(auth_key) → user_auth.password_hash; всё остальное сохраняется как есть.
-12. Сервер: генерирует email-verification token, отправляет письмо.
-13. Клиент: показывает recovery_code один раз, требует подтверждения.
+11. Server: argon2id(auth_key) → user_auth.password_hash; everything else is stored as-is.
+12. Server: generates an email-verification token, sends the email.
+13. Client: shows the recovery code once, requires confirmation.
 ```
 
-Никогда не уходят на сервер: `master_password`, `master_key`, `vault_key`, `recovery_key`.
+What never goes to the server: `master_password`, `master_key`,
+`vault_key`, `recovery_key`.
 
 ### 5.2 Login
 
 ```
 1. POST AuthService.GetKDFParams { email } → { salt_user, kdf_params }
-   • Anonymous endpoint, rate-limited per-IP И per-email (5/мин).
-   • Возвращает фиктивные стабильные параметры для несуществующих email
-     (защита от user enumeration).
-2. Клиент: master_key = Argon2id(master_password, salt_user, kdf_params).
-3. Клиент: auth_key = HKDF(master_key, "oblivio/auth/v1", email).
+   • Anonymous endpoint, rate-limited per-IP AND per-email (5/min).
+   • Returns stable pseudo-parameters for non-existent emails
+     (defence against user enumeration).
+2. Client: master_key = Argon2id(master_password, salt_user, kdf_params).
+3. Client: auth_key = HKDF(master_key, "oblivio/auth/v1", email).
 4. POST AuthService.Authorize { email, auth_key, totp_code? } → { challenge_for_2fa? | tokens }
-   Сервер сравнивает argon2id(auth_key) с user_auth.password_hash
-   через subtle.ConstantTimeCompare. Для несуществующего email сервер
-   всё равно прогоняет argon2id против фиксированного dummy-hash
-   (lazy-инициализируется при первом обращении), чтобы выровнять время
-   ответа и закрыть timing-канал user-enumeration на Authorize.
-5. Если 2FA включён, сервер требует TOTP/WebAuthn перед выдачей токенов.
-6. После успеха сервер возвращает:
+   The server compares argon2id(auth_key) with user_auth.password_hash
+   via subtle.ConstantTimeCompare. For a non-existent email the server
+   still runs argon2id against a fixed dummy hash (lazily initialised
+   on first use) to even out response time and close the timing-based
+   user-enumeration channel on Authorize.
+5. If 2FA is enabled the server requires TOTP / WebAuthn before issuing tokens.
+6. On success the server returns:
    { access_token, refresh_token, expires_at, device_id,
      verifier, wrapped_vault_key }
-7. Клиент: master_key.decrypt(verifier) == "oblivio-verify"? — sanity check.
-8. Клиент: vault_key = master_key.decrypt(wrapped_vault_key).
-9. Клиент: master_key затирается (memguard / typed array fill 0 / GC hint).
-10. Клиент: vault_key хранится в Zustand store **в RAM**, никогда не пишется в localStorage/IndexedDB.
+7. Client: master_key.decrypt(verifier) == "oblivio-verify"? — sanity check.
+8. Client: vault_key = master_key.decrypt(wrapped_vault_key).
+9. Client: master_key is wiped (memguard / typed array fill 0 / GC hint).
+10. Client: vault_key lives in the Zustand store **in RAM**, never persisted to localStorage/IndexedDB.
 ```
 
 ### 5.3 2FA: TOTP
 
-- Secret 20 байт (160 бит).
-- TOTP secret хранится **зашифрованным** в `entry_blob` отдельной "auth"-записи
-  пользователя ИЛИ как поле основной записи. Сервер не видит plaintext-секрета.
-- TOTP при login: пользователь вводит код, клиент локально сверяет с локальным
-  `validateTOTP(secret, code)` — но это бесполезно для server-side проверки.
-- **Поэтому TOTP для login делаем серверным**: при включении 2FA клиент шифрует
-  `totp_secret` ключом `K_login_totp = HKDF(auth_key, "oblivio/login-totp/v1")` и шлёт
-  на сервер. Сервер сохраняет — это технически server-side, **но secret выводится
-  из auth_key, который сервер не может развернуть в master_password**. В момент login
-  клиент посылает `auth_key` → сервер выводит `K_login_totp` → расшифровывает secret →
-  проверяет код. После проверки К_login_totp сразу затирается из memguard.
-- TOTP-секреты **внутри vault** (для генерации кодов любых сторонних сервисов) шифруются
-  обычным `vault_key/item_key` и расшифровываются только клиентом — это zero-knowledge.
+- Secret: 20 bytes (160 bits).
+- The TOTP secret is stored **encrypted** in the `entry_blob` of a
+  user's special "auth" record OR as a field on the main record. The
+  server does not see the plaintext secret.
+- TOTP at login: the user types a code, the client validates it
+  locally with `validateTOTP(secret, code)` — but that is useless for
+  server-side verification.
+- **So TOTP for login is server-side**: when 2FA is enabled the client
+  encrypts `totp_secret` with `K_login_totp = HKDF(auth_key, "oblivio/login-totp/v1")`
+  and sends it to the server. The server stores it — technically
+  server-side, **but the secret is derived from `auth_key`, which the
+  server cannot expand back into `master_password`**. At login the
+  client sends `auth_key` → the server derives `K_login_totp` →
+  decrypts the secret → validates the code. Right after the check
+  `K_login_totp` is wiped from memguard.
+- TOTP secrets **inside the vault** (for generating codes for any
+  third-party services) are encrypted with the regular
+  `vault_key/item_key` and decrypted only by the client — that is
+  zero-knowledge.
 
-**Честная оценка модели безопасности login-TOTP.** Это **не** zero-knowledge:
-в момент login сервер получает `auth_key`, выводит `K_login_totp`, расшифровывает
-`totp_secret` и видит plaintext в RAM на время сравнения. Honest-but-curious
-оператор с доступом к процессу может его перехватить. Защита держится на двух
-свойствах: (а) секрет в БД зашифрован ключом, выводимым из `auth_key` — атакующий
-с одним только dump БД не получает секрет; (б) plaintext существует короткое
-время в derived-key buffer (memguard) и сразу затирается. Альтернатива (client-side
-TOTP с PAKE) — отложена. Не позиционировать login-TOTP как ZK-фичу.
+**Honest assessment of the login-TOTP security model.** It is **not**
+zero-knowledge: at login the server receives `auth_key`, derives
+`K_login_totp`, decrypts `totp_secret`, and sees the plaintext in RAM
+during the comparison. An honest-but-curious operator with process
+access can grab it. The protection rests on two properties: (a) the
+secret in the DB is encrypted with a key derived from `auth_key` — an
+attacker with only a DB dump does not get the secret; (b) the
+plaintext exists for a short time in a derived-key buffer (memguard)
+and is wiped immediately. The alternative (client-side TOTP with
+PAKE) is deferred. Do not market login-TOTP as a ZK feature.
 
-**Гэп с ChangeMasterPassword / Recovery.** `K_login_totp` выводится из `auth_key`.
-При смене master_password (и, соответственно, `auth_key`) старый
-`encrypted_secret` в `user_login_totp` становится нерасшифровываемым. Сейчас
-handler-ы `ChangeMasterPassword` и `RecoveryComplete` это не обрабатывают —
-2FA «молча ломается» до повторного setup. Целевая правка: клиент при смене
-пароля заранее расшифровывает старый secret своим текущим `auth_key`,
-перешифровывает новым `K_login_totp` и передаёт новое значение в payload
-ротации. См. §17.
+**Gap with `ChangeMasterPassword` / `Recovery`.** `K_login_totp` is
+derived from `auth_key`. When the master password (and therefore
+`auth_key`) changes, the old `encrypted_secret` in `user_login_totp`
+becomes undecryptable. The current `ChangeMasterPassword` and
+`RecoveryComplete` handlers do not handle that — 2FA "silently
+breaks" until setup is re-run. The target fix: the client decrypts
+the old secret with its current `auth_key` before the change,
+re-encrypts with the new `K_login_totp`, and passes the new value in
+the rotation payload. See §17.
 
 ### 5.4 2FA: WebAuthn / Passkey
 
-- Library: `github.com/go-webauthn/webauthn` на сервере, нативный браузерный API на клиенте.
-- Origin binding защищает от phishing.
-- Регистрация: клиент → `Register Begin` → challenge → `navigator.credentials.create` →
-  `Register Finish` с attestation → сервер хранит `credential_id`, `public_key`,
-  `sign_count` в `user_webauthn_credentials`.
-- Аутентификация: после первичной проверки `auth_key` сервер выдаёт challenge для WebAuthn,
-  клиент → `navigator.credentials.get` → assertion → сервер проверяет подпись.
-- WebAuthn — это **только аутентификация** (proof of identity), не источник ключей
-  расшифровки. `vault_key` всё равно требует `master_password`.
+- Library: `github.com/go-webauthn/webauthn` on the server; the native
+  browser API on the client.
+- Origin binding protects against phishing.
+- Registration: client → `Register Begin` → challenge →
+  `navigator.credentials.create` → `Register Finish` with attestation
+  → server stores `credential_id`, `public_key`, `sign_count` in
+  `user_webauthn_credentials`.
+- Authentication: after the initial `auth_key` check the server issues
+  a WebAuthn challenge, the client → `navigator.credentials.get` →
+  assertion → server validates the signature.
+- WebAuthn is **only authentication** (proof of identity), not a
+  source of decryption keys. `vault_key` still requires
+  `master_password`.
 
-**User Verification.** Сейчас RP-конфиг не форсит `UserVerification: required` —
-действует библиотечный default ("preferred"). Это значит, что passkey без
-PIN/biometric тоже принимается, что слабее заявленной модели для secret-manager.
-Целевая правка — `AuthenticatorSelection.UserVerification = required` для
-Begin/Finish; см. §17.
+**User Verification.** The RP config does not currently force
+`UserVerification: required` — the library default ("preferred") is
+in effect. That means a passkey without PIN/biometric is also
+accepted, which is weaker than the stated model for a secret manager.
+The target fix is `AuthenticatorSelection.UserVerification = required`
+for Begin / Finish; see §17.
 
 ### 5.5 Recovery flow
 
 ```
 1. POST AuthService.GetRecoveryParams { email } → { recovery_salt, kdf_params }
-2. Клиент: recovery_key = Argon2id(recovery_code, recovery_salt, kdf_params).
+2. Client: recovery_key = Argon2id(recovery_code, recovery_salt, kdf_params).
 3. POST AuthService.RecoveryStart { email, recovery_proof = HKDF(recovery_key, "auth/v1") }
-   Сервер сравнивает с argon2(recovery_proof) (хранится отдельно).
-4. Сервер возвращает recovery_wrapped_vault_key.
-5. Клиент: vault_key = recovery_key.decrypt(recovery_wrapped_vault_key).
-6. Клиент: пользователь задаёт новый master_password.
-7. Клиент: новый master_key, новый verifier, новый wrapped_vault_key, новый auth_key.
-8. POST AuthService.RecoveryComplete с новыми артефактами.
-9. Сервер инвалидирует все сессии, требует re-login через WebAuthn (если был включён).
+   The server compares with argon2(recovery_proof) (stored separately).
+4. Server returns recovery_wrapped_vault_key.
+5. Client: vault_key = recovery_key.decrypt(recovery_wrapped_vault_key).
+6. Client: user picks a new master_password.
+7. Client: new master_key, new verifier, new wrapped_vault_key, new auth_key.
+8. POST AuthService.RecoveryComplete with the new artefacts.
+9. Server invalidates all sessions, requires re-login via WebAuthn (if it was enabled).
 ```
 
-Recovery не перешифровывает записи — только обёртку `vault_key`. **Известная
-неполнота:** `user_login_totp.encrypted_secret` остаётся зашифрованным старым
-`K_login_totp`, выведенным из старого `auth_key`, — после recovery TOTP-вход
-сломан и требует повторного setup. Это та же проблема, что в §5.3, и решается
-одинаково: клиент перешифровывает secret и передаёт в `RecoveryComplete`.
+Recovery does not re-encrypt entries — only the `vault_key` wrap.
+**Known incompleteness:** `user_login_totp.encrypted_secret` remains
+encrypted under the old `K_login_totp` derived from the old
+`auth_key`, so after recovery TOTP login is broken and requires a
+re-setup. Same problem as §5.3, same fix: the client re-encrypts the
+secret and passes it in `RecoveryComplete`.
 
-### 5.6 Сессии
+### 5.6 Sessions
 
-Реализуем через `goauth` skill: `tokenmanager.Manager[SessionData]` × 2 (access + refresh),
-session store в Postgres (отдельная таблица `auth_sessions`). Поля `SessionData`:
-`user_id, device_id, device_type, device_name, ip, country, created_at`.
-По device_id одно устройство — одна сессия; пользователь видит и может терминировать.
+Implemented via the `goauth` skill: `tokenmanager.Manager[SessionData]`
+× 2 (access + refresh), session store in Postgres (a separate
+`auth_sessions` table). `SessionData` fields: `user_id, device_id,
+device_type, device_name, ip, country, created_at`. By `device_id`
+one device = one session; the user sees and can terminate them.
 
-Refresh ротация: при `RefreshToken` старая пара отзывается, выдаётся новая. Reuse →
-ошибка → инвалидация всей сессии.
+Refresh rotation: on `RefreshToken` the old pair is revoked and a new
+one is issued. Reuse → error → invalidates the entire session.
 
-**Транспорт токенов: только Bearer.** Auth-middleware принимает токены
-исключительно из заголовка `Authorization: Bearer <token>`. Cookies для auth
-не используются (изначально планировались `__Host-Auth=`, но в итоге выбран
-единый механизм для web/mobile/extension). Это упрощает CSRF-модель
-(`Authorization` не отправляется браузером автоматически), но требует, чтобы
-WebUI хранил access-token в RAM (Zustand) и refresh-token — в защищённом
-storage. Side-effect: если в будущем потребуются HttpOnly cookies, понадобится
-явная CSRF-защита (origin/sec-fetch-site check).
+**Token transport: Bearer only.** Auth middleware accepts tokens
+exclusively from the `Authorization: Bearer <token>` header. Cookies
+are not used for auth (initially planned as `__Host-Auth=`, but a
+unified mechanism for web/mobile/extension was chosen instead). That
+simplifies the CSRF model (`Authorization` is not sent automatically
+by the browser), but requires the WebUI to keep the access token in
+RAM (Zustand) and the refresh token in protected storage. Side
+effect: if HttpOnly cookies become necessary later, explicit CSRF
+protection (origin / sec-fetch-site check) will be needed.
 
 ---
 
-## 6. Postgres-схема
+## 6. Postgres schema
 
-Все таблицы (кроме `users` и `user_auth`) имеют `user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE`.
+Every table (except `users` and `user_auth`) has
+`user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE`.
 
-### 6.1 Базовое
+### 6.1 Basics
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS pgcrypto;       -- gen_random_uuid()
-CREATE EXTENSION IF NOT EXISTS citext;         -- email case-insensitive
+CREATE EXTENSION IF NOT EXISTS citext;         -- case-insensitive email
 ```
 
-### 6.2 Пользователи и аутентификация
+### 6.2 Users and authentication
 
 ```sql
 CREATE TABLE users (
@@ -432,7 +464,7 @@ CREATE TABLE user_kdf_params (
 
 CREATE TABLE user_auth (
     user_id             UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    -- argon2id(auth_key), формат PHC
+    -- argon2id(auth_key), PHC format
     auth_key_hash       TEXT NOT NULL,
     failed_attempts     INT  NOT NULL DEFAULT 0,
     locked_until        TIMESTAMPTZ
@@ -452,7 +484,7 @@ CREATE TABLE user_vault (
 
 CREATE TABLE user_login_totp (
     user_id             UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    -- AES-GCM(K_login_totp, totp_secret), где K_login_totp = HKDF(auth_key,"login-totp/v1")
+    -- AES-GCM(K_login_totp, totp_secret), where K_login_totp = HKDF(auth_key,"login-totp/v1")
     encrypted_secret    BYTEA NOT NULL,
     nonce               BYTEA NOT NULL,
     enabled             BOOLEAN NOT NULL DEFAULT FALSE,
@@ -474,7 +506,7 @@ CREATE TABLE user_webauthn_credentials (
 CREATE INDEX idx_webauthn_user_id ON user_webauthn_credentials(user_id);
 ```
 
-### 6.3 Сессии
+### 6.3 Sessions
 
 ```sql
 CREATE TABLE auth_sessions (
@@ -485,7 +517,7 @@ CREATE TABLE auth_sessions (
     device_name         TEXT,
     ip                  INET,
     country             TEXT,
-    access_token_hash   BYTEA NOT NULL,        -- SHA-256(token); токен в виде raw не храним
+    access_token_hash   BYTEA NOT NULL,        -- SHA-256(token); the raw token is not stored
     refresh_token_hash  BYTEA NOT NULL,
     access_expires_at   TIMESTAMPTZ NOT NULL,
     refresh_expires_at  TIMESTAMPTZ NOT NULL,
@@ -498,7 +530,7 @@ CREATE INDEX idx_sessions_refresh_hash ON auth_sessions(refresh_token_hash) WHER
 CREATE INDEX idx_sessions_access_hash  ON auth_sessions(access_token_hash)  WHERE revoked_at IS NULL;
 ```
 
-### 6.4 Vault, проекты, записи, заметки
+### 6.4 Vault, projects, entries, notes
 
 ```sql
 CREATE TABLE projects (
@@ -516,7 +548,7 @@ CREATE TABLE projects (
 CREATE INDEX idx_projects_user_id   ON projects(user_id);
 CREATE INDEX idx_projects_name_hash ON projects(user_id, name_hash);
 
--- Заметки — это просто entry с kind='note' (другой набор полей в encrypted_blob).
+-- Notes are simply entries with kind='note' (a different field set inside encrypted_blob).
 CREATE TYPE entry_kind AS ENUM ('login', 'totp', 'card', 'identity', 'ssh_key', 'note');
 
 CREATE TABLE entries (
@@ -528,9 +560,9 @@ CREATE TABLE entries (
     encrypted_blob      BYTEA NOT NULL,
     wrapped_item_key    BYTEA NOT NULL,
     title_hash          BYTEA NOT NULL,
-    -- метаданные для list-view БЕЗ plaintext (например favicon-domain hash для login).
-    -- Замечание: domain_hash вычисляется на клиенте из K_blind. Низкая cardinality
-    -- доменов делает его уязвимым к словарной атаке если когда-нибудь утечёт K_blind.
+    -- list-view metadata WITHOUT plaintext (e.g. favicon-domain hash for login).
+    -- Note: domain_hash is computed on the client from K_blind. The low cardinality
+    -- of domains makes it vulnerable to a dictionary attack if K_blind ever leaks.
     domain_hash         BYTEA,
     has_totp            BOOLEAN NOT NULL DEFAULT FALSE,
     is_favorite         BOOLEAN NOT NULL DEFAULT FALSE,
@@ -565,7 +597,7 @@ CREATE TABLE audit_log (
     ip                  INET,
     user_agent          TEXT,
     metadata            JSONB,
-    -- Hash chain: prev_hash для защиты от удаления записей админом
+    -- Hash chain: prev_hash protects against admin row deletion
     prev_hash           BYTEA NOT NULL,
     self_hash           BYTEA NOT NULL,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -574,20 +606,23 @@ CREATE INDEX idx_audit_user_id    ON audit_log(user_id, created_at DESC);
 CREATE INDEX idx_audit_action     ON audit_log(action, created_at DESC);
 ```
 
-`self_hash = SHA-256(prev_hash || row_canonical_json)`. Genesis `prev_hash` — это
-32 нулевых байта, сидится при первой миграции и хранится в `system_state` под
-ключом `audit_chain_head`. Сервер обновляет это значение под row-lock после
-каждой записи; раз в сутки фоновый job пересчитывает цепочку и сравнивает с
-кешированным head — alarm при mismatch.
+`self_hash = SHA-256(prev_hash || row_canonical_json)`. The genesis
+`prev_hash` is 32 zero bytes, seeded by the first migration and stored
+in `system_state` under the key `audit_chain_head`. The server
+updates that value under a row lock after every write; a daily
+background job recomputes the chain and compares it with the cached
+head — alarms on mismatch.
 
-**Ограничение по threat-model.** Head живёт в той же Postgres, что и сами строки
-аудита. Это защищает от случайной порчи и от атакующего, который пишет в
-audit_log в обход аппликейшна (RLS-обход → strict-чек), но не от
-противника с полным DB-доступом, который пересчитает chain и переустановит
-head. Внешний якорь (s3 object lock / подпись приватным ключом из Vault transit /
-external transparency witness) — целевое улучшение, не реализовано. См. §17.
+**Threat-model limitation.** The head lives in the same Postgres as
+the audit rows themselves. That defends against accidental corruption
+and against an attacker who writes into `audit_log` bypassing the
+application (RLS-bypass → strict check), but not against an adversary
+with full DB access who recomputes the chain and overwrites the head.
+An external anchor (S3 object lock / signed by a private key from
+Vault transit / external transparency witness) is the target
+improvement, not implemented. See §17.
 
-### 6.6 Системное состояние и rate limiting
+### 6.6 System state and rate limiting
 
 ```sql
 CREATE TABLE system_state (
@@ -595,7 +630,7 @@ CREATE TABLE system_state (
     value               JSONB NOT NULL,
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- Ключи: 'audit_chain_head', 'jwt_keys_kid', 'crypto_protocol_version'.
+-- Keys: 'audit_chain_head', 'jwt_keys_kid', 'crypto_protocol_version'.
 
 CREATE TABLE rate_limit_buckets (
     bucket_key          TEXT PRIMARY KEY,        -- "auth_login:<email>", "kdf_params:<ip>", …
@@ -604,52 +639,58 @@ CREATE TABLE rate_limit_buckets (
 );
 ```
 
-**Где сейчас живут счётчики.** Таблица `rate_limit_buckets` присутствует в
-схеме, но активный rate-limit реализован in-memory (token-bucket на
-`golang.org/x/time/rate`) — выбрано в Sprint 4, чтобы избежать DB round-trip
-на каждом анонимном запросе. Минус: счётчики не переживают рестарт и не
-работают в multi-node deploy. Таблица оставлена под будущую миграцию на
-shared store (Postgres или Redis), см. §17.
+**Where the counters actually live.** The `rate_limit_buckets` table
+exists in the schema, but the active rate limiter is in-memory
+(token-bucket on `golang.org/x/time/rate`) — chosen in Sprint 4 to
+avoid a DB round-trip on every anonymous request. Downside: counters
+do not survive restarts and do not work in a multi-node deploy. The
+table is left in place for a future migration to a shared store
+(Postgres or Redis), see §17.
 
-### 6.7 RLS как defence-in-depth
+### 6.7 RLS as defence in depth
 
 ```sql
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 CREATE POLICY projects_owner ON projects
     USING (user_id = current_setting('app.current_user_id')::uuid);
 
--- то же для entries, user_webauthn_credentials, auth_sessions, audit_log
+-- Same for entries, user_webauthn_credentials, auth_sessions, audit_log.
 ```
 
-**Инвариант — обязательная транзакция.** `SET LOCAL` действует только внутри
-транзакции, поэтому каждый RLS-чувствительный запрос **обязан** идти через
-ConnectRPC-интерсептор, который для каждого вызова открывает транзакцию,
-выполняет `SET LOCAL app.current_user_id = $userID` и кладёт `pgx.Tx` в
-контекст. Репозитории работают с tx из контекста, никогда не вызывая
-`pool.Query` напрямую под RLS-таблицами. Системные операции (без user-scope)
-идут через отдельный wrapper, который выставляет `app.bypass_rls = on` в
-своей собственной транзакции. Чтение `current_setting` использует missing_ok
-вариант, чтобы отсутствие значения возвращало пустую строку, а не падало.
+**Invariant — mandatory transaction.** `SET LOCAL` only applies inside
+a transaction, so every RLS-sensitive query **must** go through a
+ConnectRPC interceptor, which opens a transaction per call, executes
+`SET LOCAL app.current_user_id = $userID`, and puts the `pgx.Tx` into
+the context. Repositories work with the tx from the context and never
+call `pool.Query` directly against RLS tables. System operations
+(without user scope) go through a separate wrapper that sets
+`app.bypass_rls = on` in its own transaction. Reads of
+`current_setting` use the missing_ok variant so an absent value
+returns an empty string instead of raising.
 
-### 6.8 Удаление аккаунта
+### 6.8 Account deletion
 
-Все удаления — **физические**, без `deleted_at`. `DELETE FROM users WHERE id = $1`
-каскадно удаляет vault, проекты, записи, сессии, audit-log пользователя. После
-удаления сервер не имеет ни ciphertext-а, ни обёртки `vault_key` для этого юзера.
+All deletes are **physical**, no `deleted_at`.
+`DELETE FROM users WHERE id = $1` cascades over the vault, projects,
+entries, sessions, and the user's audit log. After the call the
+server has neither the ciphertext nor the wrapped `vault_key` for
+that user.
 
-**Честная оговорка про "crypto-shred".** Это не криптографический shred в строгом
-смысле: и `wrapped_vault_key`, и ciphertext пользователя одновременно
-присутствуют в **бэкапах** Postgres. Любой, кто получит бэкап + знает (или
-сбрутит) `master_password` или `recovery_code` пользователя, восстановит данные
-до тех пор, пока бэкап не истечёт (типично 90 дней). Это «delete + ожидание
-retention», а не «уничтожение ключа». Реальный crypto-shred требует
-per-user envelope-ключа, который физически живёт **вне** Postgres (например,
-в Vault transit), и при `DeleteMe` уничтожается там же — тогда даже свежий
-бэкап БД нечитаем мгновенно. Эта модель — целевое улучшение, см. §17.
+**Honest caveat about "crypto-shred".** This is not crypto-shred in
+the strict sense: both `wrapped_vault_key` and the user ciphertext
+remain in **Postgres backups**. Anyone who obtains a backup and knows
+(or brute-forces) the user's `master_password` or `recovery_code`
+recovers the data until the backup expires (typically 90 days). It is
+"delete + wait for retention", not "destroy the key". Real
+crypto-shred requires a per-user envelope key that physically lives
+**outside** Postgres (e.g. in Vault transit) and is destroyed there
+on `DeleteMe` — at which point even a fresh DB backup is unreadable
+immediately. That model is the target improvement, see §17.
 
-### 6.9 Миграции
+### 6.9 Migrations
 
-`golang-migrate` через `iofs` (как уже подключено в `cmd/oblivio/start.go:152-168`). Файлы:
+`golang-migrate` via `iofs` (already wired in
+`cmd/oblivio/start.go:152-168`). Files:
 
 ```text
 sql/migrations/001_init_users_and_auth.up.sql   / .down.sql
@@ -660,13 +701,14 @@ sql/migrations/005_rls_policies.up.sql          / .down.sql
 sql/migrations/006_rate_limit.up.sql            / .down.sql
 ```
 
-Существующие 001–002 (`wallets`, `delegation_orders`, `settings`) удаляются полностью.
+The existing 001–002 (`wallets`, `delegation_orders`, `settings`)
+are removed entirely.
 
 ---
 
 ## 7. ConnectRPC API
 
-### 7.1 Структура proto
+### 7.1 Proto layout
 
 ```text
 proto/
@@ -676,19 +718,19 @@ proto/
     auth.proto             # AuthService
     vault.proto            # VaultService (verifier/wrapped_vault_key, password change)
     projects.proto         # ProjectsService
-    entries.proto          # EntriesService (включая kind='note')
+    entries.proto          # EntriesService (including kind='note')
     webauthn.proto         # WebAuthnService
     sessions.proto         # SessionsService (list + terminate)
-    audit.proto            # AuditService (read-only для пользователя)
+    audit.proto            # AuditService (read-only for the user)
     common.proto           # Pagination, Cursor, Timestamp aliases
 ```
 
-`buf.gen.yaml` генерирует:
+`buf.gen.yaml` produces:
 
 - `internal/api/pb/**/*.connect.go`, `*.pb.go` (Go)
-- `frontend/src/api/gen/**/*_pb.ts`, `*_connect.ts` (TS через `@bufbuild/protoc-gen-es`)
+- `frontend/src/api/gen/**/*_pb.ts`, `*_connect.ts` (TS via `@bufbuild/protoc-gen-es`)
 
-### 7.2 Сервисы и методы (упрощённо, JSON для краткости)
+### 7.2 Services and methods (simplified, JSON for brevity)
 
 ```text
 AuthService
@@ -721,7 +763,7 @@ WebAuthnService
   RemoveCredential({credential_id}) → {}
 
 LoginTOTPService
-  Setup({encrypted_secret, nonce}) → {}                             // ZK-encrypted, см. 5.3
+  Setup({encrypted_secret, nonce}) → {}                             // ZK-encrypted, see 5.3
   Enable({totp_code}) → {}
   Disable({totp_code | webauthn_assertion}) → {}
 
@@ -733,9 +775,9 @@ ProjectsService
   Delete({id, expected_version}) → {}
   Reorder({ordered_ids[]}) → {}
 
-EntriesService                                                     // включая kind='note'
+EntriesService                                                     // including kind='note'
   List({project_id?, kind?, query_hashes?, cursor, limit}) → {entries_meta[], next}
-  GetByIds({ids[]}) → {entries[]}                                  // включает encrypted_blob
+  GetByIds({ids[]}) → {entries[]}                                  // includes encrypted_blob
   Create({project_id?, kind, encrypted_blob, wrapped_item_key,
           title_hash, domain_hash?, has_totp, is_favorite}) → {entry}
   Update({id, expected_version, …}) → {entry}
@@ -751,53 +793,59 @@ AuditService
   List({pagination, action_filter?, from?, to?}) → {records[], next}
 ```
 
-### 7.3 Аутентификация в API
+### 7.3 API authentication
 
-В oblivio один аккаунт = один пользователь, ролевой модели нет. RBAC-библиотека
-`rbacconnect` **не используется**. Достаточно простой авторизации «требуется
-аутентифицированный пользователь» с явным списком публичных процедур.
+In oblivio one account = one user, there is no role model. The
+`rbacconnect` library is **not used**. A simple "authenticated user
+required" authorisation with an explicit list of public procedures is
+enough.
 
 `internal/api/middleware/auth.go` — `connectrpc.com/authn.Middleware`:
 
-1. По URL извлекает имя процедуры.
-2. Если процедура входит в anonymous-allowlist (`AuthService.Register`,
+1. Extracts the procedure name from the URL.
+2. If the procedure is in the anonymous allow-list (`AuthService.Register`,
    `AuthService.VerifyEmail`, `AuthService.ResendVerification`,
    `AuthService.GetKDFParams`, `AuthService.Authorize`,
    `AuthService.CompleteWebAuthn`, `AuthService.RefreshToken`,
    `AuthService.GetRecoveryParams`, `AuthService.RecoveryStart`,
-   `AuthService.RecoveryComplete`, healthcheck) — пропускает без аутентификации.
-3. Иначе извлекает Bearer-токен, валидирует через
-   `tokenmanager.Manager[SessionData].Authenticate`, читает пользователя из
-   `auth_sessions` + `users`, кладёт `UserDataContext` в `context.Context`.
-4. После handler-а каждый репозиторий выполняет
-   `SET LOCAL app.current_user_id = $userID` — RLS обеспечивает изоляцию.
+   `AuthService.RecoveryComplete`, healthcheck) — it passes through
+   without authentication.
+3. Otherwise it extracts the Bearer token, validates it via
+   `tokenmanager.Manager[SessionData].Authenticate`, reads the user
+   from `auth_sessions` + `users`, and puts `UserDataContext` into
+   `context.Context`.
+4. After the handler each repository runs
+   `SET LOCAL app.current_user_id = $userID` — RLS provides isolation.
 
-Anonymous-allowlist живёт константой в `internal/api/middleware/auth.go` и
-покрывается тестом, проверяющим, что любая новая процедура по умолчанию
-требует Bearer.
+The anonymous allow-list lives as a constant in
+`internal/api/middleware/auth.go` and is covered by a test asserting
+that any new procedure requires Bearer by default.
 
-### 7.4 Серверная защита эндпоинтов
+### 7.4 Server-side endpoint protection
 
-- **Rate limiting**: per-IP и per-email на `Authorize`, `GetKDFParams`,
-  `GetRecoveryParams`, `RecoveryStart`. Реализация — in-memory token-bucket
-  (`golang.org/x/time/rate`); single-node only, см. §6.6 и §17.
-- **Audit**: для всех мутаций и для `EntriesService.GetByIds` / `NotesService.GetByIds`
-  (расшифровка — критичное событие).
-- **Idempotency**: header `Idempotency-Key` на `Create`/`Update` записей.
-  Хранилище — таблица `idempotency_keys` в Postgres, TTL 24 часа; ключ скоупится
-  per-user/per-procedure.
-- **Optimistic concurrency**: `expected_version` в `Update`/`Delete`.
-- **Prevent enumeration**: `GetKDFParams` для несуществующих email возвращает
-  стабильные псевдо-параметры (HMAC от email + server-secret); `Authorize` для
-  несуществующего email прогоняет argon2id против фиксированного dummy-hash,
-  чтобы выровнять время ответа.
-- **Bot prevention**: на `Register`, `Authorize` — опциональный hCaptcha/Turnstile (config-flag).
-  Без него open-registration уязвим к argon2-amplified DoS — рекомендуется
-  включать в любой публичной деплой-цепочке.
+- **Rate limiting**: per-IP and per-email on `Authorize`,
+  `GetKDFParams`, `GetRecoveryParams`, `RecoveryStart`. Implementation
+  — in-memory token-bucket (`golang.org/x/time/rate`); single-node
+  only, see §6.6 and §17.
+- **Audit**: every mutation, plus `EntriesService.GetByIds` /
+  `NotesService.GetByIds` (decryption is a critical event).
+- **Idempotency**: `Idempotency-Key` header on entry `Create` /
+  `Update`. Storage — the `idempotency_keys` table in Postgres, TTL
+  24 h; the key is scoped per-user / per-procedure.
+- **Optimistic concurrency**: `expected_version` on `Update` /
+  `Delete`.
+- **Prevent enumeration**: `GetKDFParams` returns stable
+  pseudo-parameters for non-existent emails (HMAC of email +
+  server-secret); `Authorize` runs argon2id against a fixed dummy
+  hash for non-existent emails to even out response time.
+- **Bot prevention**: optional hCaptcha / Turnstile on `Register` and
+  `Authorize` (config flag). Without it, open registration is
+  vulnerable to argon2-amplified DoS — recommended for any public
+  deploy.
 
 ---
 
-## 8. Серверный Go-код
+## 8. Server-side Go code
 
 ### 8.1 Layout
 
@@ -815,34 +863,34 @@ internal/
     projects/
       projects_service.go
     entries/
-      entries_service.go        включая kind='note'
+      entries_service.go        including kind='note'
     sessions/
       sessions_service.go
     audit/
       audit_service.go
     middleware/
-      auth.go                   connectrpc.com/authn + anonymous allowlist
-      audit_log.go              запись каждой мутации
+      auth.go                   connectrpc.com/authn + anonymous allow-list
+      audit_log.go              writes every mutation
       security_headers.go       CSP, COOP, COEP, HSTS, X-CT-O, Referrer-Policy
       idempotency.go
     pb/                         (gen) ConnectRPC stubs
   auth/
-    manager.go                  tokenmanager wrapper по goauth-skill
+    manager.go                  tokenmanager wrapper per the goauth skill
     service.go                  Service[U IUser] generic
-    argon2.go                   argon2id PHC encode/parse (forked из текущего auth/password.go)
+    argon2.go                   argon2id PHC encode/parse (forked from the current auth/password.go)
     sessions.go                 session repo + revoke + rotate
-    secrets.go                  загрузка/генерация JWT keys, memguard.LockedBuffer
+    secrets.go                  load/generate JWT keys, memguard.LockedBuffer
   audit/
     chain.go                    hash-chain helpers, verify job
     repo.go
-  crypto/                       МИНИМАЛЬНЫЙ серверный набор:
-    aead.go                     AES-GCM helpers для encrypted_blob операций (НЕ для расшифровки)
+  crypto/                       MINIMAL server-side set:
+    aead.go                     AES-GCM helpers for encrypted_blob ops (NOT for decryption)
     hkdf.go                     HKDF-SHA256
     secure.go                   memguard wrappers (LockedBuffer, GetSlice, Destroy)
   config/
-    config.go                   расширить: AuthConfig, VaultConfig, RateLimitConfig, CORSConfig
+    config.go                   extend: AuthConfig, VaultConfig, RateLimitConfig, CORSConfig
     load.go
-  store/                        pgxgen-сгенерированные репозитории + extras
+  store/                        pgxgen-generated repositories + extras
     repos/
       users/
       user_kdf_params/
@@ -858,86 +906,96 @@ internal/
       rate_limit_buckets/
     store.go                    aggregate
   jobs/
-    service.go                  River queue (как сейчас)
+    service.go                  River queue (as today)
     audit_chain_verify.go       periodic: 1/day
     rate_limit_gc.go            periodic: 1/h
     sessions_gc.go              expired sessions cleanup
-    pwned_password_check.go     (опционально) HIBP API offline
-  metrics/                      prometheus counters: login_success/_failure, refresh_*, etc
+    pwned_password_check.go     (optional) HIBP API offline
+  metrics/                      prometheus counters: login_success/_failure, refresh_*, etc.
 proto/                          buf workspace
 sql/
   migrations/
   queries/
   pgxgen.yaml
-secrets/                        gitignored — (генерация при первом запуске, если Vault недоступен)
+secrets/                        gitignored — (generated on first start if Vault is unavailable)
 ```
 
-### 8.2 Зачистка существующего кода
+### 8.2 Existing-code sweep
 
-**Удалить полностью:**
+**Delete entirely:**
 
-- `internal/storage/` (Pebble + seal.go + users.go) — заменено Postgres + audit-chain.
-- `internal/tpm/` — TPM-stub не используется (Vault для admin secret).
-- `internal/keys/` — переписать в `internal/auth/secrets.go`.
-- `internal/api/server.go` (текущий gofiber) — заменён ConnectRPC.
-- `internal/store/repos/{wallets,delegation_orders,settings}/` — из другого проекта.
-- `sql/migrations/001_wallets_*`, `002_delegation_*` — заменяются.
-- `sql/queries/{wallets,delegation_orders,settings}/` — заменяются.
-- `internal/auth/totp.go` (server-side TOTP) — оставить только для server-login-TOTP
-  и переименовать в `internal/auth/login_totp.go`.
+- `internal/storage/` (Pebble + seal.go + users.go) — replaced by
+  Postgres + the audit chain.
+- `internal/tpm/` — the TPM stub is unused (Vault for the admin secret).
+- `internal/keys/` — rewritten as `internal/auth/secrets.go`.
+- `internal/api/server.go` (current gofiber) — replaced by ConnectRPC.
+- `internal/store/repos/{wallets,delegation_orders,settings}/` — from
+  another project.
+- `sql/migrations/001_wallets_*`, `002_delegation_*` — replaced.
+- `sql/queries/{wallets,delegation_orders,settings}/` — replaced.
+- `internal/auth/totp.go` (server-side TOTP) — keep only for
+  server-login-TOTP and rename to `internal/auth/login_totp.go`.
 
-**Оставить и переиспользовать:**
+**Keep and reuse:**
 
-- `cmd/oblivio/{main,start,migrations,config,version,utils}.go` — каркас CLI и mx-launcher.
-- `internal/auth/password.go` — функции `HashPassword`/`VerifyPassword` (Argon2id PHC),
-  убрать `bcrypt` упоминание (его нет, всё ок), параметры выровнять по §4.2.
-- `internal/config/{config.go,load.go}` — расширить AuthConfig/VaultConfig.
-- `internal/jobs/service.go` — каркас River, наполнить новыми воркерами.
-- `internal/metrics/metrics.go` — добавить новые счётчики.
-- `pkg/postgres/postgres.go` — без изменений.
-- `embed.go`, `templates/`, `Makefile`, `dev/` — без изменений.
+- `cmd/oblivio/{main,start,migrations,config,version,utils}.go` — the
+  CLI scaffolding and the mx-launcher.
+- `internal/auth/password.go` — `HashPassword` / `VerifyPassword`
+  helpers (Argon2id PHC); drop the bcrypt mention (none exists, all
+  good), align parameters with §4.2.
+- `internal/config/{config.go,load.go}` — extend AuthConfig /
+  VaultConfig.
+- `internal/jobs/service.go` — keep the River scaffolding, populate
+  with new workers.
+- `internal/metrics/metrics.go` — add new counters.
+- `pkg/postgres/postgres.go` — unchanged.
+- `embed.go`, `templates/`, `Makefile`, `dev/` — unchanged.
 
-**Удалить из `go.mod`:** `gofiber/v2`, `valyala/fasthttp`, `goccy/go-yaml` (заменён `xconfigyaml`),
-`shopspring/decimal` (для крипто-проекта без денег не нужен), `huandu/go-sqlbuilder`
-(pgxgen достаточно).
+**Remove from `go.mod`:** `gofiber/v2`, `valyala/fasthttp`,
+`goccy/go-yaml` (replaced by `xconfigyaml`), `shopspring/decimal`
+(unnecessary for a non-money crypto project), `huandu/go-sqlbuilder`
+(pgxgen is enough).
 
-**Добавить в `go.mod`:**
+**Add to `go.mod`:**
 
 - `connectrpc.com/connect`
 - `connectrpc.com/authn`
 - `github.com/sxwebdev/tokenmanager`
 - `github.com/awnumar/memguard`
 - `github.com/go-webauthn/webauthn`
-- `github.com/sxwebdev/xutils` (если ещё нет)
+- `github.com/sxwebdev/xutils` (if not already there)
 - `golang.org/x/time/rate`
 
-### 8.3 memguard в серверном коде
+### 8.3 memguard in server code
 
-Под `memguard.LockedBuffer` сейчас защищены:
+Currently protected with `memguard.LockedBuffer`:
 
 - JWT access signing key
 - JWT refresh signing key
-- Производный `K_login_totp` на время одной операции дешифровки (создаётся,
-  используется, `Destroy()` сразу после)
+- The derived `K_login_totp` for the duration of one decryption
+  operation (created, used, `Destroy()`'d immediately).
 
-**Чего memguard не защищает.** Plaintext, который Go-stdlib `crypto/aes` принимает
-на вход (или возвращает из `Open`) — обычный heap-`[]byte`, копия в нелокированной
-памяти. То же для строк (`string` иммутабелен и его нельзя гарантированно
-обнулить). MFA-store (короткоживущие challenge-объекты с `auth_key`) сейчас
-не обёрнут — оправдание: TTL ~10 минут, store in-memory без персистенса.
-Заявление «memguard для всего критичного» **переоценено**: защита эффективна
-от swap/coredump в простое, а не для plaintext в момент использования.
+**What memguard does not protect.** The plaintext that the Go stdlib
+`crypto/aes` accepts as input (or returns from `Open`) is a regular
+heap `[]byte`, a copy in non-locked memory. Same for strings (`string`
+is immutable and cannot be reliably zeroed). The MFA store (short-lived
+challenge objects with `auth_key`) is currently not wrapped — the
+justification: TTL ~10 minutes, in-memory store with no persistence.
+The "memguard for everything critical" claim is **overstated**: the
+protection is effective against swap / coredump at rest, not against
+plaintext at the moment of use.
 
-`memguard.CatchInterrupt()` — чистит залоченные буферы при SIGINT/SIGTERM.
+`memguard.CatchInterrupt()` wipes locked buffers on SIGINT/SIGTERM.
 
-**Self-hosted без Vault.** Если ENV-переменные с access/refresh seed-ами пусты,
-сервис при первом старте генерирует случайные 32-байтные ключи и пишет их в
-файл `secrets.json` под mode 0600. Файл хранится **в plaintext** (base64).
-Это приемлемо для single-node dev и for-self deployments, где доступ к диску
-охраняется ОС, но для production рекомендуется передавать seed-ы из Vault через
-ENV (`vault.enabled: true`). См. §17.
+**Self-hosted without Vault.** If the env vars with access/refresh
+seeds are empty, on first start the service generates random 32-byte
+keys and writes them to `secrets.json` with mode 0600. The file is
+stored **in plaintext** (base64). That is acceptable for single-node
+dev and self deployments where disk access is OS-protected, but for
+production it is recommended to inject the seeds from Vault via env
+vars (`vault.enabled: true`). See §17.
 
-### 8.4 mx launcher и порядок старта
+### 8.4 mx launcher and start order
 
 ```go
 lnc.ServicesRunner().Register(
@@ -948,12 +1006,12 @@ lnc.ServicesRunner().Register(
 )
 ```
 
-LIFO shutdown гарантирует: сначала останавливается API, потом jobs, потом memguard
-(destroy buffers), потом Postgres.
+LIFO shutdown guarantees: API stops first, then jobs, then memguard
+(destroy buffers), then Postgres.
 
-### 8.5 Vault интеграция
+### 8.5 Vault integration
 
-Уже есть `xconfig/sourcers/xconfigvault`. Конфиг:
+`xconfig/sourcers/xconfigvault` is already present. Config:
 
 ```yaml
 vault:
@@ -968,24 +1026,26 @@ vault:
     jwt_refresh_seed: secret/data/oblivio/jwt-refresh
 ```
 
-При старте: получить admin_secret и seeds, положить в `memguard.LockedBuffer`,
-вывести JWT-ключи через HKDF от seed (для возможности ротации без перевыдачи).
+At startup: fetch `admin_secret` and seeds, place them in
+`memguard.LockedBuffer`, derive JWT keys via HKDF from the seed (so
+they can be rotated without re-issuing).
 
-Self-hosted сценарий (без Vault): `secrets.json` в `data/` с правами 0600,
-генерируется на первом запуске. Конфигурация: `vault.enabled: false`.
+Self-hosted scenario (no Vault): `secrets.json` in `data/` with mode
+0600, generated on first start. Configuration: `vault.enabled: false`.
 
 ---
 
-## 9. Клиентская крипто-библиотека `@oblivio/crypto`
+## 9. Client crypto library `@oblivio/crypto`
 
-Изолированный TypeScript-пакет внутри `frontend/packages/crypto/`. Требования:
+An isolated TypeScript package inside `frontend/packages/crypto/`.
+Requirements:
 
-- Никаких зависимостей кроме `argon2-browser` (или собственной WASM-сборки `argon2-cffi`)
-  и нативного WebCrypto.
-- 100% покрытие тестами через Vitest (round-trip для всех слоёв).
-- Тестовые векторы синхронизированы с `crypto/aead.go` на сервере
-  (для Encrypt → server stores → Decrypt path-через-network).
-- Lockfile-lint и `npm audit --audit-level=high` блокируют CI.
+- No dependencies other than `argon2-browser` (or our own WASM build of
+  `argon2-cffi`) and native WebCrypto.
+- 100% test coverage with Vitest (round-trip for every layer).
+- Test vectors synchronised with `crypto/aead.go` on the server (for
+  the Encrypt → server stores → Decrypt path-over-network case).
+- Lockfile-lint and `npm audit --audit-level=high` block CI.
 
 ### 9.1 API
 
@@ -1066,19 +1126,19 @@ export function generateTotpCode(secret: string, t?: Date): string; // RFC 6238
 export function totpRemainingSeconds(period?: number, t?: Date): number;
 
 // recovery.ts
-export function generateRecoveryCode(): string; // 25 групп по 5 base32
+export function generateRecoveryCode(): string; // 25 groups of 5 base32
 
 // password-gen.ts
 export function generatePassword(opts: GenOpts): string;
 export function generatePassphrase(words: number): string; // EFF wordlist
 
-// memory.ts (best-effort на browser)
-export function zeroize(view: Uint8Array): void; // заполнить нулями
+// memory.ts (best-effort in the browser)
+export function zeroize(view: Uint8Array): void; // fill with zeros
 ```
 
 ### 9.2 Multi-thread Argon2id
 
-Требует HTTP-заголовков от сервера (статика и API):
+Requires HTTP headers from the server (static and API):
 
 ```
 Cross-Origin-Opener-Policy:   same-origin
@@ -1086,50 +1146,54 @@ Cross-Origin-Embedder-Policy: require-corp
 Cross-Origin-Resource-Policy: same-origin
 ```
 
-Иначе — fallback на single-thread (т.е. `p=1` через флаг `forceSingleThread` в Argon2Params).
+Otherwise — fall back to single-thread (i.e. `p=1` via the
+`forceSingleThread` flag in `Argon2Params`).
 
-### 9.3 Обнуление чувствительных данных
+### 9.3 Wiping sensitive data
 
-WebCrypto `CryptoKey` нельзя гарантированно обнулить (хранится в браузерном окружении).
-Стратегия:
+`CryptoKey` cannot be reliably zeroed in WebCrypto (it lives in the
+browser's context). Strategy:
 
-- Хранить минимум key-material в виде `Uint8Array` (зануляются явно).
-- `CryptoKey` создавать с `extractable=false` где возможно.
-- При lock vault — установить все ссылки в null, попросить GC.
-- Проверка через DevTools, что в snapshot нет plaintext-полей.
+- Keep the minimum amount of key material as `Uint8Array` (zeroed
+  explicitly).
+- Create `CryptoKey` with `extractable=false` where possible.
+- On vault lock — set all references to null and ask the GC.
+- Verify via DevTools that snapshots contain no plaintext fields.
 
 ---
 
 ## 10. Frontend (React + Vite + Tailwind 4 + shadcn)
 
-### 10.1 Текущее состояние и план
+### 10.1 Current state and plan
 
-Уже установлено: React 19, Vite 8, Tailwind 4, shadcn-cli, base-ui. Нужно добавить:
+Already installed: React 19, Vite 8, Tailwind 4, shadcn-cli, base-ui.
+Need to add:
 
 - `@tanstack/react-router`, `@tanstack/react-query`
 - `@bufbuild/connect-web`, `@bufbuild/protobuf`, `@connectrpc/connect-query`
 - `zustand`, `zustand/middleware/persist`
-- `argon2-browser` (или собственная сборка)
+- `argon2-browser` (or our own build)
 - `@simplewebauthn/browser`
-- `qrcode.react` (для регистрации TOTP)
+- `qrcode.react` (for TOTP registration)
 - `react-hook-form`, `zod`
-- `@oblivio/crypto` (локальный пакет)
+- `@oblivio/crypto` (local package)
 
-`pnpm-workspace.yaml` уже создан, добавить пакет `packages/crypto`.
+`pnpm-workspace.yaml` is already created; add the package
+`packages/crypto`.
 
-### 10.2 Структура `frontend/src`
+### 10.2 `frontend/src` structure
 
 ```
 frontend/
   packages/
-    crypto/                       Изолированный crypto-пакет (см. §9)
+    crypto/                       Isolated crypto package (see §9)
   src/
     api/
-      gen/                        ConnectRPC TS-стабы (buf)
+      gen/                        ConnectRPC TS stubs (buf)
       client.ts                   Transport + interceptor (Bearer + 401-retry)
     stores/
       auth.ts                     Zustand persist(session, deviceId)
-      vault.ts                    Zustand НЕ-persist (vault_key, dirty caches)
+      vault.ts                    Zustand NOT persist (vault_key, dirty caches)
       ui.ts
     routes/                       TanStack Router file-based
       __root.tsx
@@ -1145,9 +1209,9 @@ frontend/
           index.tsx               list
           $projectId.tsx          detail
         entries/
-          index.tsx               единый список с фильтром по kind
-          $entryId.tsx            detail (UI отличается по kind: login / note / card / …)
-          new.tsx                 create (kind выбирается в форме)
+          index.tsx               unified list with kind filter
+          $entryId.tsx            detail (UI varies by kind: login / note / card / …)
+          new.tsx                 create (kind chosen in the form)
         settings/
           security.tsx            password change, recovery code re-show, sessions
           two-factor.tsx          TOTP / WebAuthn
@@ -1159,14 +1223,14 @@ frontend/
       vault/
         EntryCard.tsx
         EntryForm.tsx
-        TotpDisplay.tsx           live-обновляющийся
+        TotpDisplay.tsx           live-updating
         PasswordField.tsx         show/hide + copy + auto-clear
         ProjectSelector.tsx
       auth/
         AutoLock.tsx              visibility/idle/blur listeners
         SessionList.tsx
     lib/
-      crypto-context.tsx          React-обёртка над @oblivio/crypto (vault_key in mem)
+      crypto-context.tsx          React wrapper around @oblivio/crypto (vault_key in mem)
       query-client.ts
       utils.ts
     config/
@@ -1175,16 +1239,17 @@ frontend/
     App.tsx
 ```
 
-### 10.3 Auto-lock и защита
+### 10.3 Auto-lock and protection
 
-- На монтировании `_auth/layout.tsx` — `<AutoLock />`.
-- Идл-таймер (по умолчанию 5 минут, конфигурируется).
-- `document.visibilitychange` → стартует короткий таймер (по умолчанию 60 сек).
-- `window.beforeunload` → синхронно зануляет `vault_key`.
-- Любое действие, требующее `vault_key`, через хук `useVaultKey()` — если nullable,
-  редиректит на экран ре-аутентификации с master_password (без полного логаута).
-- DevTools detection не делается (это фикция), но в production-сборке
-  `__REDUX_DEVTOOLS_EXTENSION__ = undefined`.
+- `<AutoLock />` mounted in `_auth/layout.tsx`.
+- Idle timer (default 5 min, configurable).
+- `document.visibilitychange` → starts a short timer (default 60 s).
+- `window.beforeunload` → synchronously zeros `vault_key`.
+- Any action that needs `vault_key` goes through the `useVaultKey()`
+  hook — if nullable, redirects to a re-authentication screen with
+  master_password (without a full logout).
+- DevTools detection is not done (it is fiction), but in production
+  builds `__REDUX_DEVTOOLS_EXTENSION__ = undefined`.
 
 ### 10.4 Clipboard auto-clear
 
@@ -1202,16 +1267,16 @@ async function copySecret(text: string) {
 }
 ```
 
-### 10.5 Безопасные HTTP-заголовки
+### 10.5 Secure HTTP headers
 
-Сервер ставит на все ответы (включая static):
+The server sets on every response (including static):
 
 ```
 Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval';
                          style-src 'self' 'unsafe-inline'; img-src 'self' data:;
                          connect-src 'self'; frame-ancestors 'none'; base-uri 'none';
                          form-action 'self'; object-src 'none'; upgrade-insecure-requests
-Strict-Transport-Security: max-age=63072000; includeSubDomains; preload  (только если HSTS включён в config)
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload  (only if HSTS enabled in config)
 Cross-Origin-Opener-Policy:   same-origin
 Cross-Origin-Embedder-Policy: require-corp
 Cross-Origin-Resource-Policy: same-origin
@@ -1221,29 +1286,31 @@ Referrer-Policy: no-referrer
 Permissions-Policy: clipboard-read=(self), clipboard-write=(self), interest-cohort=()
 ```
 
-**Известные ослабления CSP относительно идеального профиля.**
+**Known relaxations relative to the ideal profile.**
 
-- `style-src 'unsafe-inline'` — стартовый компромисс из-за inline-стилей,
-  которые иногда вставляют Tailwind 4 / shadcn-runtime. Целевая правка —
-  убрать `unsafe-inline` и переехать на статический CSS-bundle.
-- `require-trusted-types-for 'script'` **пока не выставляется** —
-  React/TanStack Router без явных trusted-types policies ломаются. Целевая
-  правка — добавить policy в bootstrap фронта и затем включить заголовок.
+- `style-src 'unsafe-inline'` — a starting compromise because inline
+  styles are sometimes injected by Tailwind 4 / shadcn-runtime. The
+  target fix is to drop `unsafe-inline` and switch to a static CSS
+  bundle.
+- `require-trusted-types-for 'script'` is **not yet set** —
+  React/TanStack Router break without explicit trusted-types
+  policies. The target fix is to add a policy in the frontend
+  bootstrap and then enable the header.
 
-Snapshot-тест на security-headers фиксирует точные строки, чтобы любое
-ослабление было осознанным diff-ом, а не молчаливой регрессией.
+A snapshot test on security headers pins the exact strings, so any
+relaxation is a deliberate diff, not a silent regression.
 
-### 10.6 Embedding фронтенда
+### 10.6 Embedding the frontend
 
-`embed.go` в корне (есть) — `//go:embed all:frontend/dist`. На production-сборке
-сервер раздаёт статику + JSON ConnectRPC по одному и тому же origin. Это устраняет
-CORS и упрощает CSP.
+`embed.go` at the repo root (already present) — `//go:embed all:frontend/dist`.
+In a production build the server serves static + ConnectRPC JSON on
+the same origin. That eliminates CORS and simplifies CSP.
 
-Для разработки — Vite dev server на `:5173` с прокси `/api` → `:8080`.
+For development — Vite dev server on `:5173` with proxy `/api` → `:8080`.
 
 ---
 
-## 11. Конфигурация и запуск
+## 11. Configuration and runtime
 
 ### 11.1 `config.yaml`
 
@@ -1258,14 +1325,14 @@ server:
   tls:
     cert_file: /etc/oblivio/tls/cert.pem
     key_file: /etc/oblivio/tls/key.pem
-  allowed_origins: ["https://oblivio.example.com"] # пусто = same-origin only
+  allowed_origins: ["https://oblivio.example.com"] # empty = same-origin only
 
 postgres:
   host: localhost
   port: "5432"
   database: oblivio
   username: oblivio
-  password: "" # из Vault или ENV
+  password: "" # from Vault or ENV
   ssl_mode: verify-full
 
 auth:
@@ -1308,135 +1375,149 @@ email:
   smtp:
     host: smtp.internal
     port: 587
-    username: "" # из Vault
-    password: "" # из Vault
+    username: "" # from Vault
+    password: "" # from Vault
 ```
 
-`xconfig` уже подключён, теги `vault:"true"` для секретов работают.
+`xconfig` is already wired in; `vault:"true"` tags for secrets work.
 
-### 11.2 Команды CLI
+### 11.2 CLI commands
 
 `cmd/oblivio/`:
 
-- `oblivio start` — запуск сервиса (есть, наполняем).
-- `oblivio migrations up|down|status` — миграции (есть).
-- `oblivio admin create-user --email …` — служебная регистрация (с заранее заготовленным
-  пакетом артефактов от клиентского CLI).
-- `oblivio version` — есть.
-- `oblivio config print` — есть.
+- `oblivio start` — start the service (exists, fill in).
+- `oblivio migrations up|down|status` — migrations (exists).
+- `oblivio admin create-user --email …` — operational registration
+  (with a pre-built artefact bundle from a client CLI).
+- `oblivio version` — exists.
+- `oblivio config print` — exists.
 
 ### 11.3 Docker / docker-compose
 
-`dev/deploy/docker-compose.yml` — обновить под Postgres 18 + Vault dev-mode +
-volume для `secrets/`. Production-Dockerfile — distroless, multi-stage,
-`go build -trimpath -ldflags="-s -w"`.
+`dev/deploy/docker-compose.yml` — update for Postgres 18 + Vault
+dev-mode + a volume for `secrets/`. Production Dockerfile —
+distroless, multi-stage, `go build -trimpath -ldflags="-s -w"`.
 
 ---
 
-## 12. Roadmap по спринтам
+## 12. Sprint roadmap
 
-### Sprint 0 — Зачистка и каркас (1–2 дня)
+### Sprint 0 — Sweep and skeleton (1–2 days)
 
-1. Удалить файлы из §8.2 «Удалить полностью».
-2. Очистить `go.mod`, `go.sum` (`go mod tidy`).
-3. Убрать `gofiber` из imports, заменить `internal/api/server.go` на ConnectRPC-каркас.
-4. Заменить миграции `001-002` на пустой `001_init_users_and_auth.up.sql`.
-5. `make build` зелёный, `make migrate-up` зелёный, `oblivio start` поднимается без ошибок.
-6. Verify: `curl http://localhost:8080/v1/health` (или `grpcurl localhost:8080 oblivio.v1.HealthService/Check`).
+1. Delete files from §8.2 "Delete entirely".
+2. Clean `go.mod`, `go.sum` (`go mod tidy`).
+3. Drop `gofiber` from imports, replace `internal/api/server.go` with
+   the ConnectRPC scaffolding.
+4. Replace migrations 001–002 with an empty
+   `001_init_users_and_auth.up.sql`.
+5. `make build` green, `make migrate-up` green, `oblivio start` comes
+   up without errors.
+6. Verify: `curl http://localhost:8080/v1/health` (or
+   `grpcurl localhost:8080 oblivio.v1.HealthService/Check`).
 
-### Sprint 1 — Auth core (3–4 дня)
+### Sprint 1 — Auth core (3–4 days)
 
-1. proto `auth.proto`, `vault.proto`, buf.gen.
-2. Миграции `001-002` (users, user_kdf_params, user_auth, user_vault, user_login_totp,
-   auth_sessions).
-3. pgxgen-репозитории для всех таблиц.
+1. proto `auth.proto`, `vault.proto`, `buf.gen`.
+2. Migrations 001–002 (users, user_kdf_params, user_auth, user_vault,
+   user_login_totp, auth_sessions).
+3. pgxgen repositories for every table.
 4. `internal/auth/manager.go` (tokenmanager wrapper).
-5. `internal/api/auth/auth_service.go` — Register, GetKDFParams, Authorize, RefreshToken,
-   Logout, GetMyKeys.
-6. `connectrpc.com/authn` middleware, `rbacconnect` policy с anonymous-разрешением.
-7. memguard для JWT keys.
-8. `@oblivio/crypto` пакет (kdf, vault, item, verifier, blind, recovery).
-9. Frontend: TanStack Router routes `_public/*`, `_auth/*` skeleton; Zustand auth store;
-   ConnectRPC client + interceptor.
-10. Login + Register пути работают end-to-end через WebUI.
-11. Verify: e2e тест Register → Logout → Login → GetMe; round-trip vault_key через сервер.
+5. `internal/api/auth/auth_service.go` — Register, GetKDFParams,
+   Authorize, RefreshToken, Logout, GetMyKeys.
+6. `connectrpc.com/authn` middleware, `rbacconnect` policy with
+   anonymous allow.
+7. memguard for JWT keys.
+8. `@oblivio/crypto` package (kdf, vault, item, verifier, blind,
+   recovery).
+9. Frontend: TanStack Router routes `_public/*`, `_auth/*` skeleton;
+   Zustand auth store; ConnectRPC client + interceptor.
+10. Login + Register paths work end-to-end via the WebUI.
+11. Verify: e2e test Register → Logout → Login → GetMe; round-trip
+    `vault_key` through the server.
 
-### Sprint 2 — Vault data (CRUD) (3–4 дня)
+### Sprint 2 — Vault data (CRUD) (3–4 days)
 
-1. Миграции `003-004` (projects, entries, audit_log, system_state, rate_limit_buckets).
-2. proto + handlers для ProjectsService, EntriesService (включая kind='note'), AuditService.
-3. RLS-политики (миграция `005`).
+1. Migrations 003–004 (projects, entries, audit_log, system_state,
+   rate_limit_buckets).
+2. proto + handlers for ProjectsService, EntriesService (including
+   `kind='note'`), AuditService.
+3. RLS policies (migration 005).
 4. Idempotency middleware.
-5. Frontend: страницы `_auth/projects`, `_auth/entries` — list / detail / create / edit / delete.
-   В UI заметки = entries с фильтром по `kind='note'`.
-6. Авто-обновление при создании/правке через TanStack Query invalidation.
-7. Blind-index поиск по title, client-side фильтрация по полям.
+5. Frontend: pages `_auth/projects`, `_auth/entries` — list / detail
+   / create / edit / delete. Notes in the UI = entries filtered by
+   `kind='note'`.
+6. Auto-refresh on create/edit via TanStack Query invalidation.
+7. Blind-index search by title, client-side filtering by fields.
 8. Auto-lock + clipboard auto-clear.
-9. Verify: создание/правка/просмотр/удаление; перезагрузка страницы → требует unlock;
-   tampering test (изменить blob в БД через psql → клиент видит ошибку AAD).
+9. Verify: create / edit / view / delete; page reload requires
+   unlock; tampering test (modify the blob in the DB via psql →
+   client sees an AAD error).
 
-### Sprint 3 — TOTP + WebAuthn + Recovery (3 дня)
+### Sprint 3 — TOTP + WebAuthn + Recovery (3 days)
 
-1. TOTP-rendering для записей (live-обновление каждую секунду).
-2. proto + handlers LoginTOTPService, WebAuthnService.
-3. `go-webauthn/webauthn` интеграция, миграция для `user_webauthn_credentials`.
-4. Frontend: страницы `_auth/settings/two-factor` (включение/отключение TOTP, регистрация
-   passkey).
+1. TOTP rendering for entries (live update every second).
+2. proto + handlers `LoginTOTPService`, `WebAuthnService`.
+3. `go-webauthn/webauthn` integration, migration for
+   `user_webauthn_credentials`.
+4. Frontend: `_auth/settings/two-factor` pages (enable/disable TOTP,
+   register passkey).
 5. Recovery flow: `recover.tsx`, `RecoveryStart`, `RecoveryComplete`.
-6. Verify: e2e — добавить TOTP, выйти, войти с TOTP; зарегистрировать passkey, выйти,
-   войти с passkey; забыть пароль → восстановить через recovery_code.
+6. Verify: e2e — add TOTP, log out, log in with TOTP; register a
+   passkey, log out, log in with the passkey; forget the password →
+   recover via the recovery code.
 
-### Sprint 4 — Безопасность и наблюдаемость (2–3 дня)
+### Sprint 4 — Security and observability (2–3 days)
 
-1. Rate limiting middleware на чувствительных эндпоинтах.
+1. Rate-limiting middleware on sensitive endpoints.
 2. Audit log writer + chain verify job.
-3. CSP / COOP / COEP / HSTS заголовки на проде.
-4. Prometheus метрики для login/refresh/decryption events.
+3. CSP / COOP / COEP / HSTS headers in prod.
+4. Prometheus metrics for login/refresh/decryption events.
 5. Sessions UI (`_auth/settings/security`) + terminate.
 6. Audit log UI (`_auth/settings/audit-log`).
-7. Crypto-shred при удалении аккаунта.
-8. Verify: rate-limit срабатывает; audit chain verify проходит; CSP-violations не падают
-   на легитимный flow.
+7. Crypto-shred on account deletion.
+8. Verify: rate-limit triggers; audit chain verify passes;
+   CSP-violations do not break the legitimate flow.
 
-### Sprint 5 — Polish, тесты, деплой (2–3 дня)
+### Sprint 5 — Polish, tests, deploy (2–3 days)
 
-1. Vitest + Go test coverage > 80% для криптослоев.
-2. Round-trip тесты Go ↔ TS (общий test-vector файл).
-3. govulncheck, gosec, golangci-lint, npm audit, lockfile-lint в CI.
+1. Vitest + Go test coverage > 80% for the crypto layers.
+2. Round-trip tests Go ↔ TS (a shared test-vector file).
+3. govulncheck, gosec, golangci-lint, npm audit, lockfile-lint in CI.
 4. SBOM (cyclonedx-gomod).
 
 ---
 
-## 13. Тестирование
+## 13. Testing
 
-Тестирование — **first-class требование**, не «потом». Любой PR, понижающий
-покрытие критических модулей, блокируется в CI. Цели и обязательные тестовые
-сценарии расписаны ниже модуль за модулем.
+Testing is a **first-class requirement**, not "later". Any PR that
+lowers coverage on critical modules is blocked in CI. Goals and
+mandatory test scenarios are spelled out below module by module.
 
-### 13.1 Что считается «критическим модулем»
+### 13.1 What counts as a "critical module"
 
-| Модуль                                                                                                 | Сторона | Целевое покрытие                   | Почему критично                           |
-| ------------------------------------------------------------------------------------------------------ | ------- | ---------------------------------- | ----------------------------------------- |
-| `packages/crypto` (TS): KDF, AEAD, vault/item-key wrap, blind index, TOTP, recovery-code, password-gen | client  | ≥95%, branches ≥90%                | Любой баг = silent corruption или утечка  |
-| `internal/auth/argon2` (PHC encode/parse, server-side hash auth_key)                                   | server  | ≥95%                               | Ошибка парсинга PHC = false-accept логина |
-| `internal/auth/manager` (tokenmanager wrapper, Authorize/Refresh/Logout)                               | server  | ≥90%                               | Сессии — основа доверия системы           |
-| `internal/auth/sessions` (session store, rotate, revoke)                                               | server  | ≥90%                               | Replay/reuse refresh = захват аккаунта    |
-| `internal/auth/secrets` (memguard load/zeroize/rotate)                                                 | server  | ≥85%                               | Утечка JWT key = forged сессии            |
-| `internal/audit/chain` (hash-chain append + verify)                                                    | server  | ≥95%                               | Tamper-detect — это весь смысл audit-log  |
-| `internal/api/middleware/auth` (anonymous allowlist, Bearer-extract, RLS-set)                          | server  | ≥95%                               | Любой bypass = полное обхождение auth     |
-| `internal/api/middleware/idempotency`                                                                  | server  | ≥85%                               | Двойной create запись                     |
-| `internal/api/middleware/security_headers`                                                             | server  | snapshot ≥100% (точные строки)     | CSP-регрессия = реальный XSS              |
-| `internal/auth/login_totp` (server-side TOTP с derived key)                                            | server  | ≥95%                               | Bypass 2FA                                |
-| `internal/api/{auth,projects,entries,sessions,webauthn}` handlers                                      | server  | happy + edge ≥80%                  | Контракт API                              |
-| pgxgen-репозитории                                                                                     | server  | базовые CRUD + RLS-isolation тесты | Изоляция между юзерами                    |
+| Module                                                                                                 | Side   | Target coverage                | Why critical                                  |
+| ------------------------------------------------------------------------------------------------------ | ------ | ------------------------------ | --------------------------------------------- |
+| `packages/crypto` (TS): KDF, AEAD, vault/item-key wrap, blind index, TOTP, recovery code, password gen | client | ≥95%, branches ≥90%            | Any bug = silent corruption or leak           |
+| `internal/auth/argon2` (PHC encode/parse, server-side hash auth_key)                                   | server | ≥95%                           | A PHC-parse bug = false-accept on login       |
+| `internal/auth/manager` (tokenmanager wrapper, Authorize/Refresh/Logout)                               | server | ≥90%                           | Sessions are the system's trust anchor        |
+| `internal/auth/sessions` (session store, rotate, revoke)                                               | server | ≥90%                           | Replay/reuse refresh = account takeover       |
+| `internal/auth/secrets` (memguard load/zeroize/rotate)                                                 | server | ≥85%                           | JWT-key leak = forged sessions                |
+| `internal/audit/chain` (hash-chain append + verify)                                                    | server | ≥95%                           | Tamper detect — the entire point of audit log |
+| `internal/api/middleware/auth` (anonymous allow-list, Bearer extract, RLS-set)                         | server | ≥95%                           | Any bypass = full auth bypass                 |
+| `internal/api/middleware/idempotency`                                                                  | server | ≥85%                           | Duplicate create entry                        |
+| `internal/api/middleware/security_headers`                                                             | server | snapshot ≥100% (exact strings) | A CSP regression = real XSS                   |
+| `internal/auth/login_totp` (server-side TOTP with derived key)                                         | server | ≥95%                           | 2FA bypass                                    |
+| `internal/api/{auth,projects,entries,sessions,webauthn}` handlers                                      | server | happy + edge ≥80%              | API contract                                  |
+| pgxgen repositories                                                                                    | server | basic CRUD + RLS-isolation     | Cross-user isolation                          |
 
-Покрытие проверяется в CI: `go test -coverprofile`, `vitest run --coverage`.
-Пороги — в `Makefile` и `pnpm test` скрипте; падают, если ниже.
+Coverage is checked in CI: `go test -coverprofile`, `vitest run --coverage`.
+Thresholds live in `Makefile` and the `pnpm test` script; they fail
+when below.
 
 ### 13.2 Cross-language test vectors
 
-`testdata/crypto-vectors.json` — единый источник правды для Go и TS, который
-прогоняется обеими сторонами. Тестовые векторы:
+`testdata/crypto-vectors.json` — a single source of truth for Go and
+TS, run by both sides. Test vectors:
 
 ```json
 {
@@ -1491,152 +1572,170 @@ volume для `secrets/`. Production-Dockerfile — distroless, multi-stage,
 }
 ```
 
-Go-тест: `internal/crypto/vectors_test.go`, TS-тест:
-`packages/crypto/__tests__/vectors.test.ts` — оба обязаны давать identical output.
+Go test: `internal/crypto/vectors_test.go`, TS test:
+`packages/crypto/__tests__/vectors.test.ts` — both must produce
+identical output.
 
-### 13.3 Конкретные сценарии для критических модулей
+### 13.3 Concrete scenarios for critical modules
 
 **Crypto (TS + Go round-trip):**
 
-- KDF: соответствие RFC 9106 reference vectors; per-user различные параметры;
-  `forceSingleThread` fallback даёт корректный result; пустой password → ошибка;
-  invalid params → ошибка.
-- AEAD: успешное seal/open; mutated ciphertext → `OperationError`;
-  mutated AAD → `OperationError`; неверный nonce length → ошибка; nonce reuse —
-  не должен возникать, добавить тест-генератор уникальности на 100k записей.
-- Wrap/unwrap дерева ключей: master→vault→item полный round-trip; не тот AAD →
-  ошибка; replay из чужого user_id → ошибка (через AAD).
-- Verifier: правильный master_key проходит, неправильный — `false` без panic.
-- Blind index: одинаковый title для одного `vault_key` даёт одинаковый hash;
-  разный `vault_key` → разный hash; NFKC-нормализация (Юникод).
-- TOTP: вектора RFC 6238 с SHA-1, period=30, digits=6,8.
-- Recovery: round-trip кода, неверный код → fail decrypt.
-- Password gen: длина и алфавит, отсутствие смещений (chi-squared sanity).
+- KDF: matches RFC 9106 reference vectors; per-user differing
+  parameters; `forceSingleThread` fallback yields the correct result;
+  empty password → error; invalid params → error.
+- AEAD: successful seal/open; mutated ciphertext → `OperationError`;
+  mutated AAD → `OperationError`; wrong nonce length → error; nonce
+  reuse — must not occur, add a uniqueness test on 100k records.
+- Wrap/unwrap of the key tree: master → vault → item full
+  round-trip; wrong AAD → error; replay from another user_id → error
+  (via AAD).
+- Verifier: correct `master_key` passes; wrong → `false` without
+  panic.
+- Blind index: same title under one `vault_key` → same hash; different
+  `vault_key` → different hash; NFKC normalisation (Unicode).
+- TOTP: RFC 6238 vectors with SHA-1, period=30, digits=6,8.
+- Recovery: code round-trip, wrong code → fail decrypt.
+- Password gen: length and alphabet, no skew (chi-squared sanity).
 
 **Auth manager:**
 
-- Authorize: верный auth_key → пара токенов; неверный → ошибка с тем же
-  сообщением, что и для несуществующего email (anti-enumeration).
-- Refresh: валидный refresh → новая пара, старый revoked. Reuse старого refresh →
-  все сессии этого `user_id` revoked, метрика инкрементируется.
-- Logout: токен проходит проверку, потом `Authenticate` тех же токенов → ошибка.
-- Concurrency: 100 одновременных Refresh с тем же refresh — ровно один успех.
-- Lockout: после `failed_attempts >= N` за интервал → `locked_until` ставится,
-  Authorize возвращает `RESOURCE_EXHAUSTED`.
+- Authorize: correct `auth_key` → token pair; wrong → error with the
+  same message as for a non-existent email (anti-enumeration).
+- Refresh: valid refresh → new pair, old revoked. Reuse old refresh
+  → all sessions for that `user_id` revoked, metric increments.
+- Logout: token passes verification, then `Authenticate` of the same
+  tokens → error.
+- Concurrency: 100 simultaneous Refreshes with the same refresh —
+  exactly one succeeds.
+- Lockout: after `failed_attempts >= N` in the interval →
+  `locked_until` set; Authorize returns `RESOURCE_EXHAUSTED`.
 
 **Sessions:**
 
-- Поле device_id уникально per-user; повторная авторизация с тем же device_id →
-  переиспользование записи (не дубликат).
-- TTL: после `access_expires_at` валидация выдаёт ошибку.
-- `TerminateAllExceptCurrent` оставляет только текущую.
+- The `device_id` field is unique per user; re-authentication with
+  the same `device_id` → reuses the row (no duplicate).
+- TTL: after `access_expires_at` validation returns an error.
+- `TerminateAllExceptCurrent` leaves only the current session.
 
 **Audit chain:**
 
-- Append идёт корректно: `self_hash[i] = SHA256(prev_hash || canonical(row[i]))`,
+- Append works correctly:
+  `self_hash[i] = SHA256(prev_hash || canonical(row[i]))`,
   `prev_hash[i+1] = self_hash[i]`.
-- Verify-job на чистой цепочке проходит.
-- Удаление любой записи / правка — verify падает с указанием первой
-  поломанной строки.
-- Канонизация JSON стабильна: повторная сериализация даёт идентичные байты
-  (sorted keys, no whitespace).
+- Verify job on a clean chain passes.
+- Deleting any row / editing — verify fails pointing at the first
+  broken row.
+- JSON canonicalisation is stable: re-serialising yields identical
+  bytes (sorted keys, no whitespace).
 
-**Anonymous allowlist middleware:**
+**Anonymous allow-list middleware:**
 
-- Каждая публичная процедура из списка проходит без Bearer.
-- Любая другая (включая будущие, добавляемые тестом-сканером всего набора
-  procedure name'ов из `pb.*`) — без Bearer → `UNAUTHENTICATED`.
-- Bearer с истёкшим токеном → `UNAUTHENTICATED`, не `INTERNAL`.
-- После успешной auth контекст содержит `user_id`, и это значение реально
-  попадает в `SET LOCAL app.current_user_id` (проверяется E2E через RLS).
+- Each public procedure from the list passes without Bearer.
+- Any other (including future ones, added by a test scanning the
+  full set of procedure names from `pb.*`) — without Bearer →
+  `UNAUTHENTICATED`.
+- Bearer with an expired token → `UNAUTHENTICATED`, not `INTERNAL`.
+- After successful auth the context contains `user_id`, and that
+  value really lands in `SET LOCAL app.current_user_id` (verified E2E
+  via RLS).
 
 **RLS isolation:**
 
-- В тесте поднимаются два юзера A и B; запросы от A не видят и не модифицируют
-  данные B даже при попытке `WHERE id = $idOfB`.
+- Two users A and B are brought up in the test; queries from A do
+  not see or modify B's data even when trying `WHERE id = $idOfB`.
 
 **Memguard secrets:**
 
-- Загрузка → `Bytes()` возвращает ожидаемое; после `Destroy()` доступ panics.
-- Ротация: новые подписи проходят, старые остаются валидны до `expires_at`.
+- Load → `Bytes()` returns the expected; after `Destroy()` access
+  panics.
+- Rotation: new signatures pass, old ones remain valid until
+  `expires_at`.
 
 **Security headers:**
 
-- Snapshot-тест: каждый ожидаемый header присутствует точной строкой.
-- Любой запрос (включая 4xx, 5xx) содержит CSP/COOP/COEP/HSTS.
+- Snapshot test: every expected header is present as the exact string.
+- Every request (including 4xx, 5xx) carries CSP/COOP/COEP/HSTS.
 
-### 13.4 Integration / E2E тесты
+### 13.4 Integration / E2E tests
 
-- `cmd/oblivio start` поднимается на тестовой БД (`postgres -c fsync=off` в
-  testcontainers); E2E через ConnectRPC TS-клиент против реального сервера.
-- Tamper-test: после `Create` `UPDATE entries SET encrypted_blob[0] = 0x00` →
-  `GetByIds` на клиенте падает с decryption error.
-- Cross-user tamper: попытка прочитать чужую запись через подмену `id` →
-  `NOT_FOUND` (RLS).
-- Replay: повторное использование старого refresh → вся сессия revoked.
-- Rate-limit: 6 неудачных Authorize за минуту с одного email → 7-й возвращает
-  `RESOURCE_EXHAUSTED`.
-- Recovery: полный flow recovery_code → новый master_password → старый
-  master_password больше не работает; все сессии invalidated.
-- WebAuthn: register + authenticate против `go-webauthn/webauthn` virtual
-  authenticator.
-- Crypto-shred: `DeleteMe` → CASCADE удаляет данные; снэпшот БД через
-  `pg_dump` не содержит ни одной строки этого `user_id`.
+- `cmd/oblivio start` comes up against a test DB
+  (`postgres -c fsync=off` in testcontainers); E2E via the ConnectRPC
+  TS client against the real server.
+- Tamper test: after `Create` `UPDATE entries SET encrypted_blob[0] = 0x00`
+  → `GetByIds` on the client fails with a decryption error.
+- Cross-user tamper: an attempt to read someone else's entry by
+  spoofing `id` → `NOT_FOUND` (RLS).
+- Replay: reusing an old refresh → the entire session is revoked.
+- Rate-limit: 6 failed Authorizes in a minute from one email → the
+  7th returns `RESOURCE_EXHAUSTED`.
+- Recovery: full recovery_code flow → new master_password → old
+  master_password no longer works; all sessions invalidated.
+- WebAuthn: register + authenticate against `go-webauthn/webauthn`
+  virtual authenticator.
+- Crypto-shred: `DeleteMe` → CASCADE removes the data; a `pg_dump`
+  snapshot contains no rows for that `user_id`.
 
 ### 13.5 Security / supply chain
 
-- `gosec` strict, `govulncheck` в CI на каждый PR.
-- `npm audit --audit-level=high` блокирует merge.
+- `gosec` strict, `govulncheck` in CI per PR.
+- `npm audit --audit-level=high` blocks merge.
 - Lockfile-lint: `lockfile-lint --validate-https --validate-package-names`.
-- `cyclonedx-gomod` SBOM генерируется при release.
-- `cosign` подпись docker image (опционально).
-- `security.txt` под `/.well-known/security.txt`.
-- Зависимости: pinned by SHA для GitHub Actions; weekly `dependabot` PR.
+- `cyclonedx-gomod` SBOM generated at release.
+- `cosign` signs the docker image (optional).
+- `security.txt` under `/.well-known/security.txt`.
+- Dependencies: GitHub Actions pinned by SHA; weekly `dependabot`
+  PRs.
 
 ### 13.6 Performance / fuzz
 
-- Fuzz-test (Go 1.18+) на PHC parser, AEAD wrappers, hash-chain canonical JSON.
-- Bench для Argon2id с per-user params (контроль регрессий по времени логина).
+- Fuzz test (Go 1.18+) on the PHC parser, AEAD wrappers, hash-chain
+  canonical JSON.
+- Bench for Argon2id with per-user params (regression control on
+  login wall-clock).
 
 ---
 
-## 14. Деплой
+## 14. Deployment
 
-- Один Postgres 18+ (`sslmode=verify-full`), TLS-сертификаты от внутреннего CA или Let's Encrypt.
-- HashiCorp Vault Agent на той же машине / sidecar.
-- Сервер за TLS-терминатором (nginx / Cloudflare WAF).
-- Бэкапы Postgres: `pgBackRest` или `wal-g`, S3 с Object Lock + Bucket Versioning + KMS.
-- Logs в SIEM **без plaintext** (только метаданные: user_id, action, IP, UA).
+- One Postgres 18+ (`sslmode=verify-full`), TLS certificates from an
+  internal CA or Let's Encrypt.
+- HashiCorp Vault Agent on the same machine / sidecar.
+- The server behind a TLS terminator (nginx / Cloudflare WAF).
+- Postgres backups: `pgBackRest` or `wal-g`, S3 with Object Lock +
+  Bucket Versioning + KMS.
+- Logs to SIEM **without plaintext** (only metadata: user_id, action,
+  IP, UA).
 - Pre-launch checklist:
-  - [ ] CSP/HSTS включены и протестированы (Mozilla Observatory > A+).
-  - [ ] hstspreload.org заявка отправлена.
-  - [ ] Внешний crypto-аудит (Cure53 / Trail of Bits / Doyensec).
-  - [ ] Bug bounty programme опубликована.
-  - [ ] Restore-drill из бэкапа проведён минимум 1 раз.
+  - [ ] CSP/HSTS enabled and tested (Mozilla Observatory > A+).
+  - [ ] hstspreload.org submission filed.
+  - [ ] External crypto audit (Cure53 / Trail of Bits / Doyensec).
+  - [ ] Bug bounty programme published.
+  - [ ] Backup restore drill performed at least once.
 
 ---
 
-## 15. Чек-лист критических файлов (для исполнения)
+## 15. Critical-files checklist (for execution)
 
-**Удалить:**
+**Delete:**
 
 - `internal/storage/{seal.go,storage.go,users.go}`
 - `internal/tpm/tpm.go`
 - `internal/keys/keys.go`
-- `internal/api/server.go` (текущий gofiber)
+- `internal/api/server.go` (current gofiber)
 - `internal/store/repos/{wallets,delegation_orders,settings}/`
 - `sql/migrations/001_wallets_*.{up,down}.sql`
 - `sql/migrations/002_delegation_*.{up,down}.sql`
 - `sql/queries/{wallets,delegation_orders,settings}/`
-- `internal/models/models_gen.go` (перегенерируется pgxgen)
+- `internal/models/models_gen.go` (regenerated by pgxgen)
 
-**Заменить полностью:**
+**Replace entirely:**
 
-- `internal/auth/totp.go` → `internal/auth/login_totp.go` (server-side TOTP с derived key)
-- `cmd/oblivio/start.go` (раскомментировать + переписать на ConnectRPC)
-- `config.yaml` (см. §11.1)
+- `internal/auth/totp.go` → `internal/auth/login_totp.go` (server-side
+  TOTP with derived key)
+- `cmd/oblivio/start.go` (uncomment + rewrite onto ConnectRPC)
+- `config.yaml` (see §11.1)
 
-**Создать новые:**
+**Create new:**
 
 - `proto/oblivio/v1/*.proto` + `buf.yaml` + `buf.gen.yaml`
 - `sql/migrations/00{1..6}_*.{up,down}.sql`
@@ -1644,97 +1743,118 @@ Go-тест: `internal/crypto/vectors_test.go`, TS-тест:
 - `internal/api/{server.go,auth/,webauthn/,projects/,entries/,sessions/,audit/,middleware/}`
 - `internal/auth/{manager.go,service.go,sessions.go,secrets.go,argon2.go,login_totp.go}`
 - `internal/audit/{chain.go,repo.go}`
-- `internal/crypto/{aead.go,hkdf.go,secure.go}` (минимально; основная крипта — на клиенте)
-- `frontend/packages/crypto/` (новый workspace-пакет)
+- `internal/crypto/{aead.go,hkdf.go,secure.go}` (minimal; main crypto
+  is on the client)
+- `frontend/packages/crypto/` (a new workspace package)
 - `frontend/src/{api,stores,routes,components,lib}/...`
 
-**Без изменений:**
+**Unchanged:**
 
 - `cmd/oblivio/{main,version,migrations,utils,config}.go`
-- `internal/config/{config.go,load.go}` (расширить, не удалять)
-- `internal/jobs/service.go` (наполнить, каркас оставить)
+- `internal/config/{config.go,load.go}` (extend, not delete)
+- `internal/jobs/service.go` (populate, keep the scaffolding)
 - `internal/metrics/metrics.go`
 - `pkg/postgres/postgres.go`
 - `embed.go`, `templates/`, `Makefile`, `dev/`
 
 ---
 
-## 16. Verification (как проверить готовый сервис end-to-end)
+## 16. Verification (how to check the finished service end-to-end)
 
-1. `make build && make migrate-up && oblivio start` — сервис поднимается, healthcheck отвечает.
-2. `pnpm --filter frontend dev` (через Vite) ИЛИ открыть `https://localhost:8080`.
-3. Регистрация: создать пользователя, получить recovery_code, подтвердить email.
-4. Включить TOTP, добавить passkey.
-5. Logout / login: повторить с TOTP, повторить с passkey (без TOTP).
-6. Создать проект, добавить запись с TOTP-секретом, убедиться что TOTP-код обновляется.
-7. Создать заметку.
-8. Через psql: `SELECT encrypted_blob FROM entries LIMIT 1` — должно быть случайной шумоподобной байтстрокой.
-9. Через psql: `UPDATE entries SET encrypted_blob = '\\x00...' WHERE id = …` — клиент при чтении должен показать ошибку integrity.
-10. Logout всех сессий с другого устройства, текущая сессия остаётся.
-11. Forgot-password flow: ввести recovery_code, задать новый master_password, перезайти.
-12. Удалить аккаунт: данные исчезают из БД, бэкапы становятся нечитаемы (после ротации).
-13. `curl -X POST https://localhost:8080/oblivio.v1.AuthService/Authorize` 6 раз с неверным паролем за минуту — на 6-й приходит `RESOURCE_EXHAUSTED`.
-14. `make test`, `pnpm test`, `govulncheck ./...`, `npm audit --audit-level=high` — всё зелёное.
-15. Mozilla Observatory grade ≥ A+ на проде.
-
----
-
-## 17. Известные ограничения и целевые улучшения
-
-Раздел нужен, чтобы текущая реализация была корректно описана. Каждый пункт —
-осознанный компромисс или незакрытая работа, **не** «забыли». Пользователи и
-ревьюеры должны видеть честную картину, прежде чем доверять данным.
-
-### 17.1 Криптомодель и ключевой материал
-
-- **Login-TOTP не zero-knowledge.** Сервер видит plaintext TOTP-секрета во время
-  одной операции при login (расшифровкой ключом, выведенным из `auth_key`).
-  Plaintext теперь возвращается из крипто-helper-ов как `*memguard.LockedBuffer`
-  и зануляется через `defer Destroy()`, но это всё ещё trick in-process, а не
-  настоящая ZK-модель. Client-side TOTP с PAKE — отложено.
-- **Crypto-shred не криптографический.** При `DeleteMe` запись удаляется
-  каскадно, но и обёртка ключа, и ciphertext остаются в бэкапах БД до истечения
-  retention. Реально stale до retention rotation. Целевая модель — per-user
-  envelope-ключ в Vault transit — отложено.
-
-### 17.2 Метаданные и side-channels
-
-- **`domain_hash` низкой cardinality.** Per-user `blind_pepper` теперь
-  обязателен (HKDF salt при выводе `K_blind`), но при утечке `K_blind` всё
-  ещё работает словарь популярных доменов внутри конкретного юзера.
-  Радикальная защита — отказаться от `domain_hash` в пользу client-side
-  favicon — отложено.
-
-### 17.3 Эксплуатационные
-
-- **CSP `style-src 'unsafe-inline'`.** Tailwind 4 в production не вставляет
-  inline-style — `unsafe-inline` можно убрать сразу. Не сделано в этой итерации.
-- **CAPTCHA на `Register` не enforced.** Argon2id concurrency-cap снимает
-  основной DoS-вектор, но автоматизированная регистрация всё ещё возможна.
-  hCaptcha/Turnstile через config-flag — ручная задача оператора.
-- **MFA KEK при per-instance fallback.** Без `OBLIVIO_MFA_KEK_SEED` каждый
-  инстанс генерит свой KEK; multi-instance deploy теряет cross-instance
-  challenge resolution и требует sticky-session на LB. При наличии seed —
-  всё работает прозрачно через HKDF.
-- **Pre-launch checklist остаётся ручным.** Внешний crypto-аудит, hstspreload,
-  bug bounty, restore-drill — задачи команды, не кода.
+1. `make build && make migrate-up && oblivio start` — service comes
+   up, healthcheck responds.
+2. `pnpm --filter frontend dev` (via Vite) OR open `https://localhost:8080`.
+3. Registration: create a user, get a recovery code, confirm email.
+4. Enable TOTP, add a passkey.
+5. Logout / login: repeat with TOTP, repeat with the passkey (no
+   TOTP).
+6. Create a project, add an entry with a TOTP secret, confirm the
+   TOTP code refreshes.
+7. Create a note.
+8. Via psql: `SELECT encrypted_blob FROM entries LIMIT 1` — must be a
+   random noise-like byte string.
+9. Via psql: `UPDATE entries SET encrypted_blob = '\\x00...' WHERE id = …`
+   — the client on read must show an integrity error.
+10. Logout all sessions from another device; the current one stays.
+11. Forgot-password flow: enter recovery code, set a new
+    master_password, sign in again.
+12. Delete the account: data disappears from the DB, backups become
+    unreadable (after rotation).
+13. `curl -X POST https://localhost:8080/oblivio.v1.AuthService/Authorize`
+    six times with a wrong password in a minute — the sixth returns
+    `RESOURCE_EXHAUSTED`.
+14. `make test`, `pnpm test`, `govulncheck ./...`,
+    `npm audit --audit-level=high` — all green.
+15. Mozilla Observatory grade ≥ A+ in prod.
 
 ---
 
-## 18. Open questions (можно отложить)
+## 17. Known limitations and target improvements
 
-- **Sharing записей** между пользователями (team password manager) — **вне скопа MVP**.
-  В MVP один аккаунт = один пользователь, sharing/RBAC отсутствуют. Если позже понадобится:
-  реализуется через X25519-публичные ключи в `users` и пере-обёртывание `item_key`.
-- **Файловые вложения** к записям — после MVP, отдельный store (S3 / on-disk)
-  с ZK-шифрованием AES-GCM-stream.
-- **Browser extension** — отдельный воркспейс пакета `extension/` с reuse `@oblivio/crypto`.
-  Manifest v3 — service worker + content scripts + popup.
-- **Mobile** (React Native / Expo) — переиспользовать `@oblivio/crypto` через
+This section exists so that the current implementation is described
+honestly. Each item is a deliberate compromise or unfinished work,
+**not** a forgotten piece. Users and reviewers should see the honest
+picture before trusting the data.
+
+### 17.1 Crypto model and key material
+
+- **Login-TOTP is not zero-knowledge.** The server sees the TOTP
+  secret plaintext for one operation during login (decrypted with a
+  key derived from `auth_key`). The plaintext is now returned from
+  crypto helpers as a `*memguard.LockedBuffer` and zeroised via
+  `defer Destroy()`, but it is still an in-process trick, not a real
+  ZK model. Client-side TOTP with PAKE is deferred.
+- **Crypto-shred is not cryptographic.** On `DeleteMe` the row is
+  cascaded out, but both the key wrap and the ciphertext remain in
+  DB backups until retention expires. Effectively stale until backup
+  rotation. The target model — a per-user envelope key in Vault
+  transit — is deferred.
+
+### 17.2 Metadata and side channels
+
+- **`domain_hash` low cardinality.** A per-user `blind_pepper` is now
+  required (HKDF salt when deriving `K_blind`), but if `K_blind`
+  leaks, a dictionary of popular domains within that specific user
+  still works. The radical fix — drop `domain_hash` in favour of
+  client-side favicons — is deferred.
+
+### 17.3 Operational
+
+- **CSP `style-src 'unsafe-inline'`.** Tailwind 4 in production does
+  not inject inline styles — `unsafe-inline` could be removed
+  immediately. Not done in this iteration.
+- **CAPTCHA on `Register` not enforced.** The Argon2id concurrency
+  cap removes the main DoS vector, but automated registration is
+  still possible. hCaptcha / Turnstile via a config flag is an
+  operator-side task.
+- **MFA KEK with per-instance fallback.** Without
+  `OBLIVIO_MFA_KEK_SEED` each instance generates its own KEK; a
+  multi-instance deploy loses cross-instance challenge resolution and
+  needs sticky session on the LB. With a seed — everything works
+  transparently via HKDF.
+- **The pre-launch checklist remains manual.** External crypto audit,
+  hstspreload, bug bounty, restore drill — team tasks, not code.
+
+---
+
+## 18. Open questions (can be deferred)
+
+- **Sharing entries** between users (team password manager) — **out
+  of MVP scope**. In the MVP, one account = one user, no sharing or
+  RBAC. If needed later: implemented via X25519 public keys in
+  `users` and re-wrapping `item_key`.
+- **File attachments** to entries — post-MVP, a separate store (S3 /
+  on-disk) with ZK AES-GCM-stream encryption.
+- **Browser extension** — a separate workspace package `extension/`
+  reusing `@oblivio/crypto`. Manifest v3 — service worker + content
+  scripts + popup.
+- **Mobile** (React Native / Expo) — reuse `@oblivio/crypto` via
   react-native-quick-crypto + WASM-Argon2.
-- **Desktop GUI** (Wails / Tauri) — Go нативное + memguard + system keychain
-  для refresh_token.
-- **Импорт из Bitwarden / 1Password / KeePass** — после MVP, отдельный CLI-tool,
-  который на клиенте читает экспорт, шифрует и заливает через API.
+- **Desktop GUI** (Wails / Tauri) — native Go + memguard + the
+  system keychain for the refresh token.
+- **Import from Bitwarden / 1Password / KeePass** — post-MVP, a
+  separate CLI tool that reads the export on the client, encrypts,
+  and uploads via the API.
 
-Эти пункты задокументированы, чтобы архитектура изначально не мешала их добавить.
+These items are documented so that the architecture does not block
+adding them later.
