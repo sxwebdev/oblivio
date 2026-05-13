@@ -24,6 +24,17 @@ migratedown:
 migratecreate:
 	go run $(APP_PATH) migrations create -p ./sql/migrations -name $(filter-out $@,$(MAKECMDGOALS))
 
+# Infrastructure
+
+infra-up:
+	docker compose -p oblivio -f dev/deploy/docker-compose.yml up -d
+
+infra-stop:
+	docker compose -p oblivio -f dev/deploy/docker-compose.yml stop
+
+infra-down:
+	docker compose -p oblivio -f dev/deploy/docker-compose.yml down
+
 # Generate
 
 genenvs:
