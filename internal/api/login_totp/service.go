@@ -9,27 +9,20 @@
 package login_totp
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/awnumar/memguard"
-	"github.com/go-webauthn/webauthn/protocol"
 	wa "github.com/go-webauthn/webauthn/webauthn"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	pb "github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1"
 	"github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1/obliviov1connect"
 	"github.com/sxwebdev/oblivio/internal/api/middleware"
 	"github.com/sxwebdev/oblivio/internal/auth"
-	"github.com/sxwebdev/oblivio/internal/auth/wauser"
 	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_login_totp"
-	"github.com/sxwebdev/oblivio/internal/store/repos/repo_user_webauthn_credentials"
-	"github.com/sxwebdev/oblivio/internal/store/repos/repo_users"
 )
 
 // Service implements LoginTOTPService.
@@ -45,51 +38,6 @@ func NewService(rp *wa.WebAuthn, mfa *auth.MFAStore) *Service {
 	return &Service{wa: rp, mfa: mfa}
 }
 
-// consumeWebAuthnAssertion validates the assertion against the challenge
-// previously seeded by WebAuthnService.BeginAssertion and bumps sign_count.
-func (s *Service) consumeWebAuthnAssertion(ctx context.Context, tx pgx.Tx, userID uuid.UUID, sessionID string, assertion []byte) error {
-	sid, err := uuid.Parse(sessionID)
-	if err != nil {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("invalid mfa_session_id"))
-	}
-	ch, err := s.mfa.Take(ctx, sid)
-	if err != nil {
-		return connect.NewError(connect.CodeFailedPrecondition, errors.New("mfa challenge expired"))
-	}
-	if ch.UserID != userID || ch.WebAuthnState == nil {
-		return connect.NewError(connect.CodePermissionDenied, errors.New("session does not belong to caller"))
-	}
-
-	u, err := repo_users.New(tx).GetUserByID(ctx, userID)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-	creds, err := repo_user_webauthn_credentials.New(tx).ListWebAuthnCredentials(ctx, userID)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	wuser := wauser.FromIdentity(u.ID, u.Email, creds)
-
-	parsed, err := protocol.ParseCredentialRequestResponseBody(bytes.NewReader(assertion))
-	if err != nil {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("parse assertion: %w", err))
-	}
-	credential, err := s.wa.ValidateLogin(wuser, *ch.WebAuthnState, parsed)
-	if err != nil {
-		return connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("webauthn validate: %w", err))
-	}
-	matched, err := repo_user_webauthn_credentials.New(tx).GetWebAuthnCredentialByCredID(ctx, credential.ID)
-	if err == nil {
-		_ = repo_user_webauthn_credentials.New(tx).TouchWebAuthnCredential(ctx, repo_user_webauthn_credentials.TouchWebAuthnCredentialParams{
-			ID:        matched.ID,
-			SignCount: int64(credential.Authenticator.SignCount),
-			Flags:     int16(credential.Flags.ProtocolValue()), //nolint:gosec
-		})
-	}
-	return nil
-}
-
 // Setup uploads a freshly-encrypted secret. The server derives K_login_totp,
 // decrypts the secret, validates the supplied code, then persists the
 // envelope in user_login_totp with `enabled = false`.
@@ -101,7 +49,7 @@ func (s *Service) Setup(ctx context.Context, req *connect.Request[pb.LoginTOTPSe
 	if len(r.AuthKey) == 0 || len(r.EncryptedSecret) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("auth_key and encrypted_secret required"))
 	}
-	if err := s.verifyAuthKey(ctx, tx, uc, r.AuthKey); err != nil {
+	if err := auth.VerifyUserAuthKey(ctx, tx, uc.UserID, r.AuthKey); err != nil {
 		return nil, err
 	}
 
@@ -132,7 +80,7 @@ func (s *Service) Enable(ctx context.Context, req *connect.Request[pb.LoginTOTPS
 	uc := middleware.MustFromContext(ctx)
 	tx := middleware.MustTxFromContext(ctx)
 
-	if err := s.verifyAuthKey(ctx, tx, uc, req.Msg.AuthKey); err != nil {
+	if err := auth.VerifyUserAuthKey(ctx, tx, uc.UserID, req.Msg.AuthKey); err != nil {
 		return nil, err
 	}
 	row, err := repo_user_login_totp.New(tx).GetUserLoginTOTP(ctx, uc.UserID)
@@ -171,7 +119,7 @@ func (s *Service) Disable(ctx context.Context, req *connect.Request[pb.LoginTOTP
 	tx := middleware.MustTxFromContext(ctx)
 	r := req.Msg
 
-	if err := s.verifyAuthKey(ctx, tx, uc, r.AuthKey); err != nil {
+	if err := auth.VerifyUserAuthKey(ctx, tx, uc.UserID, r.AuthKey); err != nil {
 		return nil, err
 	}
 	row, err := repo_user_login_totp.New(tx).GetUserLoginTOTP(ctx, uc.UserID)
@@ -198,10 +146,7 @@ func (s *Service) Disable(ctx context.Context, req *connect.Request[pb.LoginTOTP
 			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid totp code"))
 		}
 	} else {
-		if s.wa == nil {
-			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("webauthn not configured"))
-		}
-		if err := s.consumeWebAuthnAssertion(ctx, tx, uc.UserID, r.MfaSessionId, r.WebauthnAssertionJson); err != nil {
+		if _, err := auth.ConsumeWebAuthnAssertion(ctx, tx, s.wa, s.mfa, uc.UserID, r.MfaSessionId, r.WebauthnAssertionJson); err != nil {
 			return nil, err
 		}
 	}
@@ -232,27 +177,6 @@ func (s *Service) Status(ctx context.Context, _ *connect.Request[pb.LoginTOTPSer
 }
 
 // --- helpers ---
-
-func (s *Service) verifyAuthKey(ctx context.Context, tx pgx.Tx, uc *middleware.UserContext, authKey []byte) error {
-	if len(authKey) == 0 {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("auth_key required"))
-	}
-	// Reach for the user_auth row through the RLS-scoped tx so the
-	// challenge is double-checked against the authenticated session.
-	var hash string
-	err := tx.QueryRow(ctx, `SELECT auth_key_hash FROM user_auth WHERE user_id = $1`, uc.UserID).Scan(&hash)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-	ok, err := auth.VerifyAuthKey(authKey, hash)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return connect.NewError(connect.CodeUnauthenticated, errors.New("auth_key mismatch"))
-	}
-	return nil
-}
 
 // decryptLoginTOTP returns the plaintext base32 secret inside a
 // memguard.LockedBuffer. The intermediate K_login_totp material is wiped

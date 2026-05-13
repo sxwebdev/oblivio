@@ -310,12 +310,20 @@ func (x *ListCredentialsResponse) GetCredentials() []*WebAuthnCredential {
 }
 
 type WebAuthnCredential struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	LastUsedAt    *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=last_used_at,json=lastUsedAt,proto3" json:"last_used_at,omitempty"`
-	Transports    []string               `protobuf:"bytes,5,rep,name=transports,proto3" json:"transports,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Id         string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name       string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	CreatedAt  *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	LastUsedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=last_used_at,json=lastUsedAt,proto3" json:"last_used_at,omitempty"`
+	Transports []string               `protobuf:"bytes,5,rep,name=transports,proto3" json:"transports,omitempty"`
+	// unlock_enabled is true when the user has bound a passkey-PRF-wrapped
+	// vault_key to this credential (see EnablePasskeyUnlock). The settings
+	// UI uses it to render the per-credential toggle.
+	UnlockEnabled bool `protobuf:"varint,6,opt,name=unlock_enabled,json=unlockEnabled,proto3" json:"unlock_enabled,omitempty"`
+	// prf_salt is the 32-byte salt the browser must pass to prf.eval.first
+	// at WebAuthn get() time. Populated only when unlock_enabled=true so
+	// it can be loaded by the unlock page in a single round trip.
+	PrfSalt       []byte `protobuf:"bytes,7,opt,name=prf_salt,json=prfSalt,proto3" json:"prf_salt,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -385,9 +393,26 @@ func (x *WebAuthnCredential) GetTransports() []string {
 	return nil
 }
 
+func (x *WebAuthnCredential) GetUnlockEnabled() bool {
+	if x != nil {
+		return x.UnlockEnabled
+	}
+	return false
+}
+
+func (x *WebAuthnCredential) GetPrfSalt() []byte {
+	if x != nil {
+		return x.PrfSalt
+	}
+	return nil
+}
+
 type RemoveCredentialRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	CredentialId  string                 `protobuf:"bytes,1,opt,name=credential_id,json=credentialId,proto3" json:"credential_id,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	CredentialId string                 `protobuf:"bytes,1,opt,name=credential_id,json=credentialId,proto3" json:"credential_id,omitempty"`
+	// auth_key proves the caller still knows the master password. The
+	// server compares it against the stored Argon2id hash before deletion.
+	AuthKey       []byte `protobuf:"bytes,2,opt,name=auth_key,json=authKey,proto3" json:"auth_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -427,6 +452,13 @@ func (x *RemoveCredentialRequest) GetCredentialId() string {
 		return x.CredentialId
 	}
 	return ""
+}
+
+func (x *RemoveCredentialRequest) GetAuthKey() []byte {
+	if x != nil {
+		return x.AuthKey
+	}
+	return nil
 }
 
 type RemoveCredentialResponse struct {
@@ -504,7 +536,8 @@ func (*BeginAssertionRequest) Descriptor() ([]byte, []int) {
 type BeginAssertionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Session identifier the caller passes to the service that consumes the
-	// assertion (e.g. LoginTOTPService.Disable.mfa_session_id).
+	// assertion (e.g. LoginTOTPService.Disable.mfa_session_id,
+	// VaultService.DeleteMe.mfa_session_id, UnlockWithPasskey.mfa_session_id).
 	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	// JSON-encoded CredentialRequestOptions per WebAuthn level 2.
 	OptionsJson   []byte `protobuf:"bytes,2,opt,name=options_json,json=optionsJson,proto3" json:"options_json,omitempty"`
@@ -556,6 +589,319 @@ func (x *BeginAssertionResponse) GetOptionsJson() []byte {
 	return nil
 }
 
+// EnablePasskeyUnlock stores the passkey-bound wrapping of vault_key.
+// Requires auth_key so a stolen access token alone cannot bind a vault
+// key to an attacker-controlled passkey.
+type EnablePasskeyUnlockRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of an already-registered WebAuthnCredential.
+	CredentialId string `protobuf:"bytes,1,opt,name=credential_id,json=credentialId,proto3" json:"credential_id,omitempty"`
+	// AES-GCM(HKDF(prf_output), vault_key) with AAD = user_id || credential_id.
+	WrappedVaultKey []byte `protobuf:"bytes,2,opt,name=wrapped_vault_key,json=wrappedVaultKey,proto3" json:"wrapped_vault_key,omitempty"`
+	// 32-byte salt passed to prf.eval.first at the time wrapped_vault_key
+	// was produced. Echoed back at unlock so the same PRF output is derived.
+	PrfSalt []byte `protobuf:"bytes,3,opt,name=prf_salt,json=prfSalt,proto3" json:"prf_salt,omitempty"`
+	// Master-password proof (auth_key = HKDF(master_key, …)).
+	AuthKey       []byte `protobuf:"bytes,4,opt,name=auth_key,json=authKey,proto3" json:"auth_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EnablePasskeyUnlockRequest) Reset() {
+	*x = EnablePasskeyUnlockRequest{}
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnablePasskeyUnlockRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnablePasskeyUnlockRequest) ProtoMessage() {}
+
+func (x *EnablePasskeyUnlockRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnablePasskeyUnlockRequest.ProtoReflect.Descriptor instead.
+func (*EnablePasskeyUnlockRequest) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_webauthn_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *EnablePasskeyUnlockRequest) GetCredentialId() string {
+	if x != nil {
+		return x.CredentialId
+	}
+	return ""
+}
+
+func (x *EnablePasskeyUnlockRequest) GetWrappedVaultKey() []byte {
+	if x != nil {
+		return x.WrappedVaultKey
+	}
+	return nil
+}
+
+func (x *EnablePasskeyUnlockRequest) GetPrfSalt() []byte {
+	if x != nil {
+		return x.PrfSalt
+	}
+	return nil
+}
+
+func (x *EnablePasskeyUnlockRequest) GetAuthKey() []byte {
+	if x != nil {
+		return x.AuthKey
+	}
+	return nil
+}
+
+type EnablePasskeyUnlockResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EnablePasskeyUnlockResponse) Reset() {
+	*x = EnablePasskeyUnlockResponse{}
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnablePasskeyUnlockResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnablePasskeyUnlockResponse) ProtoMessage() {}
+
+func (x *EnablePasskeyUnlockResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnablePasskeyUnlockResponse.ProtoReflect.Descriptor instead.
+func (*EnablePasskeyUnlockResponse) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_webauthn_proto_rawDescGZIP(), []int{12}
+}
+
+// DisablePasskeyUnlock clears the passkey-unlock bundle for a credential.
+// The credential itself is left in place — only its ability to unlock the
+// vault is revoked.
+type DisablePasskeyUnlockRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CredentialId  string                 `protobuf:"bytes,1,opt,name=credential_id,json=credentialId,proto3" json:"credential_id,omitempty"`
+	AuthKey       []byte                 `protobuf:"bytes,2,opt,name=auth_key,json=authKey,proto3" json:"auth_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisablePasskeyUnlockRequest) Reset() {
+	*x = DisablePasskeyUnlockRequest{}
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisablePasskeyUnlockRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisablePasskeyUnlockRequest) ProtoMessage() {}
+
+func (x *DisablePasskeyUnlockRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisablePasskeyUnlockRequest.ProtoReflect.Descriptor instead.
+func (*DisablePasskeyUnlockRequest) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_webauthn_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *DisablePasskeyUnlockRequest) GetCredentialId() string {
+	if x != nil {
+		return x.CredentialId
+	}
+	return ""
+}
+
+func (x *DisablePasskeyUnlockRequest) GetAuthKey() []byte {
+	if x != nil {
+		return x.AuthKey
+	}
+	return nil
+}
+
+type DisablePasskeyUnlockResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisablePasskeyUnlockResponse) Reset() {
+	*x = DisablePasskeyUnlockResponse{}
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisablePasskeyUnlockResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisablePasskeyUnlockResponse) ProtoMessage() {}
+
+func (x *DisablePasskeyUnlockResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisablePasskeyUnlockResponse.ProtoReflect.Descriptor instead.
+func (*DisablePasskeyUnlockResponse) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_webauthn_proto_rawDescGZIP(), []int{14}
+}
+
+// UnlockWithPasskey validates a passkey assertion (challenge from
+// BeginAssertion) and returns the previously-stored wrapped_vault_key +
+// prf_salt for the matched credential. The client then re-derives the
+// unlocking key from the PRF output and decrypts vault_key locally.
+type UnlockWithPasskeyRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// session_id returned by WebAuthnService.BeginAssertion.
+	MfaSessionId string `protobuf:"bytes,1,opt,name=mfa_session_id,json=mfaSessionId,proto3" json:"mfa_session_id,omitempty"`
+	// JSON-encoded WebAuthn assertion (response of navigator.credentials.get).
+	WebauthnAssertionJson []byte `protobuf:"bytes,2,opt,name=webauthn_assertion_json,json=webauthnAssertionJson,proto3" json:"webauthn_assertion_json,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *UnlockWithPasskeyRequest) Reset() {
+	*x = UnlockWithPasskeyRequest{}
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnlockWithPasskeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnlockWithPasskeyRequest) ProtoMessage() {}
+
+func (x *UnlockWithPasskeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnlockWithPasskeyRequest.ProtoReflect.Descriptor instead.
+func (*UnlockWithPasskeyRequest) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_webauthn_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *UnlockWithPasskeyRequest) GetMfaSessionId() string {
+	if x != nil {
+		return x.MfaSessionId
+	}
+	return ""
+}
+
+func (x *UnlockWithPasskeyRequest) GetWebauthnAssertionJson() []byte {
+	if x != nil {
+		return x.WebauthnAssertionJson
+	}
+	return nil
+}
+
+type UnlockWithPasskeyResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	WrappedVaultKey []byte                 `protobuf:"bytes,1,opt,name=wrapped_vault_key,json=wrappedVaultKey,proto3" json:"wrapped_vault_key,omitempty"`
+	PrfSalt         []byte                 `protobuf:"bytes,2,opt,name=prf_salt,json=prfSalt,proto3" json:"prf_salt,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *UnlockWithPasskeyResponse) Reset() {
+	*x = UnlockWithPasskeyResponse{}
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnlockWithPasskeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnlockWithPasskeyResponse) ProtoMessage() {}
+
+func (x *UnlockWithPasskeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_oblivio_v1_webauthn_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnlockWithPasskeyResponse.ProtoReflect.Descriptor instead.
+func (*UnlockWithPasskeyResponse) Descriptor() ([]byte, []int) {
+	return file_oblivio_v1_webauthn_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *UnlockWithPasskeyResponse) GetWrappedVaultKey() []byte {
+	if x != nil {
+		return x.WrappedVaultKey
+	}
+	return nil
+}
+
+func (x *UnlockWithPasskeyResponse) GetPrfSalt() []byte {
+	if x != nil {
+		return x.PrfSalt
+	}
+	return nil
+}
+
 var File_oblivio_v1_webauthn_proto protoreflect.FileDescriptor
 
 const file_oblivio_v1_webauthn_proto_rawDesc = "" +
@@ -577,7 +923,7 @@ const file_oblivio_v1_webauthn_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"\x18\n" +
 	"\x16ListCredentialsRequest\"[\n" +
 	"\x17ListCredentialsResponse\x12@\n" +
-	"\vcredentials\x18\x01 \x03(\v2\x1e.oblivio.v1.WebAuthnCredentialR\vcredentials\"\xd1\x01\n" +
+	"\vcredentials\x18\x01 \x03(\v2\x1e.oblivio.v1.WebAuthnCredentialR\vcredentials\"\x93\x02\n" +
 	"\x12WebAuthnCredential\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x129\n" +
@@ -587,21 +933,43 @@ const file_oblivio_v1_webauthn_proto_rawDesc = "" +
 	"lastUsedAt\x12\x1e\n" +
 	"\n" +
 	"transports\x18\x05 \x03(\tR\n" +
-	"transports\">\n" +
+	"transports\x12%\n" +
+	"\x0eunlock_enabled\x18\x06 \x01(\bR\runlockEnabled\x12\x19\n" +
+	"\bprf_salt\x18\a \x01(\fR\aprfSalt\"Y\n" +
 	"\x17RemoveCredentialRequest\x12#\n" +
-	"\rcredential_id\x18\x01 \x01(\tR\fcredentialId\"\x1a\n" +
+	"\rcredential_id\x18\x01 \x01(\tR\fcredentialId\x12\x19\n" +
+	"\bauth_key\x18\x02 \x01(\fR\aauthKey\"\x1a\n" +
 	"\x18RemoveCredentialResponse\"\x17\n" +
 	"\x15BeginAssertionRequest\"Z\n" +
 	"\x16BeginAssertionResponse\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12!\n" +
-	"\foptions_json\x18\x02 \x01(\fR\voptionsJson2\xd4\x03\n" +
+	"\foptions_json\x18\x02 \x01(\fR\voptionsJson\"\xa3\x01\n" +
+	"\x1aEnablePasskeyUnlockRequest\x12#\n" +
+	"\rcredential_id\x18\x01 \x01(\tR\fcredentialId\x12*\n" +
+	"\x11wrapped_vault_key\x18\x02 \x01(\fR\x0fwrappedVaultKey\x12\x19\n" +
+	"\bprf_salt\x18\x03 \x01(\fR\aprfSalt\x12\x19\n" +
+	"\bauth_key\x18\x04 \x01(\fR\aauthKey\"\x1d\n" +
+	"\x1bEnablePasskeyUnlockResponse\"]\n" +
+	"\x1bDisablePasskeyUnlockRequest\x12#\n" +
+	"\rcredential_id\x18\x01 \x01(\tR\fcredentialId\x12\x19\n" +
+	"\bauth_key\x18\x02 \x01(\fR\aauthKey\"\x1e\n" +
+	"\x1cDisablePasskeyUnlockResponse\"x\n" +
+	"\x18UnlockWithPasskeyRequest\x12$\n" +
+	"\x0emfa_session_id\x18\x01 \x01(\tR\fmfaSessionId\x126\n" +
+	"\x17webauthn_assertion_json\x18\x02 \x01(\fR\x15webauthnAssertionJson\"b\n" +
+	"\x19UnlockWithPasskeyResponse\x12*\n" +
+	"\x11wrapped_vault_key\x18\x01 \x01(\fR\x0fwrappedVaultKey\x12\x19\n" +
+	"\bprf_salt\x18\x02 \x01(\fR\aprfSalt2\x89\x06\n" +
 	"\x0fWebAuthnService\x12T\n" +
 	"\rRegisterBegin\x12 .oblivio.v1.RegisterBeginRequest\x1a!.oblivio.v1.RegisterBeginResponse\x12W\n" +
 	"\x0eRegisterFinish\x12!.oblivio.v1.RegisterFinishRequest\x1a\".oblivio.v1.RegisterFinishResponse\x12Z\n" +
 	"\x0fListCredentials\x12\".oblivio.v1.ListCredentialsRequest\x1a#.oblivio.v1.ListCredentialsResponse\x12]\n" +
 	"\x10RemoveCredential\x12#.oblivio.v1.RemoveCredentialRequest\x1a$.oblivio.v1.RemoveCredentialResponse\x12W\n" +
-	"\x0eBeginAssertion\x12!.oblivio.v1.BeginAssertionRequest\x1a\".oblivio.v1.BeginAssertionResponseB\xae\x01\n" +
+	"\x0eBeginAssertion\x12!.oblivio.v1.BeginAssertionRequest\x1a\".oblivio.v1.BeginAssertionResponse\x12f\n" +
+	"\x13EnablePasskeyUnlock\x12&.oblivio.v1.EnablePasskeyUnlockRequest\x1a'.oblivio.v1.EnablePasskeyUnlockResponse\x12i\n" +
+	"\x14DisablePasskeyUnlock\x12'.oblivio.v1.DisablePasskeyUnlockRequest\x1a(.oblivio.v1.DisablePasskeyUnlockResponse\x12`\n" +
+	"\x11UnlockWithPasskey\x12$.oblivio.v1.UnlockWithPasskeyRequest\x1a%.oblivio.v1.UnlockWithPasskeyResponseB\xae\x01\n" +
 	"\x0ecom.oblivio.v1B\rWebauthnProtoP\x01ZDgithub.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1;obliviov1\xa2\x02\x03OXX\xaa\x02\n" +
 	"Oblivio.V1\xca\x02\n" +
 	"Oblivio\\V1\xe2\x02\x16Oblivio\\V1\\GPBMetadata\xea\x02\vOblivio::V1b\x06proto3"
@@ -618,37 +986,49 @@ func file_oblivio_v1_webauthn_proto_rawDescGZIP() []byte {
 	return file_oblivio_v1_webauthn_proto_rawDescData
 }
 
-var file_oblivio_v1_webauthn_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_oblivio_v1_webauthn_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_oblivio_v1_webauthn_proto_goTypes = []any{
-	(*RegisterBeginRequest)(nil),     // 0: oblivio.v1.RegisterBeginRequest
-	(*RegisterBeginResponse)(nil),    // 1: oblivio.v1.RegisterBeginResponse
-	(*RegisterFinishRequest)(nil),    // 2: oblivio.v1.RegisterFinishRequest
-	(*RegisterFinishResponse)(nil),   // 3: oblivio.v1.RegisterFinishResponse
-	(*ListCredentialsRequest)(nil),   // 4: oblivio.v1.ListCredentialsRequest
-	(*ListCredentialsResponse)(nil),  // 5: oblivio.v1.ListCredentialsResponse
-	(*WebAuthnCredential)(nil),       // 6: oblivio.v1.WebAuthnCredential
-	(*RemoveCredentialRequest)(nil),  // 7: oblivio.v1.RemoveCredentialRequest
-	(*RemoveCredentialResponse)(nil), // 8: oblivio.v1.RemoveCredentialResponse
-	(*BeginAssertionRequest)(nil),    // 9: oblivio.v1.BeginAssertionRequest
-	(*BeginAssertionResponse)(nil),   // 10: oblivio.v1.BeginAssertionResponse
-	(*timestamppb.Timestamp)(nil),    // 11: google.protobuf.Timestamp
+	(*RegisterBeginRequest)(nil),         // 0: oblivio.v1.RegisterBeginRequest
+	(*RegisterBeginResponse)(nil),        // 1: oblivio.v1.RegisterBeginResponse
+	(*RegisterFinishRequest)(nil),        // 2: oblivio.v1.RegisterFinishRequest
+	(*RegisterFinishResponse)(nil),       // 3: oblivio.v1.RegisterFinishResponse
+	(*ListCredentialsRequest)(nil),       // 4: oblivio.v1.ListCredentialsRequest
+	(*ListCredentialsResponse)(nil),      // 5: oblivio.v1.ListCredentialsResponse
+	(*WebAuthnCredential)(nil),           // 6: oblivio.v1.WebAuthnCredential
+	(*RemoveCredentialRequest)(nil),      // 7: oblivio.v1.RemoveCredentialRequest
+	(*RemoveCredentialResponse)(nil),     // 8: oblivio.v1.RemoveCredentialResponse
+	(*BeginAssertionRequest)(nil),        // 9: oblivio.v1.BeginAssertionRequest
+	(*BeginAssertionResponse)(nil),       // 10: oblivio.v1.BeginAssertionResponse
+	(*EnablePasskeyUnlockRequest)(nil),   // 11: oblivio.v1.EnablePasskeyUnlockRequest
+	(*EnablePasskeyUnlockResponse)(nil),  // 12: oblivio.v1.EnablePasskeyUnlockResponse
+	(*DisablePasskeyUnlockRequest)(nil),  // 13: oblivio.v1.DisablePasskeyUnlockRequest
+	(*DisablePasskeyUnlockResponse)(nil), // 14: oblivio.v1.DisablePasskeyUnlockResponse
+	(*UnlockWithPasskeyRequest)(nil),     // 15: oblivio.v1.UnlockWithPasskeyRequest
+	(*UnlockWithPasskeyResponse)(nil),    // 16: oblivio.v1.UnlockWithPasskeyResponse
+	(*timestamppb.Timestamp)(nil),        // 17: google.protobuf.Timestamp
 }
 var file_oblivio_v1_webauthn_proto_depIdxs = []int32{
 	6,  // 0: oblivio.v1.ListCredentialsResponse.credentials:type_name -> oblivio.v1.WebAuthnCredential
-	11, // 1: oblivio.v1.WebAuthnCredential.created_at:type_name -> google.protobuf.Timestamp
-	11, // 2: oblivio.v1.WebAuthnCredential.last_used_at:type_name -> google.protobuf.Timestamp
+	17, // 1: oblivio.v1.WebAuthnCredential.created_at:type_name -> google.protobuf.Timestamp
+	17, // 2: oblivio.v1.WebAuthnCredential.last_used_at:type_name -> google.protobuf.Timestamp
 	0,  // 3: oblivio.v1.WebAuthnService.RegisterBegin:input_type -> oblivio.v1.RegisterBeginRequest
 	2,  // 4: oblivio.v1.WebAuthnService.RegisterFinish:input_type -> oblivio.v1.RegisterFinishRequest
 	4,  // 5: oblivio.v1.WebAuthnService.ListCredentials:input_type -> oblivio.v1.ListCredentialsRequest
 	7,  // 6: oblivio.v1.WebAuthnService.RemoveCredential:input_type -> oblivio.v1.RemoveCredentialRequest
 	9,  // 7: oblivio.v1.WebAuthnService.BeginAssertion:input_type -> oblivio.v1.BeginAssertionRequest
-	1,  // 8: oblivio.v1.WebAuthnService.RegisterBegin:output_type -> oblivio.v1.RegisterBeginResponse
-	3,  // 9: oblivio.v1.WebAuthnService.RegisterFinish:output_type -> oblivio.v1.RegisterFinishResponse
-	5,  // 10: oblivio.v1.WebAuthnService.ListCredentials:output_type -> oblivio.v1.ListCredentialsResponse
-	8,  // 11: oblivio.v1.WebAuthnService.RemoveCredential:output_type -> oblivio.v1.RemoveCredentialResponse
-	10, // 12: oblivio.v1.WebAuthnService.BeginAssertion:output_type -> oblivio.v1.BeginAssertionResponse
-	8,  // [8:13] is the sub-list for method output_type
-	3,  // [3:8] is the sub-list for method input_type
+	11, // 8: oblivio.v1.WebAuthnService.EnablePasskeyUnlock:input_type -> oblivio.v1.EnablePasskeyUnlockRequest
+	13, // 9: oblivio.v1.WebAuthnService.DisablePasskeyUnlock:input_type -> oblivio.v1.DisablePasskeyUnlockRequest
+	15, // 10: oblivio.v1.WebAuthnService.UnlockWithPasskey:input_type -> oblivio.v1.UnlockWithPasskeyRequest
+	1,  // 11: oblivio.v1.WebAuthnService.RegisterBegin:output_type -> oblivio.v1.RegisterBeginResponse
+	3,  // 12: oblivio.v1.WebAuthnService.RegisterFinish:output_type -> oblivio.v1.RegisterFinishResponse
+	5,  // 13: oblivio.v1.WebAuthnService.ListCredentials:output_type -> oblivio.v1.ListCredentialsResponse
+	8,  // 14: oblivio.v1.WebAuthnService.RemoveCredential:output_type -> oblivio.v1.RemoveCredentialResponse
+	10, // 15: oblivio.v1.WebAuthnService.BeginAssertion:output_type -> oblivio.v1.BeginAssertionResponse
+	12, // 16: oblivio.v1.WebAuthnService.EnablePasskeyUnlock:output_type -> oblivio.v1.EnablePasskeyUnlockResponse
+	14, // 17: oblivio.v1.WebAuthnService.DisablePasskeyUnlock:output_type -> oblivio.v1.DisablePasskeyUnlockResponse
+	16, // 18: oblivio.v1.WebAuthnService.UnlockWithPasskey:output_type -> oblivio.v1.UnlockWithPasskeyResponse
+	11, // [11:19] is the sub-list for method output_type
+	3,  // [3:11] is the sub-list for method input_type
 	3,  // [3:3] is the sub-list for extension type_name
 	3,  // [3:3] is the sub-list for extension extendee
 	0,  // [0:3] is the sub-list for field type_name
@@ -665,7 +1045,7 @@ func file_oblivio_v1_webauthn_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_oblivio_v1_webauthn_proto_rawDesc), len(file_oblivio_v1_webauthn_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

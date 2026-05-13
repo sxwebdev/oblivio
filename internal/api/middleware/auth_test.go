@@ -50,10 +50,13 @@ var allProcedures = []string{
 	"/oblivio.v1.VaultService/DeleteMe",
 	"/oblivio.v1.VaultService/GetMe",
 	"/oblivio.v1.WebAuthnService/BeginAssertion",
+	"/oblivio.v1.WebAuthnService/DisablePasskeyUnlock",
+	"/oblivio.v1.WebAuthnService/EnablePasskeyUnlock",
 	"/oblivio.v1.WebAuthnService/ListCredentials",
 	"/oblivio.v1.WebAuthnService/RegisterBegin",
 	"/oblivio.v1.WebAuthnService/RegisterFinish",
 	"/oblivio.v1.WebAuthnService/RemoveCredential",
+	"/oblivio.v1.WebAuthnService/UnlockWithPasskey",
 }
 
 // TestAnonymousProcedures_ExactList pins the allowlist. Adding/removing an

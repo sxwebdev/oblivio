@@ -15,6 +15,10 @@ import { useNavigate } from "@tanstack/react-router"
 import { toast } from "sonner"
 import { Lock, Mail, ShieldAlert, Trash2 } from "lucide-react"
 import {
+  startAuthentication,
+  type PublicKeyCredentialRequestOptionsJSON,
+} from "@simplewebauthn/browser"
+import {
   deriveAuthKey,
   deriveLoginTotpKey,
   deriveMasterKey,
@@ -25,6 +29,7 @@ import {
   unwrapLoginTotpSecret,
   wrapLoginTotpSecret,
   wrapVaultKey,
+  type Argon2Params,
 } from "@oblivio/crypto"
 
 import {
@@ -32,6 +37,7 @@ import {
   idempotencyHeaders,
   sessionsClient,
   vaultClient,
+  webauthnClient,
 } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -144,6 +150,7 @@ function ChangePasswordCard() {
   const [newPwd, setNewPwd] = useState("")
   const [confirmPwd, setConfirmPwd] = useState("")
   const [busy, setBusy] = useState(false)
+  const [revokeUnlocks, setRevokeUnlocks] = useState(false)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -228,15 +235,19 @@ function ChangePasswordCard() {
           newWrappedVaultKey,
           newLoginTotpEncryptedSecret: newLoginTotpSecret,
           newLoginTotpNonce: newLoginTotpNonce,
+          revokePasskeyUnlocks: revokeUnlocks,
         },
         { headers: idempotencyHeaders() }
       )
       toast.success(
-        "Master password changed. Other sessions have been signed out."
+        revokeUnlocks
+          ? "Master password changed. Passkey-unlock revoked on all keys; other sessions signed out."
+          : "Master password changed. Other sessions have been signed out."
       )
       setOldPwd("")
       setNewPwd("")
       setConfirmPwd("")
+      setRevokeUnlocks(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Change failed")
     } finally {
@@ -293,6 +304,26 @@ function ChangePasswordCard() {
               required
             />
           </div>
+          {/* vault_key is NOT rotated by a password change — only its
+              master-key wrapper is. Passkey-unlock bundles wrap the same
+              vault_key under a PRF-derived key, so they keep working
+              after a rotation. Tick this when the rotation is driven by
+              a suspected compromise (lost device, stolen credentials),
+              so previously-leaked PRF outputs can no longer unlock. */}
+          <label className="flex items-start gap-2 rounded-md border border-dashed border-muted-foreground/30 p-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={revokeUnlocks}
+              onChange={(e) => setRevokeUnlocks(e.target.checked)}
+            />
+            <span>
+              <strong>Also revoke passkey-unlock</strong> for all enrolled
+              keys. Recommended if you suspect compromise — the credentials
+              themselves remain registered, but they can no longer skip the
+              master password on the unlock screen.
+            </span>
+          </label>
           <Button type="submit" disabled={busy || !vaultKey}>
             {busy ? "Changing…" : "Change password"}
           </Button>
@@ -478,25 +509,90 @@ function DeleteAccountDialog() {
   const lockVault = useVaultStore((s) => s.lock)
   const email = useAuthStore((s) => s.email) ?? ""
 
+  // The required factor set is derived from GetMe — we only ask for what
+  // the server will require. A user without TOTP / passkey just types
+  // their master password.
+  const meQ = useQuery({
+    queryKey: ["vault", "me"],
+    queryFn: () => vaultClient.getMe({}),
+  })
+  const needsTotp = meQ.data?.totpEnabled === true
+  const needsPasskey = (meQ.data?.webauthnCredentialsCount ?? 0) > 0
+
   const [open, setOpen] = useState(false)
   const [confirm, setConfirm] = useState("")
   const [reason, setReason] = useState("")
+  const [password, setPassword] = useState("")
+  const [totpCode, setTotpCode] = useState("")
+  const [busy, setBusy] = useState(false)
 
-  const deleteMe = useMutation({
-    mutationFn: async () =>
-      vaultClient.deleteMe({ reason }, { headers: idempotencyHeaders() }),
-    onSuccess: async () => {
+  const canDelete =
+    confirm.trim().toLowerCase() === email.toLowerCase() &&
+    password.length > 0 &&
+    (!needsTotp || totpCode.length > 0)
+
+  async function submit() {
+    setBusy(true)
+    try {
+      // 1) Re-derive auth_key from the just-typed master password.
+      const kdf = await authClient.getKDFParams({ email })
+      if (!kdf.kdfParams) throw new Error("kdf params missing")
+      const params: Argon2Params = {
+        t: kdf.kdfParams.t,
+        mKib: kdf.kdfParams.mKib,
+        p: Math.max(1, kdf.kdfParams.p),
+        algo: kdf.kdfParams.algo,
+      }
+      const masterKeyRaw = await deriveMasterKey(password, kdf.saltUser, params)
+      try {
+        await importMasterKey(masterKeyRaw)
+      } catch {
+        /* ignore */
+      }
+      const authKey = await deriveAuthKey(masterKeyRaw, kdf.saltUser)
+      masterKeyRaw.fill(0)
+
+      // 2) Optional passkey assertion — seeded server-side so the server
+      //    can validate it against the same challenge.
+      let webauthnAssertionJson: Uint8Array | undefined
+      let mfaSessionId: string | undefined
+      if (needsPasskey) {
+        const begin = await webauthnClient.beginAssertion({})
+        const decoded = JSON.parse(
+          new TextDecoder().decode(begin.optionsJson)
+        ) as { publicKey: PublicKeyCredentialRequestOptionsJSON }
+        const assertion = await startAuthentication({
+          optionsJSON: decoded.publicKey,
+        })
+        webauthnAssertionJson = new TextEncoder().encode(
+          JSON.stringify(assertion)
+        )
+        mfaSessionId = begin.sessionId
+      }
+
+      // 3) Submit the request — the server runs every factor before
+      //    touching any data and only appends the audit row on success.
+      await vaultClient.deleteMe(
+        {
+          reason,
+          authKey,
+          totpCode: needsTotp ? totpCode : "",
+          webauthnAssertionJson: webauthnAssertionJson ?? new Uint8Array(0),
+          mfaSessionId: mfaSessionId ?? "",
+        },
+        { headers: idempotencyHeaders() }
+      )
       toast.success("Account deleted")
       lockVault()
       clearSession()
       setOpen(false)
       await navigate({ to: "/login" })
-    },
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Delete failed"),
-  })
-
-  const canDelete = confirm.trim().toLowerCase() === email.toLowerCase()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Delete failed")
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <>
@@ -527,6 +623,35 @@ function DeleteAccountDialog() {
               />
             </div>
             <div>
+              <Label htmlFor="delete-password">Master password</Label>
+              <Input
+                id="delete-password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            {needsTotp && (
+              <div>
+                <Label htmlFor="delete-totp">Authenticator code</Label>
+                <Input
+                  id="delete-totp"
+                  inputMode="numeric"
+                  placeholder="123 456"
+                  maxLength={10}
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value)}
+                />
+              </div>
+            )}
+            {needsPasskey && (
+              <p className="text-xs text-muted-foreground">
+                After confirming, your browser will prompt you to use one of
+                your registered passkeys.
+              </p>
+            )}
+            <div>
               <Label htmlFor="reason">
                 Reason (optional, stored in audit log)
               </Label>
@@ -544,10 +669,10 @@ function DeleteAccountDialog() {
             </Button>
             <Button
               variant="destructive"
-              disabled={!canDelete || deleteMe.isPending}
-              onClick={() => deleteMe.mutate()}
+              disabled={!canDelete || busy}
+              onClick={submit}
             >
-              {deleteMe.isPending ? "Deleting…" : "Delete forever"}
+              {busy ? "Deleting…" : "Delete forever"}
             </Button>
           </DialogFooter>
         </DialogContent>

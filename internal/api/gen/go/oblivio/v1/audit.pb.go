@@ -48,6 +48,11 @@ const (
 	AuditAction_AUDIT_ACTION_ACCOUNT_DELETE    AuditAction = 20
 	AuditAction_AUDIT_ACTION_EMAIL_VERIFY      AuditAction = 21
 	AuditAction_AUDIT_ACTION_EMAIL_RESEND      AuditAction = 22
+	// Emitted by VaultService.DeleteMe when any required factor
+	// (auth_key, TOTP, passkey assertion) fails verification. The audit
+	// row is appended before the connect.Unauthenticated returns so
+	// failed crypto-shred probes show up in the chain.
+	AuditAction_AUDIT_ACTION_ACCOUNT_DELETE_ATTEMPT_FAILED AuditAction = 23
 )
 
 // Enum value maps for AuditAction.
@@ -76,31 +81,33 @@ var (
 		20: "AUDIT_ACTION_ACCOUNT_DELETE",
 		21: "AUDIT_ACTION_EMAIL_VERIFY",
 		22: "AUDIT_ACTION_EMAIL_RESEND",
+		23: "AUDIT_ACTION_ACCOUNT_DELETE_ATTEMPT_FAILED",
 	}
 	AuditAction_value = map[string]int32{
-		"AUDIT_ACTION_UNSPECIFIED":       0,
-		"AUDIT_ACTION_REGISTER":          1,
-		"AUDIT_ACTION_LOGIN":             2,
-		"AUDIT_ACTION_LOGOUT":            3,
-		"AUDIT_ACTION_REFRESH":           4,
-		"AUDIT_ACTION_PASSWORD_CHANGE":   5,
-		"AUDIT_ACTION_RECOVERY_START":    6,
-		"AUDIT_ACTION_RECOVERY_COMPLETE": 7,
-		"AUDIT_ACTION_WEBAUTHN_REGISTER": 8,
-		"AUDIT_ACTION_WEBAUTHN_REMOVE":   9,
-		"AUDIT_ACTION_TOTP_ENABLE":       10,
-		"AUDIT_ACTION_TOTP_DISABLE":      11,
-		"AUDIT_ACTION_PROJECT_CREATE":    12,
-		"AUDIT_ACTION_PROJECT_UPDATE":    13,
-		"AUDIT_ACTION_PROJECT_DELETE":    14,
-		"AUDIT_ACTION_ENTRY_CREATE":      15,
-		"AUDIT_ACTION_ENTRY_UPDATE":      16,
-		"AUDIT_ACTION_ENTRY_VIEW":        17,
-		"AUDIT_ACTION_ENTRY_DELETE":      18,
-		"AUDIT_ACTION_SESSION_TERMINATE": 19,
-		"AUDIT_ACTION_ACCOUNT_DELETE":    20,
-		"AUDIT_ACTION_EMAIL_VERIFY":      21,
-		"AUDIT_ACTION_EMAIL_RESEND":      22,
+		"AUDIT_ACTION_UNSPECIFIED":                   0,
+		"AUDIT_ACTION_REGISTER":                      1,
+		"AUDIT_ACTION_LOGIN":                         2,
+		"AUDIT_ACTION_LOGOUT":                        3,
+		"AUDIT_ACTION_REFRESH":                       4,
+		"AUDIT_ACTION_PASSWORD_CHANGE":               5,
+		"AUDIT_ACTION_RECOVERY_START":                6,
+		"AUDIT_ACTION_RECOVERY_COMPLETE":             7,
+		"AUDIT_ACTION_WEBAUTHN_REGISTER":             8,
+		"AUDIT_ACTION_WEBAUTHN_REMOVE":               9,
+		"AUDIT_ACTION_TOTP_ENABLE":                   10,
+		"AUDIT_ACTION_TOTP_DISABLE":                  11,
+		"AUDIT_ACTION_PROJECT_CREATE":                12,
+		"AUDIT_ACTION_PROJECT_UPDATE":                13,
+		"AUDIT_ACTION_PROJECT_DELETE":                14,
+		"AUDIT_ACTION_ENTRY_CREATE":                  15,
+		"AUDIT_ACTION_ENTRY_UPDATE":                  16,
+		"AUDIT_ACTION_ENTRY_VIEW":                    17,
+		"AUDIT_ACTION_ENTRY_DELETE":                  18,
+		"AUDIT_ACTION_SESSION_TERMINATE":             19,
+		"AUDIT_ACTION_ACCOUNT_DELETE":                20,
+		"AUDIT_ACTION_EMAIL_VERIFY":                  21,
+		"AUDIT_ACTION_EMAIL_RESEND":                  22,
+		"AUDIT_ACTION_ACCOUNT_DELETE_ATTEMPT_FAILED": 23,
 	}
 )
 
@@ -404,7 +411,7 @@ const file_oblivio_v1_audit_proto_rawDesc = "" +
 	"\x11ListAuditResponse\x120\n" +
 	"\aentries\x18\x01 \x03(\v2\x16.oblivio.v1.AuditEntryR\aentries\x12)\n" +
 	"\x0enext_cursor_id\x18\x02 \x01(\x03H\x00R\fnextCursorId\x88\x01\x01B\x11\n" +
-	"\x0f_next_cursor_id*\xdb\x05\n" +
+	"\x0f_next_cursor_id*\x8b\x06\n" +
 	"\vAuditAction\x12\x1c\n" +
 	"\x18AUDIT_ACTION_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15AUDIT_ACTION_REGISTER\x10\x01\x12\x16\n" +
@@ -429,7 +436,8 @@ const file_oblivio_v1_audit_proto_rawDesc = "" +
 	"\x1eAUDIT_ACTION_SESSION_TERMINATE\x10\x13\x12\x1f\n" +
 	"\x1bAUDIT_ACTION_ACCOUNT_DELETE\x10\x14\x12\x1d\n" +
 	"\x19AUDIT_ACTION_EMAIL_VERIFY\x10\x15\x12\x1d\n" +
-	"\x19AUDIT_ACTION_EMAIL_RESEND\x10\x162X\n" +
+	"\x19AUDIT_ACTION_EMAIL_RESEND\x10\x16\x12.\n" +
+	"*AUDIT_ACTION_ACCOUNT_DELETE_ATTEMPT_FAILED\x10\x172X\n" +
 	"\fAuditService\x12H\n" +
 	"\tListAudit\x12\x1c.oblivio.v1.ListAuditRequest\x1a\x1d.oblivio.v1.ListAuditResponseB\xab\x01\n" +
 	"\x0ecom.oblivio.v1B\n" +

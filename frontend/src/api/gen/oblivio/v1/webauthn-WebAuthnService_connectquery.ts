@@ -27,7 +27,9 @@ export const registerFinish = WebAuthnService.method.registerFinish;
 export const listCredentials = WebAuthnService.method.listCredentials;
 
 /**
- * Remove a credential by its UUID.
+ * Remove a credential by its UUID. Requires the caller's auth_key so a
+ * stolen access token alone cannot wipe the user's passkeys (mirrors
+ * LoginTOTPService.Disable).
  *
  * @generated from rpc oblivio.v1.WebAuthnService.RemoveCredential
  */
@@ -37,8 +39,31 @@ export const removeCredential = WebAuthnService.method.removeCredential;
  * BeginAssertion seeds an authenticated user's challenge for a one-shot
  * re-authentication via passkey. Used by LoginTOTPService.Disable when
  * the user has lost their authenticator app and wants to fall back to
- * their passkey to switch off TOTP.
+ * their passkey to switch off TOTP, by VaultService.DeleteMe to enforce
+ * passkey possession on account deletion, and by UnlockWithPasskey.
  *
  * @generated from rpc oblivio.v1.WebAuthnService.BeginAssertion
  */
 export const beginAssertion = WebAuthnService.method.beginAssertion;
+
+/**
+ * Passkey-as-vault-key flow. The client wraps vault_key under a key
+ * derived from the WebAuthn PRF extension output and uploads the
+ * resulting ciphertext via EnablePasskeyUnlock. UnlockWithPasskey
+ * returns the same ciphertext + salt after re-authenticating the
+ * passkey, so the unlock page can decrypt vault_key without the
+ * master password. DisablePasskeyUnlock clears the stored bundle.
+ *
+ * @generated from rpc oblivio.v1.WebAuthnService.EnablePasskeyUnlock
+ */
+export const enablePasskeyUnlock = WebAuthnService.method.enablePasskeyUnlock;
+
+/**
+ * @generated from rpc oblivio.v1.WebAuthnService.DisablePasskeyUnlock
+ */
+export const disablePasskeyUnlock = WebAuthnService.method.disablePasskeyUnlock;
+
+/**
+ * @generated from rpc oblivio.v1.WebAuthnService.UnlockWithPasskey
+ */
+export const unlockWithPasskey = WebAuthnService.method.unlockWithPasskey;

@@ -262,15 +262,17 @@ type UserVault struct {
 }
 
 type UserWebauthnCredential struct {
-	ID           uuid.UUID          `db:"id" json:"id"`
-	UserID       uuid.UUID          `db:"user_id" json:"user_id"`
-	Name         string             `db:"name" json:"name"`
-	CredentialID []byte             `db:"credential_id" json:"credential_id"`
-	PublicKey    []byte             `db:"public_key" json:"public_key"`
-	Aaguid       []byte             `db:"aaguid" json:"aaguid"`
-	SignCount    int64              `db:"sign_count" json:"sign_count"`
-	Transports   []string           `db:"transports" json:"transports"`
-	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	LastUsedAt   pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
-	Flags        int16              `db:"flags" json:"flags"`
+	ID                    uuid.UUID          `db:"id" json:"id"`
+	UserID                uuid.UUID          `db:"user_id" json:"user_id"`
+	Name                  string             `db:"name" json:"name"`
+	CredentialID          []byte             `db:"credential_id" json:"credential_id"`
+	PublicKey             []byte             `db:"public_key" json:"public_key"`
+	Aaguid                []byte             `db:"aaguid" json:"aaguid"`
+	SignCount             int64              `db:"sign_count" json:"sign_count"`
+	Transports            []string           `db:"transports" json:"transports"`
+	CreatedAt             pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	LastUsedAt            pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
+	Flags                 int16              `db:"flags" json:"flags"`
+	UnlockWrappedVaultKey []byte             `db:"unlock_wrapped_vault_key" json:"unlock_wrapped_vault_key"`
+	PrfSalt               []byte             `db:"prf_salt" json:"prf_salt"`
 }

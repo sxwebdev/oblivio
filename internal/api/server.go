@@ -187,6 +187,8 @@ func (s *Server) buildHandler() http.Handler {
 	vaultSvc := apivault.NewService(apivault.Deps{
 		AuthManager: s.am,
 		AuditWriter: auditWriter,
+		WebAuthn:    s.wa,
+		MFAStore:    s.mfaStore,
 	})
 	rpcMux.Handle(obliviov1connect.NewVaultServiceHandler(vaultSvc, interceptors))
 

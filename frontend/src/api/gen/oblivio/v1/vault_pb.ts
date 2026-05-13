@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file oblivio/v1/vault.proto.
  */
 export const file_oblivio_v1_vault: GenFile = /*@__PURE__*/
-  fileDesc("ChZvYmxpdmlvL3YxL3ZhdWx0LnByb3RvEgpvYmxpdmlvLnYxIg4KDEdldE1lUmVxdWVzdCKBAQoNR2V0TWVSZXNwb25zZRIPCgd1c2VyX2lkGAEgASgJEg0KBWVtYWlsGAIgASgJEhYKDmVtYWlsX3ZlcmlmaWVkGAMgASgIEhQKDHRvdHBfZW5hYmxlZBgEIAEoCBIiChp3ZWJhdXRobl9jcmVkZW50aWFsc19jb3VudBgFIAEoDSIhCg9EZWxldGVNZVJlcXVlc3QSDgoGcmVhc29uGAEgASgJIhIKEERlbGV0ZU1lUmVzcG9uc2UykwEKDFZhdWx0U2VydmljZRI8CgVHZXRNZRIYLm9ibGl2aW8udjEuR2V0TWVSZXF1ZXN0Ghkub2JsaXZpby52MS5HZXRNZVJlc3BvbnNlEkUKCERlbGV0ZU1lEhsub2JsaXZpby52MS5EZWxldGVNZVJlcXVlc3QaHC5vYmxpdmlvLnYxLkRlbGV0ZU1lUmVzcG9uc2VCqwEKDmNvbS5vYmxpdmlvLnYxQgpWYXVsdFByb3RvUAFaRGdpdGh1Yi5jb20vc3h3ZWJkZXYvb2JsaXZpby9pbnRlcm5hbC9hcGkvZ2VuL2dvL29ibGl2aW8vdjE7b2JsaXZpb3YxogIDT1hYqgIKT2JsaXZpby5WMcoCCk9ibGl2aW9cVjHiAhZPYmxpdmlvXFYxXEdQQk1ldGFkYXRh6gILT2JsaXZpbzo6VjFiBnByb3RvMw");
+  fileDesc("ChZvYmxpdmlvL3YxL3ZhdWx0LnByb3RvEgpvYmxpdmlvLnYxIg4KDEdldE1lUmVxdWVzdCKBAQoNR2V0TWVSZXNwb25zZRIPCgd1c2VyX2lkGAEgASgJEg0KBWVtYWlsGAIgASgJEhYKDmVtYWlsX3ZlcmlmaWVkGAMgASgIEhQKDHRvdHBfZW5hYmxlZBgEIAEoCBIiChp3ZWJhdXRobl9jcmVkZW50aWFsc19jb3VudBgFIAEoDSJ/Cg9EZWxldGVNZVJlcXVlc3QSDgoGcmVhc29uGAEgASgJEhAKCGF1dGhfa2V5GAIgASgMEhEKCXRvdHBfY29kZRgDIAEoCRIfChd3ZWJhdXRobl9hc3NlcnRpb25fanNvbhgEIAEoDBIWCg5tZmFfc2Vzc2lvbl9pZBgFIAEoCSISChBEZWxldGVNZVJlc3BvbnNlMpMBCgxWYXVsdFNlcnZpY2USPAoFR2V0TWUSGC5vYmxpdmlvLnYxLkdldE1lUmVxdWVzdBoZLm9ibGl2aW8udjEuR2V0TWVSZXNwb25zZRJFCghEZWxldGVNZRIbLm9ibGl2aW8udjEuRGVsZXRlTWVSZXF1ZXN0Ghwub2JsaXZpby52MS5EZWxldGVNZVJlc3BvbnNlQqsBCg5jb20ub2JsaXZpby52MUIKVmF1bHRQcm90b1ABWkRnaXRodWIuY29tL3N4d2ViZGV2L29ibGl2aW8vaW50ZXJuYWwvYXBpL2dlbi9nby9vYmxpdmlvL3YxO29ibGl2aW92MaICA09YWKoCCk9ibGl2aW8uVjHKAgpPYmxpdmlvXFYx4gIWT2JsaXZpb1xWMVxHUEJNZXRhZGF0YeoCC09ibGl2aW86OlYxYgZwcm90bzM");
 
 /**
  * @generated from message oblivio.v1.GetMeRequest
@@ -63,13 +63,50 @@ export const GetMeResponseSchema: GenMessage<GetMeResponse> = /*@__PURE__*/
   messageDesc(file_oblivio_v1_vault, 1);
 
 /**
+ * DeleteMe wipes the caller's account. To prevent a stolen access token
+ * from triggering a crypto-shred, the caller must re-prove the master
+ * password (auth_key) AND every 2FA factor they have enrolled — a TOTP
+ * code when login TOTP is enabled, AND a fresh WebAuthn assertion when
+ * at least one passkey is registered. The server validates the factors
+ * in that order before touching any data; an audit row is appended only
+ * on successful verification.
+ *
  * @generated from message oblivio.v1.DeleteMeRequest
  */
 export type DeleteMeRequest = Message<"oblivio.v1.DeleteMeRequest"> & {
   /**
+   * Optional free-text reason recorded in the audit metadata.
+   *
    * @generated from field: string reason = 1;
    */
   reason: string;
+
+  /**
+   * Master-password proof. Mandatory.
+   *
+   * @generated from field: bytes auth_key = 2;
+   */
+  authKey: Uint8Array;
+
+  /**
+   * Required when user_login_totp.enabled = true. Ignored otherwise.
+   *
+   * @generated from field: string totp_code = 3;
+   */
+  totpCode: string;
+
+  /**
+   * Required when the user has ≥1 webauthn credential. Pair with
+   * mfa_session_id from WebAuthnService.BeginAssertion.
+   *
+   * @generated from field: bytes webauthn_assertion_json = 4;
+   */
+  webauthnAssertionJson: Uint8Array;
+
+  /**
+   * @generated from field: string mfa_session_id = 5;
+   */
+  mfaSessionId: string;
 };
 
 /**

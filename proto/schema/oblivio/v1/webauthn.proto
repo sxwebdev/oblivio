@@ -20,14 +20,27 @@ service WebAuthnService {
 
   // List the user's registered credentials (metadata only — no public keys).
   rpc ListCredentials(ListCredentialsRequest) returns (ListCredentialsResponse);
-  // Remove a credential by its UUID.
+  // Remove a credential by its UUID. Requires the caller's auth_key so a
+  // stolen access token alone cannot wipe the user's passkeys (mirrors
+  // LoginTOTPService.Disable).
   rpc RemoveCredential(RemoveCredentialRequest) returns (RemoveCredentialResponse);
 
   // BeginAssertion seeds an authenticated user's challenge for a one-shot
   // re-authentication via passkey. Used by LoginTOTPService.Disable when
   // the user has lost their authenticator app and wants to fall back to
-  // their passkey to switch off TOTP.
+  // their passkey to switch off TOTP, by VaultService.DeleteMe to enforce
+  // passkey possession on account deletion, and by UnlockWithPasskey.
   rpc BeginAssertion(BeginAssertionRequest) returns (BeginAssertionResponse);
+
+  // Passkey-as-vault-key flow. The client wraps vault_key under a key
+  // derived from the WebAuthn PRF extension output and uploads the
+  // resulting ciphertext via EnablePasskeyUnlock. UnlockWithPasskey
+  // returns the same ciphertext + salt after re-authenticating the
+  // passkey, so the unlock page can decrypt vault_key without the
+  // master password. DisablePasskeyUnlock clears the stored bundle.
+  rpc EnablePasskeyUnlock(EnablePasskeyUnlockRequest) returns (EnablePasskeyUnlockResponse);
+  rpc DisablePasskeyUnlock(DisablePasskeyUnlockRequest) returns (DisablePasskeyUnlockResponse);
+  rpc UnlockWithPasskey(UnlockWithPasskeyRequest) returns (UnlockWithPasskeyResponse);
 }
 
 message RegisterBeginRequest {
@@ -64,18 +77,70 @@ message WebAuthnCredential {
   google.protobuf.Timestamp created_at = 3;
   google.protobuf.Timestamp last_used_at = 4;
   repeated string transports = 5;
+  // unlock_enabled is true when the user has bound a passkey-PRF-wrapped
+  // vault_key to this credential (see EnablePasskeyUnlock). The settings
+  // UI uses it to render the per-credential toggle.
+  bool unlock_enabled = 6;
+  // prf_salt is the 32-byte salt the browser must pass to prf.eval.first
+  // at WebAuthn get() time. Populated only when unlock_enabled=true so
+  // it can be loaded by the unlock page in a single round trip.
+  bytes prf_salt = 7;
 }
 
 message RemoveCredentialRequest {
   string credential_id = 1;
+  // auth_key proves the caller still knows the master password. The
+  // server compares it against the stored Argon2id hash before deletion.
+  bytes auth_key = 2;
 }
 message RemoveCredentialResponse {}
 
 message BeginAssertionRequest {}
 message BeginAssertionResponse {
   // Session identifier the caller passes to the service that consumes the
-  // assertion (e.g. LoginTOTPService.Disable.mfa_session_id).
+  // assertion (e.g. LoginTOTPService.Disable.mfa_session_id,
+  // VaultService.DeleteMe.mfa_session_id, UnlockWithPasskey.mfa_session_id).
   string session_id = 1;
   // JSON-encoded CredentialRequestOptions per WebAuthn level 2.
   bytes options_json = 2;
+}
+
+// EnablePasskeyUnlock stores the passkey-bound wrapping of vault_key.
+// Requires auth_key so a stolen access token alone cannot bind a vault
+// key to an attacker-controlled passkey.
+message EnablePasskeyUnlockRequest {
+  // UUID of an already-registered WebAuthnCredential.
+  string credential_id = 1;
+  // AES-GCM(HKDF(prf_output), vault_key) with AAD = user_id || credential_id.
+  bytes wrapped_vault_key = 2;
+  // 32-byte salt passed to prf.eval.first at the time wrapped_vault_key
+  // was produced. Echoed back at unlock so the same PRF output is derived.
+  bytes prf_salt = 3;
+  // Master-password proof (auth_key = HKDF(master_key, …)).
+  bytes auth_key = 4;
+}
+message EnablePasskeyUnlockResponse {}
+
+// DisablePasskeyUnlock clears the passkey-unlock bundle for a credential.
+// The credential itself is left in place — only its ability to unlock the
+// vault is revoked.
+message DisablePasskeyUnlockRequest {
+  string credential_id = 1;
+  bytes auth_key = 2;
+}
+message DisablePasskeyUnlockResponse {}
+
+// UnlockWithPasskey validates a passkey assertion (challenge from
+// BeginAssertion) and returns the previously-stored wrapped_vault_key +
+// prf_salt for the matched credential. The client then re-derives the
+// unlocking key from the PRF output and decrypts vault_key locally.
+message UnlockWithPasskeyRequest {
+  // session_id returned by WebAuthnService.BeginAssertion.
+  string mfa_session_id = 1;
+  // JSON-encoded WebAuthn assertion (response of navigator.credentials.get).
+  bytes webauthn_assertion_json = 2;
+}
+message UnlockWithPasskeyResponse {
+  bytes wrapped_vault_key = 1;
+  bytes prf_salt = 2;
 }

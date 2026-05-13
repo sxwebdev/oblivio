@@ -222,5 +222,12 @@ message ChangeMasterPasswordRequest {
   // path TOTP would silently break when auth_key changes.
   bytes new_login_totp_encrypted_secret = 7;
   bytes new_login_totp_nonce = 8;
+  // Optional: clear every passkey-unlock bundle the user enrolled. Use
+  // this when the password rotation is driven by a suspected compromise
+  // — vault_key itself does not rotate, so a leaked PRF output would
+  // still decrypt unless the wrapped blob is gone. The credentials
+  // themselves are left in place; only their ability to unlock the
+  // vault is revoked.
+  bool revoke_passkey_unlocks = 9;
 }
 message ChangeMasterPasswordResponse {}

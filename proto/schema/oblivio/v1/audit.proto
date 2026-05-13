@@ -37,6 +37,11 @@ enum AuditAction {
   AUDIT_ACTION_ACCOUNT_DELETE = 20;
   AUDIT_ACTION_EMAIL_VERIFY = 21;
   AUDIT_ACTION_EMAIL_RESEND = 22;
+  // Emitted by VaultService.DeleteMe when any required factor
+  // (auth_key, TOTP, passkey assertion) fails verification. The audit
+  // row is appended before the connect.Unauthenticated returns so
+  // failed crypto-shred probes show up in the chain.
+  AUDIT_ACTION_ACCOUNT_DELETE_ATTEMPT_FAILED = 23;
 }
 
 message AuditEntry {

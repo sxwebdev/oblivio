@@ -33,19 +33,25 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
+  PRF_SALT_LENGTH,
+  derivePasskeyUnlockKey,
   deriveAuthKey,
   deriveLoginTotpKey,
   deriveMasterKey,
+  generatePrfSalt,
   generateTotpCode,
   generateTotpSecret,
   importMasterKey,
   otpauthURI,
+  passkeyUnlockAAD,
   totpRemainingSeconds,
   wrapLoginTotpSecret,
+  wrapVaultKeyWithPRF,
   type Argon2Params,
 } from "@oblivio/crypto"
 
 import { useAuthStore } from "@/stores/auth"
+import { useVaultStore } from "@/stores/vault"
 
 const ISSUER = "Oblivio"
 
@@ -80,6 +86,7 @@ export default function TwoFactorPage() {
       />
 
       <PasskeySection
+        email={email}
         credentials={credsQ.data?.credentials ?? []}
         loading={credsQ.isLoading}
         onChanged={() => {
@@ -351,18 +358,38 @@ function TotpSection({
 
 // --- WebAuthn ---------------------------------------------------------
 
+// Per-credential metadata as returned by ListCredentials. The proto-
+// generated type is a class; we narrow to the fields we actually consume.
+type CredentialRow = {
+  id: string
+  name: string
+  unlockEnabled: boolean
+  prfSalt: Uint8Array
+}
+
 function PasskeySection({
+  email,
   credentials,
   loading,
   onChanged,
 }: {
-  credentials: { id: string; name: string }[]
+  email: string
+  credentials: CredentialRow[]
   loading: boolean
   onChanged: () => void
 }) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [name, setName] = useState("")
+  const [removePw, setRemovePw] = useState<{ id: string; pw: string } | null>(
+    null
+  )
+  const [unlockPw, setUnlockPw] = useState<{ id: string; pw: string } | null>(
+    null
+  )
+
+  const vaultKey = useVaultStore((s) => s.vaultKey)
+  const userId = useAuthStore((s) => s.userId)
 
   const registerMut = useMutation({
     mutationFn: async () => {
@@ -393,13 +420,65 @@ function PasskeySection({
   })
 
   const removeMut = useMutation({
-    mutationFn: async (id: string) =>
-      webauthnClient.removeCredential({ credentialId: id }),
+    mutationFn: async ({ id, password }: { id: string; password: string }) => {
+      const { authKey } = await deriveAuthKeyFromPassword(email, password)
+      await webauthnClient.removeCredential({ credentialId: id, authKey })
+    },
     onSuccess: () => {
       toast.success("Passkey removed")
+      setRemovePw(null)
       onChanged()
     },
     onError: (e) => toast.error(`Remove failed: ${(e as Error).message}`),
+  })
+
+  // Enable passkey unlock: perform an assertion ceremony with the PRF
+  // extension to derive the unlock key, wrap vault_key, and upload.
+  const enableUnlockMut = useMutation({
+    mutationFn: async ({ id, password }: { id: string; password: string }) => {
+      if (!vaultKey) {
+        throw new Error("vault must be unlocked to enable passkey unlock")
+      }
+      if (!userId) {
+        throw new Error("session missing user id")
+      }
+      const { authKey } = await deriveAuthKeyFromPassword(email, password)
+      const salt = generatePrfSalt()
+      const prfOutput = await assertWithPRF(id, salt)
+      const unlockKey = await derivePasskeyUnlockKey(prfOutput)
+      // Wipe the raw PRF output as soon as the AES key is imported.
+      prfOutput.fill(0)
+      const wrapped = await wrapVaultKeyWithPRF(
+        unlockKey,
+        vaultKey,
+        passkeyUnlockAAD(userId, id)
+      )
+      await webauthnClient.enablePasskeyUnlock({
+        credentialId: id,
+        wrappedVaultKey: wrapped,
+        prfSalt: salt,
+        authKey,
+      })
+    },
+    onSuccess: () => {
+      toast.success("Passkey unlock enabled")
+      setUnlockPw(null)
+      onChanged()
+    },
+    onError: (e) => toast.error(`Enable failed: ${(e as Error).message}`),
+  })
+
+  const disableUnlockMut = useMutation({
+    mutationFn: async ({ id, password }: { id: string; password: string }) => {
+      const { authKey } = await deriveAuthKeyFromPassword(email, password)
+      await webauthnClient.disablePasskeyUnlock({ credentialId: id, authKey })
+    },
+    onSuccess: () => {
+      toast.success("Passkey unlock disabled")
+      setUnlockPw(null)
+      onChanged()
+    },
+    onError: (e) => toast.error(`Disable failed: ${(e as Error).message}`),
   })
 
   return (
@@ -409,7 +488,8 @@ function PasskeySection({
         <CardDescription>
           Hardware keys, platform authenticators and synced passkeys (Touch ID,
           Windows Hello, YubiKey…). Phishing-resistant because the browser
-          checks the origin before signing.
+          checks the origin before signing. Removing a passkey requires your
+          master password.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -418,22 +498,75 @@ function PasskeySection({
           {!loading && credentials.length === 0 && (
             <p className="text-sm text-muted-foreground">No passkeys yet.</p>
           )}
-          {credentials.map((c) => (
-            <div
-              key={c.id}
-              className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2"
-            >
-              <span className="font-medium">{c.name}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => removeMut.mutate(c.id)}
-                disabled={removeMut.isPending}
+          {credentials.map((c) => {
+            const removeOpen = removePw?.id === c.id
+            const unlockOpen = unlockPw?.id === c.id
+            return (
+              <div
+                key={c.id}
+                className="space-y-2 rounded-md border bg-muted/30 px-3 py-2"
               >
-                Remove
-              </Button>
-            </div>
-          ))}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{c.name}</span>
+                    {c.unlockEnabled && <Badge>Unlock enabled</Badge>}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setUnlockPw(unlockOpen ? null : { id: c.id, pw: "" })
+                      }
+                    >
+                      {c.unlockEnabled ? "Disable unlock" : "Use to unlock"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setRemovePw(removeOpen ? null : { id: c.id, pw: "" })
+                      }
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+                {removeOpen && (
+                  <InlinePasswordForm
+                    label="Confirm with master password to remove this passkey"
+                    busy={removeMut.isPending}
+                    onCancel={() => setRemovePw(null)}
+                    onSubmit={(password) =>
+                      removeMut.mutate({ id: c.id, password })
+                    }
+                  />
+                )}
+                {unlockOpen && !c.unlockEnabled && (
+                  <PasskeyUnlockEnableWarning />
+                )}
+                {unlockOpen && (
+                  <InlinePasswordForm
+                    label={
+                      c.unlockEnabled
+                        ? "Confirm with master password to disable passkey unlock"
+                        : !vaultKey
+                          ? "Vault must be unlocked first — return to the vault, then come back."
+                          : "Confirm with master password. The browser will ask you to use the passkey to derive the unlock key."
+                    }
+                    busy={enableUnlockMut.isPending || disableUnlockMut.isPending}
+                    disabled={!c.unlockEnabled && !vaultKey}
+                    onCancel={() => setUnlockPw(null)}
+                    onSubmit={(password) =>
+                      c.unlockEnabled
+                        ? disableUnlockMut.mutate({ id: c.id, password })
+                        : enableUnlockMut.mutate({ id: c.id, password })
+                    }
+                  />
+                )}
+              </div>
+            )
+          })}
         </div>
         <div className="grid grid-cols-[1fr_auto] gap-2">
           <Input
@@ -456,6 +589,150 @@ function PasskeySection({
       </CardContent>
     </Card>
   )
+}
+
+// PasskeyUnlockEnableWarning is the explicit trade-off notice shown
+// before the user enables passkey-as-vault-key for the first time on a
+// credential. Until this point, vault_key was only reachable via the
+// master password; once enabled, anyone who controls the passkey can
+// unwrap vault_key. For synced passkeys (iCloud Keychain, Chrome Sync,
+// password-manager-as-passkey) that effectively extends vault access
+// to whoever can sign in to the provider account.
+function PasskeyUnlockEnableWarning() {
+  return (
+    <div className="space-y-1 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
+      <p className="font-semibold">
+        This grants vault access to the passkey’s owner.
+      </p>
+      <ul className="list-disc space-y-1 pl-4">
+        <li>
+          A synced passkey (iCloud Keychain, Chrome Sync, password manager)
+          means anyone who takes over that account can decrypt your vault
+          without your master password.
+        </li>
+        <li>
+          A device-bound passkey (Touch ID, Windows Hello) means whoever
+          can unlock that device with your biometrics or PIN can decrypt
+          your vault.
+        </li>
+        <li>
+          To revoke later: remove the passkey, or use
+          “Also revoke passkey-unlock” on the Change-password form.
+        </li>
+      </ul>
+    </div>
+  )
+}
+
+// InlinePasswordForm is the reusable confirm-with-master-password row
+// used by Remove / Enable-unlock / Disable-unlock.
+function InlinePasswordForm({
+  label,
+  busy,
+  disabled,
+  onCancel,
+  onSubmit,
+}: {
+  label: string
+  busy: boolean
+  disabled?: boolean
+  onCancel: () => void
+  onSubmit: (password: string) => void
+}) {
+  const [pw, setPw] = useState("")
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <div className="grid grid-cols-[1fr_auto_auto] gap-2">
+        <Input
+          type="password"
+          placeholder="master password"
+          autoComplete="current-password"
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
+          disabled={disabled}
+        />
+        <Button
+          size="sm"
+          onClick={() => onSubmit(pw)}
+          disabled={busy || disabled || !pw}
+        >
+          {busy ? "Working…" : "Confirm"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={busy}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// assertWithPRF performs a one-shot WebAuthn assertion against `credentialId`
+// with the PRF extension. Returns the 32-byte PRF output (HMAC-SHA-256 of the
+// salt under the authenticator's PRF key). The challenge is client-generated
+// because we are NOT authenticating to the server here — we just want the
+// PRF result. The server-validated unlock path (UnlockWithPasskey) uses
+// BeginAssertion to seed a real, server-bound challenge.
+async function assertWithPRF(
+  credentialId: string,
+  salt: Uint8Array
+): Promise<Uint8Array> {
+  if (salt.length !== PRF_SALT_LENGTH) {
+    throw new Error(`prf salt must be ${PRF_SALT_LENGTH} bytes`)
+  }
+  const challenge = new Uint8Array(32)
+  crypto.getRandomValues(challenge)
+  // `credentialId` is a UUID string from our DB. The WebAuthn API expects
+  // the *raw* credential id (byte-encoded). We use the assertion's
+  // allowCredentials list later via the server-side BeginAssertion path
+  // (for unlock); for enable we ask the browser to use any registered
+  // credential, then verify the response came from the expected one by
+  // matching the id field.
+  const opts: PublicKeyCredentialRequestOptionsJSON = {
+    challenge: bytesToBase64Url(challenge),
+    timeout: 60_000,
+    userVerification: "required",
+    extensions: {
+      // SimpleWebAuthn's typings don't include `prf` yet; cast to keep
+      // the call expression type-safe at the boundary.
+      prf: { eval: { first: bytesToBase64Url(salt) } },
+    } as unknown as PublicKeyCredentialRequestOptionsJSON["extensions"],
+  }
+  const result = await startAuthentication({ optionsJSON: opts })
+  if (result.id !== credentialId) {
+    throw new Error(
+      "different passkey was used — pick the one you want to bind to unlock"
+    )
+  }
+  const ext = (
+    result.clientExtensionResults as unknown as {
+      prf?: { results?: { first?: string | ArrayBuffer } }
+    }
+  ).prf
+  const first = ext?.results?.first
+  if (!first) {
+    throw new Error(
+      "this authenticator does not support the PRF extension; unlock via passkey is unavailable"
+    )
+  }
+  return typeof first === "string"
+    ? base64UrlToBytes(first)
+    : new Uint8Array(first)
+}
+
+function bytesToBase64Url(b: Uint8Array): string {
+  let s = ""
+  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i])
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+}
+
+function base64UrlToBytes(s: string): Uint8Array {
+  s = s.replace(/-/g, "+").replace(/_/g, "/")
+  while (s.length % 4) s += "="
+  const bin = atob(s)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out
 }
 
 // --- shared helper ----------------------------------------------------

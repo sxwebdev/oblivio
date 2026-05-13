@@ -1435,8 +1435,15 @@ type ChangeMasterPasswordRequest struct {
 	// path TOTP would silently break when auth_key changes.
 	NewLoginTotpEncryptedSecret []byte `protobuf:"bytes,7,opt,name=new_login_totp_encrypted_secret,json=newLoginTotpEncryptedSecret,proto3" json:"new_login_totp_encrypted_secret,omitempty"`
 	NewLoginTotpNonce           []byte `protobuf:"bytes,8,opt,name=new_login_totp_nonce,json=newLoginTotpNonce,proto3" json:"new_login_totp_nonce,omitempty"`
-	unknownFields               protoimpl.UnknownFields
-	sizeCache                   protoimpl.SizeCache
+	// Optional: clear every passkey-unlock bundle the user enrolled. Use
+	// this when the password rotation is driven by a suspected compromise
+	// — vault_key itself does not rotate, so a leaked PRF output would
+	// still decrypt unless the wrapped blob is gone. The credentials
+	// themselves are left in place; only their ability to unlock the
+	// vault is revoked.
+	RevokePasskeyUnlocks bool `protobuf:"varint,9,opt,name=revoke_passkey_unlocks,json=revokePasskeyUnlocks,proto3" json:"revoke_passkey_unlocks,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *ChangeMasterPasswordRequest) Reset() {
@@ -1523,6 +1530,13 @@ func (x *ChangeMasterPasswordRequest) GetNewLoginTotpNonce() []byte {
 		return x.NewLoginTotpNonce
 	}
 	return nil
+}
+
+func (x *ChangeMasterPasswordRequest) GetRevokePasskeyUnlocks() bool {
+	if x != nil {
+		return x.RevokePasskeyUnlocks
+	}
+	return false
 }
 
 type ChangeMasterPasswordResponse struct {
@@ -1658,7 +1672,7 @@ const file_oblivio_v1_auth_proto_rawDesc = "" +
 	"\x13VerifyEmailResponse\"1\n" +
 	"\x19ResendVerificationRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\"\x1c\n" +
-	"\x1aResendVerificationResponse\"\x92\x03\n" +
+	"\x1aResendVerificationResponse\"\xc8\x03\n" +
 	"\x1bChangeMasterPasswordRequest\x12 \n" +
 	"\fold_auth_key\x18\x01 \x01(\fR\n" +
 	"oldAuthKey\x12 \n" +
@@ -1669,7 +1683,8 @@ const file_oblivio_v1_auth_proto_rawDesc = "" +
 	"\fnew_verifier\x18\x05 \x01(\fR\vnewVerifier\x121\n" +
 	"\x15new_wrapped_vault_key\x18\x06 \x01(\fR\x12newWrappedVaultKey\x12D\n" +
 	"\x1fnew_login_totp_encrypted_secret\x18\a \x01(\fR\x1bnewLoginTotpEncryptedSecret\x12/\n" +
-	"\x14new_login_totp_nonce\x18\b \x01(\fR\x11newLoginTotpNonce\"\x1e\n" +
+	"\x14new_login_totp_nonce\x18\b \x01(\fR\x11newLoginTotpNonce\x124\n" +
+	"\x16revoke_passkey_unlocks\x18\t \x01(\bR\x14revokePasskeyUnlocks\"\x1e\n" +
 	"\x1cChangeMasterPasswordResponse2\xd6\b\n" +
 	"\vAuthService\x12E\n" +
 	"\bRegister\x12\x1b.oblivio.v1.RegisterRequest\x1a\x1c.oblivio.v1.RegisterResponse\x12Q\n" +

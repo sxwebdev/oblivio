@@ -12,6 +12,36 @@ import (
 	"github.com/sxwebdev/oblivio/internal/models"
 )
 
+const clearAllWebAuthnUnlockBundles = `-- name: ClearAllWebAuthnUnlockBundles :exec
+UPDATE user_webauthn_credentials
+SET unlock_wrapped_vault_key = NULL,
+    prf_salt                 = NULL
+WHERE user_id = $1
+  AND (unlock_wrapped_vault_key IS NOT NULL OR prf_salt IS NOT NULL)
+`
+
+func (q *Queries) ClearAllWebAuthnUnlockBundles(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearAllWebAuthnUnlockBundles, userID)
+	return err
+}
+
+const clearWebAuthnUnlockBundle = `-- name: ClearWebAuthnUnlockBundle :exec
+UPDATE user_webauthn_credentials
+SET unlock_wrapped_vault_key = NULL,
+    prf_salt                 = NULL
+WHERE id = $1 AND user_id = $2
+`
+
+type ClearWebAuthnUnlockBundleParams struct {
+	ID     uuid.UUID `db:"id" json:"id"`
+	UserID uuid.UUID `db:"user_id" json:"user_id"`
+}
+
+func (q *Queries) ClearWebAuthnUnlockBundle(ctx context.Context, arg ClearWebAuthnUnlockBundleParams) error {
+	_, err := q.db.Exec(ctx, clearWebAuthnUnlockBundle, arg.ID, arg.UserID)
+	return err
+}
+
 const countWebAuthnCredentials = `-- name: CountWebAuthnCredentials :one
 SELECT COUNT(*) FROM user_webauthn_credentials WHERE user_id = $1
 `
@@ -27,7 +57,7 @@ const createWebAuthnCredential = `-- name: CreateWebAuthnCredential :one
 INSERT INTO user_webauthn_credentials (
     user_id, name, credential_id, public_key, aaguid, sign_count, transports, flags
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at, flags
+RETURNING id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at, flags, unlock_wrapped_vault_key, prf_salt
 `
 
 type CreateWebAuthnCredentialParams struct {
@@ -65,6 +95,8 @@ func (q *Queries) CreateWebAuthnCredential(ctx context.Context, arg CreateWebAut
 		&i.CreatedAt,
 		&i.LastUsedAt,
 		&i.Flags,
+		&i.UnlockWrappedVaultKey,
+		&i.PrfSalt,
 	)
 	return &i, err
 }
@@ -85,7 +117,7 @@ func (q *Queries) DeleteWebAuthnCredential(ctx context.Context, arg DeleteWebAut
 }
 
 const getWebAuthnCredentialByCredID = `-- name: GetWebAuthnCredentialByCredID :one
-SELECT id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at, flags FROM user_webauthn_credentials WHERE credential_id = $1
+SELECT id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at, flags, unlock_wrapped_vault_key, prf_salt FROM user_webauthn_credentials WHERE credential_id = $1
 `
 
 func (q *Queries) GetWebAuthnCredentialByCredID(ctx context.Context, credentialID []byte) (*models.UserWebauthnCredential, error) {
@@ -103,12 +135,14 @@ func (q *Queries) GetWebAuthnCredentialByCredID(ctx context.Context, credentialI
 		&i.CreatedAt,
 		&i.LastUsedAt,
 		&i.Flags,
+		&i.UnlockWrappedVaultKey,
+		&i.PrfSalt,
 	)
 	return &i, err
 }
 
 const getWebAuthnCredentialByID = `-- name: GetWebAuthnCredentialByID :one
-SELECT id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at, flags FROM user_webauthn_credentials
+SELECT id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at, flags, unlock_wrapped_vault_key, prf_salt FROM user_webauthn_credentials
 WHERE id = $1 AND user_id = $2
 `
 
@@ -132,12 +166,14 @@ func (q *Queries) GetWebAuthnCredentialByID(ctx context.Context, arg GetWebAuthn
 		&i.CreatedAt,
 		&i.LastUsedAt,
 		&i.Flags,
+		&i.UnlockWrappedVaultKey,
+		&i.PrfSalt,
 	)
 	return &i, err
 }
 
 const listWebAuthnCredentials = `-- name: ListWebAuthnCredentials :many
-SELECT id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at, flags FROM user_webauthn_credentials
+SELECT id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at, flags, unlock_wrapped_vault_key, prf_salt FROM user_webauthn_credentials
 WHERE user_id = $1
 ORDER BY created_at DESC
 `
@@ -163,6 +199,8 @@ func (q *Queries) ListWebAuthnCredentials(ctx context.Context, userID uuid.UUID)
 			&i.CreatedAt,
 			&i.LastUsedAt,
 			&i.Flags,
+			&i.UnlockWrappedVaultKey,
+			&i.PrfSalt,
 		); err != nil {
 			return nil, err
 		}
@@ -172,6 +210,30 @@ func (q *Queries) ListWebAuthnCredentials(ctx context.Context, userID uuid.UUID)
 		return nil, err
 	}
 	return items, nil
+}
+
+const setWebAuthnUnlockBundle = `-- name: SetWebAuthnUnlockBundle :exec
+UPDATE user_webauthn_credentials
+SET unlock_wrapped_vault_key = $3,
+    prf_salt                 = $4
+WHERE id = $1 AND user_id = $2
+`
+
+type SetWebAuthnUnlockBundleParams struct {
+	ID                    uuid.UUID `db:"id" json:"id"`
+	UserID                uuid.UUID `db:"user_id" json:"user_id"`
+	UnlockWrappedVaultKey []byte    `db:"unlock_wrapped_vault_key" json:"unlock_wrapped_vault_key"`
+	PrfSalt               []byte    `db:"prf_salt" json:"prf_salt"`
+}
+
+func (q *Queries) SetWebAuthnUnlockBundle(ctx context.Context, arg SetWebAuthnUnlockBundleParams) error {
+	_, err := q.db.Exec(ctx, setWebAuthnUnlockBundle,
+		arg.ID,
+		arg.UserID,
+		arg.UnlockWrappedVaultKey,
+		arg.PrfSalt,
+	)
+	return err
 }
 
 const touchWebAuthnCredential = `-- name: TouchWebAuthnCredential :exec

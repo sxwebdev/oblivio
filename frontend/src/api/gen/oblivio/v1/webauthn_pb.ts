@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file oblivio/v1/webauthn.proto.
  */
 export const file_oblivio_v1_webauthn: GenFile = /*@__PURE__*/
-  fileDesc("ChlvYmxpdmlvL3YxL3dlYmF1dGhuLnByb3RvEgpvYmxpdmlvLnYxIi8KFFJlZ2lzdGVyQmVnaW5SZXF1ZXN0EhcKD2NyZWRlbnRpYWxfbmFtZRgBIAEoCSJBChVSZWdpc3RlckJlZ2luUmVzcG9uc2USEgoKc2Vzc2lvbl9pZBgBIAEoCRIUCgxvcHRpb25zX2pzb24YAiABKAwiRQoVUmVnaXN0ZXJGaW5pc2hSZXF1ZXN0EhIKCnNlc3Npb25faWQYASABKAkSGAoQYXR0ZXN0YXRpb25fanNvbhgCIAEoDCI9ChZSZWdpc3RlckZpbmlzaFJlc3BvbnNlEhUKDWNyZWRlbnRpYWxfaWQYASABKAkSDAoEbmFtZRgCIAEoCSIYChZMaXN0Q3JlZGVudGlhbHNSZXF1ZXN0Ik4KF0xpc3RDcmVkZW50aWFsc1Jlc3BvbnNlEjMKC2NyZWRlbnRpYWxzGAEgAygLMh4ub2JsaXZpby52MS5XZWJBdXRobkNyZWRlbnRpYWwipAEKEldlYkF1dGhuQ3JlZGVudGlhbBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEi4KCmNyZWF0ZWRfYXQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjAKDGxhc3RfdXNlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEgoKdHJhbnNwb3J0cxgFIAMoCSIwChdSZW1vdmVDcmVkZW50aWFsUmVxdWVzdBIVCg1jcmVkZW50aWFsX2lkGAEgASgJIhoKGFJlbW92ZUNyZWRlbnRpYWxSZXNwb25zZSIXChVCZWdpbkFzc2VydGlvblJlcXVlc3QiQgoWQmVnaW5Bc3NlcnRpb25SZXNwb25zZRISCgpzZXNzaW9uX2lkGAEgASgJEhQKDG9wdGlvbnNfanNvbhgCIAEoDDLUAwoPV2ViQXV0aG5TZXJ2aWNlElQKDVJlZ2lzdGVyQmVnaW4SIC5vYmxpdmlvLnYxLlJlZ2lzdGVyQmVnaW5SZXF1ZXN0GiEub2JsaXZpby52MS5SZWdpc3RlckJlZ2luUmVzcG9uc2USVwoOUmVnaXN0ZXJGaW5pc2gSIS5vYmxpdmlvLnYxLlJlZ2lzdGVyRmluaXNoUmVxdWVzdBoiLm9ibGl2aW8udjEuUmVnaXN0ZXJGaW5pc2hSZXNwb25zZRJaCg9MaXN0Q3JlZGVudGlhbHMSIi5vYmxpdmlvLnYxLkxpc3RDcmVkZW50aWFsc1JlcXVlc3QaIy5vYmxpdmlvLnYxLkxpc3RDcmVkZW50aWFsc1Jlc3BvbnNlEl0KEFJlbW92ZUNyZWRlbnRpYWwSIy5vYmxpdmlvLnYxLlJlbW92ZUNyZWRlbnRpYWxSZXF1ZXN0GiQub2JsaXZpby52MS5SZW1vdmVDcmVkZW50aWFsUmVzcG9uc2USVwoOQmVnaW5Bc3NlcnRpb24SIS5vYmxpdmlvLnYxLkJlZ2luQXNzZXJ0aW9uUmVxdWVzdBoiLm9ibGl2aW8udjEuQmVnaW5Bc3NlcnRpb25SZXNwb25zZUKuAQoOY29tLm9ibGl2aW8udjFCDVdlYmF1dGhuUHJvdG9QAVpEZ2l0aHViLmNvbS9zeHdlYmRldi9vYmxpdmlvL2ludGVybmFsL2FwaS9nZW4vZ28vb2JsaXZpby92MTtvYmxpdmlvdjGiAgNPWFiqAgpPYmxpdmlvLlYxygIKT2JsaXZpb1xWMeICFk9ibGl2aW9cVjFcR1BCTWV0YWRhdGHqAgtPYmxpdmlvOjpWMWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("ChlvYmxpdmlvL3YxL3dlYmF1dGhuLnByb3RvEgpvYmxpdmlvLnYxIi8KFFJlZ2lzdGVyQmVnaW5SZXF1ZXN0EhcKD2NyZWRlbnRpYWxfbmFtZRgBIAEoCSJBChVSZWdpc3RlckJlZ2luUmVzcG9uc2USEgoKc2Vzc2lvbl9pZBgBIAEoCRIUCgxvcHRpb25zX2pzb24YAiABKAwiRQoVUmVnaXN0ZXJGaW5pc2hSZXF1ZXN0EhIKCnNlc3Npb25faWQYASABKAkSGAoQYXR0ZXN0YXRpb25fanNvbhgCIAEoDCI9ChZSZWdpc3RlckZpbmlzaFJlc3BvbnNlEhUKDWNyZWRlbnRpYWxfaWQYASABKAkSDAoEbmFtZRgCIAEoCSIYChZMaXN0Q3JlZGVudGlhbHNSZXF1ZXN0Ik4KF0xpc3RDcmVkZW50aWFsc1Jlc3BvbnNlEjMKC2NyZWRlbnRpYWxzGAEgAygLMh4ub2JsaXZpby52MS5XZWJBdXRobkNyZWRlbnRpYWwizgEKEldlYkF1dGhuQ3JlZGVudGlhbBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEi4KCmNyZWF0ZWRfYXQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjAKDGxhc3RfdXNlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEgoKdHJhbnNwb3J0cxgFIAMoCRIWCg51bmxvY2tfZW5hYmxlZBgGIAEoCBIQCghwcmZfc2FsdBgHIAEoDCJCChdSZW1vdmVDcmVkZW50aWFsUmVxdWVzdBIVCg1jcmVkZW50aWFsX2lkGAEgASgJEhAKCGF1dGhfa2V5GAIgASgMIhoKGFJlbW92ZUNyZWRlbnRpYWxSZXNwb25zZSIXChVCZWdpbkFzc2VydGlvblJlcXVlc3QiQgoWQmVnaW5Bc3NlcnRpb25SZXNwb25zZRISCgpzZXNzaW9uX2lkGAEgASgJEhQKDG9wdGlvbnNfanNvbhgCIAEoDCJyChpFbmFibGVQYXNza2V5VW5sb2NrUmVxdWVzdBIVCg1jcmVkZW50aWFsX2lkGAEgASgJEhkKEXdyYXBwZWRfdmF1bHRfa2V5GAIgASgMEhAKCHByZl9zYWx0GAMgASgMEhAKCGF1dGhfa2V5GAQgASgMIh0KG0VuYWJsZVBhc3NrZXlVbmxvY2tSZXNwb25zZSJGChtEaXNhYmxlUGFzc2tleVVubG9ja1JlcXVlc3QSFQoNY3JlZGVudGlhbF9pZBgBIAEoCRIQCghhdXRoX2tleRgCIAEoDCIeChxEaXNhYmxlUGFzc2tleVVubG9ja1Jlc3BvbnNlIlMKGFVubG9ja1dpdGhQYXNza2V5UmVxdWVzdBIWCg5tZmFfc2Vzc2lvbl9pZBgBIAEoCRIfChd3ZWJhdXRobl9hc3NlcnRpb25fanNvbhgCIAEoDCJIChlVbmxvY2tXaXRoUGFzc2tleVJlc3BvbnNlEhkKEXdyYXBwZWRfdmF1bHRfa2V5GAEgASgMEhAKCHByZl9zYWx0GAIgASgMMokGCg9XZWJBdXRoblNlcnZpY2USVAoNUmVnaXN0ZXJCZWdpbhIgLm9ibGl2aW8udjEuUmVnaXN0ZXJCZWdpblJlcXVlc3QaIS5vYmxpdmlvLnYxLlJlZ2lzdGVyQmVnaW5SZXNwb25zZRJXCg5SZWdpc3RlckZpbmlzaBIhLm9ibGl2aW8udjEuUmVnaXN0ZXJGaW5pc2hSZXF1ZXN0GiIub2JsaXZpby52MS5SZWdpc3RlckZpbmlzaFJlc3BvbnNlEloKD0xpc3RDcmVkZW50aWFscxIiLm9ibGl2aW8udjEuTGlzdENyZWRlbnRpYWxzUmVxdWVzdBojLm9ibGl2aW8udjEuTGlzdENyZWRlbnRpYWxzUmVzcG9uc2USXQoQUmVtb3ZlQ3JlZGVudGlhbBIjLm9ibGl2aW8udjEuUmVtb3ZlQ3JlZGVudGlhbFJlcXVlc3QaJC5vYmxpdmlvLnYxLlJlbW92ZUNyZWRlbnRpYWxSZXNwb25zZRJXCg5CZWdpbkFzc2VydGlvbhIhLm9ibGl2aW8udjEuQmVnaW5Bc3NlcnRpb25SZXF1ZXN0GiIub2JsaXZpby52MS5CZWdpbkFzc2VydGlvblJlc3BvbnNlEmYKE0VuYWJsZVBhc3NrZXlVbmxvY2sSJi5vYmxpdmlvLnYxLkVuYWJsZVBhc3NrZXlVbmxvY2tSZXF1ZXN0Gicub2JsaXZpby52MS5FbmFibGVQYXNza2V5VW5sb2NrUmVzcG9uc2USaQoURGlzYWJsZVBhc3NrZXlVbmxvY2sSJy5vYmxpdmlvLnYxLkRpc2FibGVQYXNza2V5VW5sb2NrUmVxdWVzdBooLm9ibGl2aW8udjEuRGlzYWJsZVBhc3NrZXlVbmxvY2tSZXNwb25zZRJgChFVbmxvY2tXaXRoUGFzc2tleRIkLm9ibGl2aW8udjEuVW5sb2NrV2l0aFBhc3NrZXlSZXF1ZXN0GiUub2JsaXZpby52MS5VbmxvY2tXaXRoUGFzc2tleVJlc3BvbnNlQq4BCg5jb20ub2JsaXZpby52MUINV2ViYXV0aG5Qcm90b1ABWkRnaXRodWIuY29tL3N4d2ViZGV2L29ibGl2aW8vaW50ZXJuYWwvYXBpL2dlbi9nby9vYmxpdmlvL3YxO29ibGl2aW92MaICA09YWKoCCk9ibGl2aW8uVjHKAgpPYmxpdmlvXFYx4gIWT2JsaXZpb1xWMVxHUEJNZXRhZGF0YeoCC09ibGl2aW86OlYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
 
 /**
  * @generated from message oblivio.v1.RegisterBeginRequest
@@ -166,6 +166,24 @@ export type WebAuthnCredential = Message<"oblivio.v1.WebAuthnCredential"> & {
    * @generated from field: repeated string transports = 5;
    */
   transports: string[];
+
+  /**
+   * unlock_enabled is true when the user has bound a passkey-PRF-wrapped
+   * vault_key to this credential (see EnablePasskeyUnlock). The settings
+   * UI uses it to render the per-credential toggle.
+   *
+   * @generated from field: bool unlock_enabled = 6;
+   */
+  unlockEnabled: boolean;
+
+  /**
+   * prf_salt is the 32-byte salt the browser must pass to prf.eval.first
+   * at WebAuthn get() time. Populated only when unlock_enabled=true so
+   * it can be loaded by the unlock page in a single round trip.
+   *
+   * @generated from field: bytes prf_salt = 7;
+   */
+  prfSalt: Uint8Array;
 };
 
 /**
@@ -183,6 +201,14 @@ export type RemoveCredentialRequest = Message<"oblivio.v1.RemoveCredentialReques
    * @generated from field: string credential_id = 1;
    */
   credentialId: string;
+
+  /**
+   * auth_key proves the caller still knows the master password. The
+   * server compares it against the stored Argon2id hash before deletion.
+   *
+   * @generated from field: bytes auth_key = 2;
+   */
+  authKey: Uint8Array;
 };
 
 /**
@@ -224,7 +250,8 @@ export const BeginAssertionRequestSchema: GenMessage<BeginAssertionRequest> = /*
 export type BeginAssertionResponse = Message<"oblivio.v1.BeginAssertionResponse"> & {
   /**
    * Session identifier the caller passes to the service that consumes the
-   * assertion (e.g. LoginTOTPService.Disable.mfa_session_id).
+   * assertion (e.g. LoginTOTPService.Disable.mfa_session_id,
+   * VaultService.DeleteMe.mfa_session_id, UnlockWithPasskey.mfa_session_id).
    *
    * @generated from field: string session_id = 1;
    */
@@ -244,6 +271,156 @@ export type BeginAssertionResponse = Message<"oblivio.v1.BeginAssertionResponse"
  */
 export const BeginAssertionResponseSchema: GenMessage<BeginAssertionResponse> = /*@__PURE__*/
   messageDesc(file_oblivio_v1_webauthn, 10);
+
+/**
+ * EnablePasskeyUnlock stores the passkey-bound wrapping of vault_key.
+ * Requires auth_key so a stolen access token alone cannot bind a vault
+ * key to an attacker-controlled passkey.
+ *
+ * @generated from message oblivio.v1.EnablePasskeyUnlockRequest
+ */
+export type EnablePasskeyUnlockRequest = Message<"oblivio.v1.EnablePasskeyUnlockRequest"> & {
+  /**
+   * UUID of an already-registered WebAuthnCredential.
+   *
+   * @generated from field: string credential_id = 1;
+   */
+  credentialId: string;
+
+  /**
+   * AES-GCM(HKDF(prf_output), vault_key) with AAD = user_id || credential_id.
+   *
+   * @generated from field: bytes wrapped_vault_key = 2;
+   */
+  wrappedVaultKey: Uint8Array;
+
+  /**
+   * 32-byte salt passed to prf.eval.first at the time wrapped_vault_key
+   * was produced. Echoed back at unlock so the same PRF output is derived.
+   *
+   * @generated from field: bytes prf_salt = 3;
+   */
+  prfSalt: Uint8Array;
+
+  /**
+   * Master-password proof (auth_key = HKDF(master_key, …)).
+   *
+   * @generated from field: bytes auth_key = 4;
+   */
+  authKey: Uint8Array;
+};
+
+/**
+ * Describes the message oblivio.v1.EnablePasskeyUnlockRequest.
+ * Use `create(EnablePasskeyUnlockRequestSchema)` to create a new message.
+ */
+export const EnablePasskeyUnlockRequestSchema: GenMessage<EnablePasskeyUnlockRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_webauthn, 11);
+
+/**
+ * @generated from message oblivio.v1.EnablePasskeyUnlockResponse
+ */
+export type EnablePasskeyUnlockResponse = Message<"oblivio.v1.EnablePasskeyUnlockResponse"> & {
+};
+
+/**
+ * Describes the message oblivio.v1.EnablePasskeyUnlockResponse.
+ * Use `create(EnablePasskeyUnlockResponseSchema)` to create a new message.
+ */
+export const EnablePasskeyUnlockResponseSchema: GenMessage<EnablePasskeyUnlockResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_webauthn, 12);
+
+/**
+ * DisablePasskeyUnlock clears the passkey-unlock bundle for a credential.
+ * The credential itself is left in place — only its ability to unlock the
+ * vault is revoked.
+ *
+ * @generated from message oblivio.v1.DisablePasskeyUnlockRequest
+ */
+export type DisablePasskeyUnlockRequest = Message<"oblivio.v1.DisablePasskeyUnlockRequest"> & {
+  /**
+   * @generated from field: string credential_id = 1;
+   */
+  credentialId: string;
+
+  /**
+   * @generated from field: bytes auth_key = 2;
+   */
+  authKey: Uint8Array;
+};
+
+/**
+ * Describes the message oblivio.v1.DisablePasskeyUnlockRequest.
+ * Use `create(DisablePasskeyUnlockRequestSchema)` to create a new message.
+ */
+export const DisablePasskeyUnlockRequestSchema: GenMessage<DisablePasskeyUnlockRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_webauthn, 13);
+
+/**
+ * @generated from message oblivio.v1.DisablePasskeyUnlockResponse
+ */
+export type DisablePasskeyUnlockResponse = Message<"oblivio.v1.DisablePasskeyUnlockResponse"> & {
+};
+
+/**
+ * Describes the message oblivio.v1.DisablePasskeyUnlockResponse.
+ * Use `create(DisablePasskeyUnlockResponseSchema)` to create a new message.
+ */
+export const DisablePasskeyUnlockResponseSchema: GenMessage<DisablePasskeyUnlockResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_webauthn, 14);
+
+/**
+ * UnlockWithPasskey validates a passkey assertion (challenge from
+ * BeginAssertion) and returns the previously-stored wrapped_vault_key +
+ * prf_salt for the matched credential. The client then re-derives the
+ * unlocking key from the PRF output and decrypts vault_key locally.
+ *
+ * @generated from message oblivio.v1.UnlockWithPasskeyRequest
+ */
+export type UnlockWithPasskeyRequest = Message<"oblivio.v1.UnlockWithPasskeyRequest"> & {
+  /**
+   * session_id returned by WebAuthnService.BeginAssertion.
+   *
+   * @generated from field: string mfa_session_id = 1;
+   */
+  mfaSessionId: string;
+
+  /**
+   * JSON-encoded WebAuthn assertion (response of navigator.credentials.get).
+   *
+   * @generated from field: bytes webauthn_assertion_json = 2;
+   */
+  webauthnAssertionJson: Uint8Array;
+};
+
+/**
+ * Describes the message oblivio.v1.UnlockWithPasskeyRequest.
+ * Use `create(UnlockWithPasskeyRequestSchema)` to create a new message.
+ */
+export const UnlockWithPasskeyRequestSchema: GenMessage<UnlockWithPasskeyRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_webauthn, 15);
+
+/**
+ * @generated from message oblivio.v1.UnlockWithPasskeyResponse
+ */
+export type UnlockWithPasskeyResponse = Message<"oblivio.v1.UnlockWithPasskeyResponse"> & {
+  /**
+   * @generated from field: bytes wrapped_vault_key = 1;
+   */
+  wrappedVaultKey: Uint8Array;
+
+  /**
+   * @generated from field: bytes prf_salt = 2;
+   */
+  prfSalt: Uint8Array;
+};
+
+/**
+ * Describes the message oblivio.v1.UnlockWithPasskeyResponse.
+ * Use `create(UnlockWithPasskeyResponseSchema)` to create a new message.
+ */
+export const UnlockWithPasskeyResponseSchema: GenMessage<UnlockWithPasskeyResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_webauthn, 16);
 
 /**
  * WebAuthnService handles passkey / FIDO2 enrolment and authentication.
@@ -287,7 +464,9 @@ export const WebAuthnService: GenService<{
     output: typeof ListCredentialsResponseSchema;
   },
   /**
-   * Remove a credential by its UUID.
+   * Remove a credential by its UUID. Requires the caller's auth_key so a
+   * stolen access token alone cannot wipe the user's passkeys (mirrors
+   * LoginTOTPService.Disable).
    *
    * @generated from rpc oblivio.v1.WebAuthnService.RemoveCredential
    */
@@ -300,7 +479,8 @@ export const WebAuthnService: GenService<{
    * BeginAssertion seeds an authenticated user's challenge for a one-shot
    * re-authentication via passkey. Used by LoginTOTPService.Disable when
    * the user has lost their authenticator app and wants to fall back to
-   * their passkey to switch off TOTP.
+   * their passkey to switch off TOTP, by VaultService.DeleteMe to enforce
+   * passkey possession on account deletion, and by UnlockWithPasskey.
    *
    * @generated from rpc oblivio.v1.WebAuthnService.BeginAssertion
    */
@@ -308,6 +488,37 @@ export const WebAuthnService: GenService<{
     methodKind: "unary";
     input: typeof BeginAssertionRequestSchema;
     output: typeof BeginAssertionResponseSchema;
+  },
+  /**
+   * Passkey-as-vault-key flow. The client wraps vault_key under a key
+   * derived from the WebAuthn PRF extension output and uploads the
+   * resulting ciphertext via EnablePasskeyUnlock. UnlockWithPasskey
+   * returns the same ciphertext + salt after re-authenticating the
+   * passkey, so the unlock page can decrypt vault_key without the
+   * master password. DisablePasskeyUnlock clears the stored bundle.
+   *
+   * @generated from rpc oblivio.v1.WebAuthnService.EnablePasskeyUnlock
+   */
+  enablePasskeyUnlock: {
+    methodKind: "unary";
+    input: typeof EnablePasskeyUnlockRequestSchema;
+    output: typeof EnablePasskeyUnlockResponseSchema;
+  },
+  /**
+   * @generated from rpc oblivio.v1.WebAuthnService.DisablePasskeyUnlock
+   */
+  disablePasskeyUnlock: {
+    methodKind: "unary";
+    input: typeof DisablePasskeyUnlockRequestSchema;
+    output: typeof DisablePasskeyUnlockResponseSchema;
+  },
+  /**
+   * @generated from rpc oblivio.v1.WebAuthnService.UnlockWithPasskey
+   */
+  unlockWithPasskey: {
+    methodKind: "unary";
+    input: typeof UnlockWithPasskeyRequestSchema;
+    output: typeof UnlockWithPasskeyResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_oblivio_v1_webauthn, 0);

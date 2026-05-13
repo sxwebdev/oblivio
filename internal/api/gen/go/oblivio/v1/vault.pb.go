@@ -133,11 +133,27 @@ func (x *GetMeResponse) GetWebauthnCredentialsCount() uint32 {
 	return 0
 }
 
+// DeleteMe wipes the caller's account. To prevent a stolen access token
+// from triggering a crypto-shred, the caller must re-prove the master
+// password (auth_key) AND every 2FA factor they have enrolled — a TOTP
+// code when login TOTP is enabled, AND a fresh WebAuthn assertion when
+// at least one passkey is registered. The server validates the factors
+// in that order before touching any data; an audit row is appended only
+// on successful verification.
 type DeleteMeRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Reason        string                 `protobuf:"bytes,1,opt,name=reason,proto3" json:"reason,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Optional free-text reason recorded in the audit metadata.
+	Reason string `protobuf:"bytes,1,opt,name=reason,proto3" json:"reason,omitempty"`
+	// Master-password proof. Mandatory.
+	AuthKey []byte `protobuf:"bytes,2,opt,name=auth_key,json=authKey,proto3" json:"auth_key,omitempty"`
+	// Required when user_login_totp.enabled = true. Ignored otherwise.
+	TotpCode string `protobuf:"bytes,3,opt,name=totp_code,json=totpCode,proto3" json:"totp_code,omitempty"`
+	// Required when the user has ≥1 webauthn credential. Pair with
+	// mfa_session_id from WebAuthnService.BeginAssertion.
+	WebauthnAssertionJson []byte `protobuf:"bytes,4,opt,name=webauthn_assertion_json,json=webauthnAssertionJson,proto3" json:"webauthn_assertion_json,omitempty"`
+	MfaSessionId          string `protobuf:"bytes,5,opt,name=mfa_session_id,json=mfaSessionId,proto3" json:"mfa_session_id,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *DeleteMeRequest) Reset() {
@@ -173,6 +189,34 @@ func (*DeleteMeRequest) Descriptor() ([]byte, []int) {
 func (x *DeleteMeRequest) GetReason() string {
 	if x != nil {
 		return x.Reason
+	}
+	return ""
+}
+
+func (x *DeleteMeRequest) GetAuthKey() []byte {
+	if x != nil {
+		return x.AuthKey
+	}
+	return nil
+}
+
+func (x *DeleteMeRequest) GetTotpCode() string {
+	if x != nil {
+		return x.TotpCode
+	}
+	return ""
+}
+
+func (x *DeleteMeRequest) GetWebauthnAssertionJson() []byte {
+	if x != nil {
+		return x.WebauthnAssertionJson
+	}
+	return nil
+}
+
+func (x *DeleteMeRequest) GetMfaSessionId() string {
+	if x != nil {
+		return x.MfaSessionId
 	}
 	return ""
 }
@@ -225,9 +269,13 @@ const file_oblivio_v1_vault_proto_rawDesc = "" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12%\n" +
 	"\x0eemail_verified\x18\x03 \x01(\bR\remailVerified\x12!\n" +
 	"\ftotp_enabled\x18\x04 \x01(\bR\vtotpEnabled\x12<\n" +
-	"\x1awebauthn_credentials_count\x18\x05 \x01(\rR\x18webauthnCredentialsCount\")\n" +
+	"\x1awebauthn_credentials_count\x18\x05 \x01(\rR\x18webauthnCredentialsCount\"\xbf\x01\n" +
 	"\x0fDeleteMeRequest\x12\x16\n" +
-	"\x06reason\x18\x01 \x01(\tR\x06reason\"\x12\n" +
+	"\x06reason\x18\x01 \x01(\tR\x06reason\x12\x19\n" +
+	"\bauth_key\x18\x02 \x01(\fR\aauthKey\x12\x1b\n" +
+	"\ttotp_code\x18\x03 \x01(\tR\btotpCode\x126\n" +
+	"\x17webauthn_assertion_json\x18\x04 \x01(\fR\x15webauthnAssertionJson\x12$\n" +
+	"\x0emfa_session_id\x18\x05 \x01(\tR\fmfaSessionId\"\x12\n" +
 	"\x10DeleteMeResponse2\x93\x01\n" +
 	"\fVaultService\x12<\n" +
 	"\x05GetMe\x12\x18.oblivio.v1.GetMeRequest\x1a\x19.oblivio.v1.GetMeResponse\x12E\n" +

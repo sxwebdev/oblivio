@@ -178,9 +178,15 @@ func (s *Service) ListCredentials(ctx context.Context, _ *connect.Request[pb.Lis
 	out := make([]*pb.WebAuthnCredential, 0, len(creds))
 	for _, c := range creds {
 		item := &pb.WebAuthnCredential{
-			Id:         c.ID.String(),
-			Name:       c.Name,
-			Transports: c.Transports,
+			Id:            c.ID.String(),
+			Name:          c.Name,
+			Transports:    c.Transports,
+			UnlockEnabled: len(c.UnlockWrappedVaultKey) > 0 && len(c.PrfSalt) > 0,
+		}
+		if item.UnlockEnabled {
+			// Echo the salt so the unlock page can pass it to
+			// prf.eval.first without an extra round-trip.
+			item.PrfSalt = c.PrfSalt
 		}
 		if c.CreatedAt.Valid {
 			item.CreatedAt = timestamppb.New(c.CreatedAt.Time)
@@ -244,7 +250,8 @@ func (s *Service) BeginAssertion(ctx context.Context, _ *connect.Request[pb.Begi
 	}), nil
 }
 
-// RemoveCredential deletes a stored credential.
+// RemoveCredential deletes a stored credential. Requires a fresh auth_key
+// so a stolen access token alone cannot wipe the user's passkeys.
 func (s *Service) RemoveCredential(ctx context.Context, req *connect.Request[pb.RemoveCredentialRequest]) (*connect.Response[pb.RemoveCredentialResponse], error) {
 	uc := middleware.MustFromContext(ctx)
 	tx := middleware.MustTxFromContext(ctx)
@@ -252,6 +259,9 @@ func (s *Service) RemoveCredential(ctx context.Context, req *connect.Request[pb.
 	id, err := uuid.Parse(req.Msg.CredentialId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid credential_id"))
+	}
+	if err := auth.VerifyUserAuthKey(ctx, tx, uc.UserID, req.Msg.AuthKey); err != nil {
+		return nil, err
 	}
 	cred, err := repo_user_webauthn_credentials.New(tx).GetWebAuthnCredentialByID(ctx, repo_user_webauthn_credentials.GetWebAuthnCredentialByIDParams{
 		ID:     id,
@@ -272,6 +282,111 @@ func (s *Service) RemoveCredential(ctx context.Context, req *connect.Request[pb.
 	middleware.SetAuditTarget(ctx, cred.ID)
 	return connect.NewResponse(&pb.RemoveCredentialResponse{}), nil
 }
+
+// EnablePasskeyUnlock stores the passkey-PRF-bound wrapping of vault_key.
+// Both prf_salt and wrapped_vault_key are produced client-side; the server
+// only persists them and gates the operation on a fresh auth_key.
+func (s *Service) EnablePasskeyUnlock(ctx context.Context, req *connect.Request[pb.EnablePasskeyUnlockRequest]) (*connect.Response[pb.EnablePasskeyUnlockResponse], error) {
+	uc := middleware.MustFromContext(ctx)
+	tx := middleware.MustTxFromContext(ctx)
+	r := req.Msg
+
+	id, err := uuid.Parse(r.CredentialId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid credential_id"))
+	}
+	if len(r.WrappedVaultKey) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("wrapped_vault_key required"))
+	}
+	if len(r.PrfSalt) != prfSaltLen {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("prf_salt must be %d bytes", prfSaltLen))
+	}
+	if err := auth.VerifyUserAuthKey(ctx, tx, uc.UserID, r.AuthKey); err != nil {
+		return nil, err
+	}
+
+	if _, err := repo_user_webauthn_credentials.New(tx).GetWebAuthnCredentialByID(ctx, repo_user_webauthn_credentials.GetWebAuthnCredentialByIDParams{
+		ID:     id,
+		UserID: uc.UserID,
+	}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("credential not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if err := repo_user_webauthn_credentials.New(tx).SetWebAuthnUnlockBundle(ctx, repo_user_webauthn_credentials.SetWebAuthnUnlockBundleParams{
+		ID:                    id,
+		UserID:                uc.UserID,
+		UnlockWrappedVaultKey: r.WrappedVaultKey,
+		PrfSalt:               r.PrfSalt,
+	}); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	middleware.SetAuditTarget(ctx, id)
+	return connect.NewResponse(&pb.EnablePasskeyUnlockResponse{}), nil
+}
+
+// DisablePasskeyUnlock clears the stored unlock bundle for a credential.
+// The credential itself stays in place — only its ability to unlock the
+// vault is revoked.
+func (s *Service) DisablePasskeyUnlock(ctx context.Context, req *connect.Request[pb.DisablePasskeyUnlockRequest]) (*connect.Response[pb.DisablePasskeyUnlockResponse], error) {
+	uc := middleware.MustFromContext(ctx)
+	tx := middleware.MustTxFromContext(ctx)
+	r := req.Msg
+
+	id, err := uuid.Parse(r.CredentialId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid credential_id"))
+	}
+	if err := auth.VerifyUserAuthKey(ctx, tx, uc.UserID, r.AuthKey); err != nil {
+		return nil, err
+	}
+	if _, err := repo_user_webauthn_credentials.New(tx).GetWebAuthnCredentialByID(ctx, repo_user_webauthn_credentials.GetWebAuthnCredentialByIDParams{
+		ID:     id,
+		UserID: uc.UserID,
+	}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("credential not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if err := repo_user_webauthn_credentials.New(tx).ClearWebAuthnUnlockBundle(ctx, repo_user_webauthn_credentials.ClearWebAuthnUnlockBundleParams{
+		ID:     id,
+		UserID: uc.UserID,
+	}); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	middleware.SetAuditTarget(ctx, id)
+	return connect.NewResponse(&pb.DisablePasskeyUnlockResponse{}), nil
+}
+
+// UnlockWithPasskey re-validates a BeginAssertion challenge and returns
+// the stored wrapped_vault_key + prf_salt for the matched credential.
+// The client unwraps locally with the PRF output it just obtained from
+// navigator.credentials.get.
+func (s *Service) UnlockWithPasskey(ctx context.Context, req *connect.Request[pb.UnlockWithPasskeyRequest]) (*connect.Response[pb.UnlockWithPasskeyResponse], error) {
+	uc := middleware.MustFromContext(ctx)
+	tx := middleware.MustTxFromContext(ctx)
+	r := req.Msg
+
+	matched, err := auth.ConsumeWebAuthnAssertion(ctx, tx, s.wa, s.mfa, uc.UserID, r.MfaSessionId, r.WebauthnAssertionJson)
+	if err != nil {
+		return nil, err
+	}
+	if len(matched.UnlockWrappedVaultKey) == 0 || len(matched.PrfSalt) == 0 {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("passkey unlock not enabled for this credential"))
+	}
+	middleware.SetAuditTarget(ctx, matched.ID)
+	return connect.NewResponse(&pb.UnlockWithPasskeyResponse{
+		WrappedVaultKey: matched.UnlockWrappedVaultKey,
+		PrfSalt:         matched.PrfSalt,
+	}), nil
+}
+
+// prfSaltLen is the required length of prf.eval.first as agreed with the
+// client (see frontend/packages/crypto/src/passkey.ts). Pinned to 32 bytes
+// so neither side accepts a degraded salt by accident.
+const prfSaltLen = 32
 
 // --- helpers ---
 

@@ -48,6 +48,15 @@ const (
 	// WebAuthnServiceBeginAssertionProcedure is the fully-qualified name of the WebAuthnService's
 	// BeginAssertion RPC.
 	WebAuthnServiceBeginAssertionProcedure = "/oblivio.v1.WebAuthnService/BeginAssertion"
+	// WebAuthnServiceEnablePasskeyUnlockProcedure is the fully-qualified name of the WebAuthnService's
+	// EnablePasskeyUnlock RPC.
+	WebAuthnServiceEnablePasskeyUnlockProcedure = "/oblivio.v1.WebAuthnService/EnablePasskeyUnlock"
+	// WebAuthnServiceDisablePasskeyUnlockProcedure is the fully-qualified name of the WebAuthnService's
+	// DisablePasskeyUnlock RPC.
+	WebAuthnServiceDisablePasskeyUnlockProcedure = "/oblivio.v1.WebAuthnService/DisablePasskeyUnlock"
+	// WebAuthnServiceUnlockWithPasskeyProcedure is the fully-qualified name of the WebAuthnService's
+	// UnlockWithPasskey RPC.
+	WebAuthnServiceUnlockWithPasskeyProcedure = "/oblivio.v1.WebAuthnService/UnlockWithPasskey"
 )
 
 // WebAuthnServiceClient is a client for the oblivio.v1.WebAuthnService service.
@@ -59,13 +68,25 @@ type WebAuthnServiceClient interface {
 	RegisterFinish(context.Context, *connect.Request[v1.RegisterFinishRequest]) (*connect.Response[v1.RegisterFinishResponse], error)
 	// List the user's registered credentials (metadata only — no public keys).
 	ListCredentials(context.Context, *connect.Request[v1.ListCredentialsRequest]) (*connect.Response[v1.ListCredentialsResponse], error)
-	// Remove a credential by its UUID.
+	// Remove a credential by its UUID. Requires the caller's auth_key so a
+	// stolen access token alone cannot wipe the user's passkeys (mirrors
+	// LoginTOTPService.Disable).
 	RemoveCredential(context.Context, *connect.Request[v1.RemoveCredentialRequest]) (*connect.Response[v1.RemoveCredentialResponse], error)
 	// BeginAssertion seeds an authenticated user's challenge for a one-shot
 	// re-authentication via passkey. Used by LoginTOTPService.Disable when
 	// the user has lost their authenticator app and wants to fall back to
-	// their passkey to switch off TOTP.
+	// their passkey to switch off TOTP, by VaultService.DeleteMe to enforce
+	// passkey possession on account deletion, and by UnlockWithPasskey.
 	BeginAssertion(context.Context, *connect.Request[v1.BeginAssertionRequest]) (*connect.Response[v1.BeginAssertionResponse], error)
+	// Passkey-as-vault-key flow. The client wraps vault_key under a key
+	// derived from the WebAuthn PRF extension output and uploads the
+	// resulting ciphertext via EnablePasskeyUnlock. UnlockWithPasskey
+	// returns the same ciphertext + salt after re-authenticating the
+	// passkey, so the unlock page can decrypt vault_key without the
+	// master password. DisablePasskeyUnlock clears the stored bundle.
+	EnablePasskeyUnlock(context.Context, *connect.Request[v1.EnablePasskeyUnlockRequest]) (*connect.Response[v1.EnablePasskeyUnlockResponse], error)
+	DisablePasskeyUnlock(context.Context, *connect.Request[v1.DisablePasskeyUnlockRequest]) (*connect.Response[v1.DisablePasskeyUnlockResponse], error)
+	UnlockWithPasskey(context.Context, *connect.Request[v1.UnlockWithPasskeyRequest]) (*connect.Response[v1.UnlockWithPasskeyResponse], error)
 }
 
 // NewWebAuthnServiceClient constructs a client for the oblivio.v1.WebAuthnService service. By
@@ -109,16 +130,37 @@ func NewWebAuthnServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(webAuthnServiceMethods.ByName("BeginAssertion")),
 			connect.WithClientOptions(opts...),
 		),
+		enablePasskeyUnlock: connect.NewClient[v1.EnablePasskeyUnlockRequest, v1.EnablePasskeyUnlockResponse](
+			httpClient,
+			baseURL+WebAuthnServiceEnablePasskeyUnlockProcedure,
+			connect.WithSchema(webAuthnServiceMethods.ByName("EnablePasskeyUnlock")),
+			connect.WithClientOptions(opts...),
+		),
+		disablePasskeyUnlock: connect.NewClient[v1.DisablePasskeyUnlockRequest, v1.DisablePasskeyUnlockResponse](
+			httpClient,
+			baseURL+WebAuthnServiceDisablePasskeyUnlockProcedure,
+			connect.WithSchema(webAuthnServiceMethods.ByName("DisablePasskeyUnlock")),
+			connect.WithClientOptions(opts...),
+		),
+		unlockWithPasskey: connect.NewClient[v1.UnlockWithPasskeyRequest, v1.UnlockWithPasskeyResponse](
+			httpClient,
+			baseURL+WebAuthnServiceUnlockWithPasskeyProcedure,
+			connect.WithSchema(webAuthnServiceMethods.ByName("UnlockWithPasskey")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // webAuthnServiceClient implements WebAuthnServiceClient.
 type webAuthnServiceClient struct {
-	registerBegin    *connect.Client[v1.RegisterBeginRequest, v1.RegisterBeginResponse]
-	registerFinish   *connect.Client[v1.RegisterFinishRequest, v1.RegisterFinishResponse]
-	listCredentials  *connect.Client[v1.ListCredentialsRequest, v1.ListCredentialsResponse]
-	removeCredential *connect.Client[v1.RemoveCredentialRequest, v1.RemoveCredentialResponse]
-	beginAssertion   *connect.Client[v1.BeginAssertionRequest, v1.BeginAssertionResponse]
+	registerBegin        *connect.Client[v1.RegisterBeginRequest, v1.RegisterBeginResponse]
+	registerFinish       *connect.Client[v1.RegisterFinishRequest, v1.RegisterFinishResponse]
+	listCredentials      *connect.Client[v1.ListCredentialsRequest, v1.ListCredentialsResponse]
+	removeCredential     *connect.Client[v1.RemoveCredentialRequest, v1.RemoveCredentialResponse]
+	beginAssertion       *connect.Client[v1.BeginAssertionRequest, v1.BeginAssertionResponse]
+	enablePasskeyUnlock  *connect.Client[v1.EnablePasskeyUnlockRequest, v1.EnablePasskeyUnlockResponse]
+	disablePasskeyUnlock *connect.Client[v1.DisablePasskeyUnlockRequest, v1.DisablePasskeyUnlockResponse]
+	unlockWithPasskey    *connect.Client[v1.UnlockWithPasskeyRequest, v1.UnlockWithPasskeyResponse]
 }
 
 // RegisterBegin calls oblivio.v1.WebAuthnService.RegisterBegin.
@@ -146,6 +188,21 @@ func (c *webAuthnServiceClient) BeginAssertion(ctx context.Context, req *connect
 	return c.beginAssertion.CallUnary(ctx, req)
 }
 
+// EnablePasskeyUnlock calls oblivio.v1.WebAuthnService.EnablePasskeyUnlock.
+func (c *webAuthnServiceClient) EnablePasskeyUnlock(ctx context.Context, req *connect.Request[v1.EnablePasskeyUnlockRequest]) (*connect.Response[v1.EnablePasskeyUnlockResponse], error) {
+	return c.enablePasskeyUnlock.CallUnary(ctx, req)
+}
+
+// DisablePasskeyUnlock calls oblivio.v1.WebAuthnService.DisablePasskeyUnlock.
+func (c *webAuthnServiceClient) DisablePasskeyUnlock(ctx context.Context, req *connect.Request[v1.DisablePasskeyUnlockRequest]) (*connect.Response[v1.DisablePasskeyUnlockResponse], error) {
+	return c.disablePasskeyUnlock.CallUnary(ctx, req)
+}
+
+// UnlockWithPasskey calls oblivio.v1.WebAuthnService.UnlockWithPasskey.
+func (c *webAuthnServiceClient) UnlockWithPasskey(ctx context.Context, req *connect.Request[v1.UnlockWithPasskeyRequest]) (*connect.Response[v1.UnlockWithPasskeyResponse], error) {
+	return c.unlockWithPasskey.CallUnary(ctx, req)
+}
+
 // WebAuthnServiceHandler is an implementation of the oblivio.v1.WebAuthnService service.
 type WebAuthnServiceHandler interface {
 	// Begin a registration ceremony. Returns the CredentialCreationOptions
@@ -155,13 +212,25 @@ type WebAuthnServiceHandler interface {
 	RegisterFinish(context.Context, *connect.Request[v1.RegisterFinishRequest]) (*connect.Response[v1.RegisterFinishResponse], error)
 	// List the user's registered credentials (metadata only — no public keys).
 	ListCredentials(context.Context, *connect.Request[v1.ListCredentialsRequest]) (*connect.Response[v1.ListCredentialsResponse], error)
-	// Remove a credential by its UUID.
+	// Remove a credential by its UUID. Requires the caller's auth_key so a
+	// stolen access token alone cannot wipe the user's passkeys (mirrors
+	// LoginTOTPService.Disable).
 	RemoveCredential(context.Context, *connect.Request[v1.RemoveCredentialRequest]) (*connect.Response[v1.RemoveCredentialResponse], error)
 	// BeginAssertion seeds an authenticated user's challenge for a one-shot
 	// re-authentication via passkey. Used by LoginTOTPService.Disable when
 	// the user has lost their authenticator app and wants to fall back to
-	// their passkey to switch off TOTP.
+	// their passkey to switch off TOTP, by VaultService.DeleteMe to enforce
+	// passkey possession on account deletion, and by UnlockWithPasskey.
 	BeginAssertion(context.Context, *connect.Request[v1.BeginAssertionRequest]) (*connect.Response[v1.BeginAssertionResponse], error)
+	// Passkey-as-vault-key flow. The client wraps vault_key under a key
+	// derived from the WebAuthn PRF extension output and uploads the
+	// resulting ciphertext via EnablePasskeyUnlock. UnlockWithPasskey
+	// returns the same ciphertext + salt after re-authenticating the
+	// passkey, so the unlock page can decrypt vault_key without the
+	// master password. DisablePasskeyUnlock clears the stored bundle.
+	EnablePasskeyUnlock(context.Context, *connect.Request[v1.EnablePasskeyUnlockRequest]) (*connect.Response[v1.EnablePasskeyUnlockResponse], error)
+	DisablePasskeyUnlock(context.Context, *connect.Request[v1.DisablePasskeyUnlockRequest]) (*connect.Response[v1.DisablePasskeyUnlockResponse], error)
+	UnlockWithPasskey(context.Context, *connect.Request[v1.UnlockWithPasskeyRequest]) (*connect.Response[v1.UnlockWithPasskeyResponse], error)
 }
 
 // NewWebAuthnServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -201,6 +270,24 @@ func NewWebAuthnServiceHandler(svc WebAuthnServiceHandler, opts ...connect.Handl
 		connect.WithSchema(webAuthnServiceMethods.ByName("BeginAssertion")),
 		connect.WithHandlerOptions(opts...),
 	)
+	webAuthnServiceEnablePasskeyUnlockHandler := connect.NewUnaryHandler(
+		WebAuthnServiceEnablePasskeyUnlockProcedure,
+		svc.EnablePasskeyUnlock,
+		connect.WithSchema(webAuthnServiceMethods.ByName("EnablePasskeyUnlock")),
+		connect.WithHandlerOptions(opts...),
+	)
+	webAuthnServiceDisablePasskeyUnlockHandler := connect.NewUnaryHandler(
+		WebAuthnServiceDisablePasskeyUnlockProcedure,
+		svc.DisablePasskeyUnlock,
+		connect.WithSchema(webAuthnServiceMethods.ByName("DisablePasskeyUnlock")),
+		connect.WithHandlerOptions(opts...),
+	)
+	webAuthnServiceUnlockWithPasskeyHandler := connect.NewUnaryHandler(
+		WebAuthnServiceUnlockWithPasskeyProcedure,
+		svc.UnlockWithPasskey,
+		connect.WithSchema(webAuthnServiceMethods.ByName("UnlockWithPasskey")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/oblivio.v1.WebAuthnService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case WebAuthnServiceRegisterBeginProcedure:
@@ -213,6 +300,12 @@ func NewWebAuthnServiceHandler(svc WebAuthnServiceHandler, opts ...connect.Handl
 			webAuthnServiceRemoveCredentialHandler.ServeHTTP(w, r)
 		case WebAuthnServiceBeginAssertionProcedure:
 			webAuthnServiceBeginAssertionHandler.ServeHTTP(w, r)
+		case WebAuthnServiceEnablePasskeyUnlockProcedure:
+			webAuthnServiceEnablePasskeyUnlockHandler.ServeHTTP(w, r)
+		case WebAuthnServiceDisablePasskeyUnlockProcedure:
+			webAuthnServiceDisablePasskeyUnlockHandler.ServeHTTP(w, r)
+		case WebAuthnServiceUnlockWithPasskeyProcedure:
+			webAuthnServiceUnlockWithPasskeyHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -240,4 +333,16 @@ func (UnimplementedWebAuthnServiceHandler) RemoveCredential(context.Context, *co
 
 func (UnimplementedWebAuthnServiceHandler) BeginAssertion(context.Context, *connect.Request[v1.BeginAssertionRequest]) (*connect.Response[v1.BeginAssertionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.WebAuthnService.BeginAssertion is not implemented"))
+}
+
+func (UnimplementedWebAuthnServiceHandler) EnablePasskeyUnlock(context.Context, *connect.Request[v1.EnablePasskeyUnlockRequest]) (*connect.Response[v1.EnablePasskeyUnlockResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.WebAuthnService.EnablePasskeyUnlock is not implemented"))
+}
+
+func (UnimplementedWebAuthnServiceHandler) DisablePasskeyUnlock(context.Context, *connect.Request[v1.DisablePasskeyUnlockRequest]) (*connect.Response[v1.DisablePasskeyUnlockResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.WebAuthnService.DisablePasskeyUnlock is not implemented"))
+}
+
+func (UnimplementedWebAuthnServiceHandler) UnlockWithPasskey(context.Context, *connect.Request[v1.UnlockWithPasskeyRequest]) (*connect.Response[v1.UnlockWithPasskeyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("oblivio.v1.WebAuthnService.UnlockWithPasskey is not implemented"))
 }

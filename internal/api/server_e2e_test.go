@@ -20,12 +20,15 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
 	"github.com/tkcrm/mx/logger"
+
+	wa "github.com/go-webauthn/webauthn/webauthn"
 
 	obliviocrypto "github.com/sxwebdev/oblivio/internal/crypto"
 
@@ -376,6 +379,15 @@ func startTestServer(t *testing.T) (*httptest.Server, func()) {
 	}
 	t.Cleanup(recoveryStore.Close)
 
+	waRP, err := wa.New(&wa.Config{
+		RPID:          "localhost",
+		RPDisplayName: "OblivioTest",
+		RPOrigins:     []string{"https://localhost"},
+	})
+	if err != nil {
+		t.Fatalf("webauthn relying party: %v", err)
+	}
+
 	apiServer := api.New(api.Deps{
 		Log:           logger.NewExtended(),
 		Cfg:           config.ServerConfig{Addr: ":0"},
@@ -385,13 +397,24 @@ func startTestServer(t *testing.T) (*httptest.Server, func()) {
 		MFAStore:      mfaStore,
 		RecoveryStore: recoveryStore,
 		Email:         email.NewNoopSender(),
+		WebAuthn:      waRP,
 		AppName:       "OblivioTest",
 	})
 
 	srv := httptest.NewServer(apiServer.Handler())
-	cleanup := func() { srv.Close() }
+	testServerPools.Store(srv, pg.Pool)
+	cleanup := func() {
+		testServerPools.Delete(srv)
+		srv.Close()
+	}
 	return srv, cleanup
 }
+
+// testServerPools lets tests reach the underlying pgxpool of a server
+// returned by startTestServer (e.g. to seed fixture rows that don't have
+// a ConnectRPC equivalent). Keyed by *httptest.Server pointer so the
+// mapping clears automatically when the test shuts the server down.
+var testServerPools sync.Map
 
 // testAuthConfig keeps Argon2 cheap (still RFC-9106 compliant: t≥1, p≥1,
 // m ≥ 8*p) so test runtime stays in the seconds, not minutes.

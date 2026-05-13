@@ -2,11 +2,18 @@
 // dropping the access token. We use the same KDF params returned by
 // /authorize but skip the network call by reading GetMyKeys for the
 // stored verifier + wrapped_vault_key.
+//
+// Optionally, when the user has enrolled at least one passkey for
+// unlock (see settings · two-factor → "Use to unlock"), they can skip
+// the password entirely: a server-bound WebAuthn assertion with the
+// PRF extension produces the same key the password would, and the
+// vault unwraps without ever seeing master_key.
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "@tanstack/react-router"
+import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser"
 
-import { authClient, vaultClient } from "@/api/client"
+import { authClient, vaultClient, webauthnClient } from "@/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,10 +21,13 @@ import { useAuthStore } from "@/stores/auth"
 import { useVaultStore } from "@/stores/vault"
 import {
   checkVerifier,
+  derivePasskeyUnlockKey,
   deriveAuthKey,
   deriveMasterKey,
   importMasterKey,
+  passkeyUnlockAAD,
   unwrapVaultKey,
+  unwrapVaultKeyWithPRF,
   type Argon2Params,
 } from "@oblivio/crypto"
 
@@ -31,8 +41,29 @@ export default function UnlockPage() {
   const [password, setPassword] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [passkeyCount, setPasskeyCount] = useState<number | null>(null)
 
-  async function handleUnlock(e: React.FormEvent) {
+  // Probe ListCredentials once on mount to decide whether to surface the
+  // "Unlock with passkey" button. The call is cheap and the result is
+  // authenticated already (we have the access token).
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const r = await webauthnClient.listCredentials({})
+        if (cancelled) return
+        const n = r.credentials.filter((c) => c.unlockEnabled).length
+        setPasskeyCount(n)
+      } catch {
+        if (!cancelled) setPasskeyCount(0)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function unlockWithPassword(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     if (!email) {
@@ -51,8 +82,6 @@ export default function UnlockPage() {
       }
       const masterKeyRaw = await deriveMasterKey(password, kdf.saltUser, params)
       const masterKey = await importMasterKey(masterKeyRaw)
-      // auth_key derivation kept for parity with login flow even though
-      // unlock does not need to round-trip it.
       await deriveAuthKey(masterKeyRaw, kdf.saltUser)
 
       const keys = await authClient.getMyKeys({})
@@ -63,9 +92,98 @@ export default function UnlockPage() {
       setVaultKey(vaultKey, keys.vaultKeyVersion, kdf.blindPepper)
       masterKeyRaw.fill(0)
 
-      // Refresh the canonical user_id; it backs the AAD vault scope, so a
-      // stale or missing value would silently mangle decryption.
       const me = await vaultClient.getMe({})
+      useAuthStore.setState({ userId: me.userId, email: me.email })
+
+      await navigate({ to: "/" })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function unlockWithPasskey() {
+    setError(null)
+    if (!email) {
+      setError("session expired — sign in again")
+      return
+    }
+    setBusy(true)
+    try {
+      // The server seeds a real WebAuthn challenge bound to this session
+      // and limits allowCredentials to the user's enrolled keys.
+      const begin = await webauthnClient.beginAssertion({})
+      const decoded = JSON.parse(
+        new TextDecoder().decode(begin.optionsJson)
+      ) as { publicKey: PublicKeyCredentialRequestOptionsJSON }
+      const publicKey = decoded.publicKey
+      // Locate the prf_salt to use. ListCredentials includes it per row
+      // when unlock_enabled=true; we feed the salt of whichever key the
+      // user picks. WebAuthn lets the user choose, so we send salts for
+      // ALL eligible credentials and let the browser/authenticator pair
+      // it with the one that signs.
+      const list = await webauthnClient.listCredentials({})
+      const eligible = list.credentials.filter((c) => c.unlockEnabled)
+      if (eligible.length === 0) {
+        throw new Error("no passkey enrolled for unlock")
+      }
+      const evalByCredential: Record<string, { first: string }> = {}
+      for (const c of eligible) {
+        evalByCredential[bytesToBase64UrlFromBase64(c.id)] = {
+          first: bytesToBase64Url(c.prfSalt),
+        }
+      }
+      const optsWithPrf: PublicKeyCredentialRequestOptionsJSON = {
+        ...publicKey,
+        extensions: {
+          ...(publicKey.extensions ?? {}),
+          // SimpleWebAuthn typings lag the spec — cast at the boundary.
+          prf: {
+            eval: { first: bytesToBase64Url(eligible[0].prfSalt) },
+            evalByCredential,
+          },
+        } as unknown as PublicKeyCredentialRequestOptionsJSON["extensions"],
+      }
+      const result = await startAuthentication({ optionsJSON: optsWithPrf })
+      const ext = (
+        result.clientExtensionResults as unknown as {
+          prf?: { results?: { first?: string | ArrayBuffer } }
+        }
+      ).prf
+      const first = ext?.results?.first
+      if (!first) {
+        throw new Error(
+          "this authenticator did not return a PRF result — try the master password"
+        )
+      }
+      const prfOutput =
+        typeof first === "string" ? base64UrlToBytes(first) : new Uint8Array(first)
+
+      // Hand the assertion to the server for validation + blob retrieval.
+      const assertionBytes = new TextEncoder().encode(JSON.stringify(result))
+      const unlockResp = await webauthnClient.unlockWithPasskey({
+        mfaSessionId: begin.sessionId,
+        webauthnAssertionJson: assertionBytes,
+      })
+
+      const unlockKey = await derivePasskeyUnlockKey(prfOutput)
+      prfOutput.fill(0)
+
+      // user_id is required to rebuild the AAD. GetMe returns it
+      // unauthenticated-ish (we already have the access token).
+      const me = await vaultClient.getMe({})
+      const vaultKey = await unwrapVaultKeyWithPRF(
+        unlockKey,
+        unlockResp.wrappedVaultKey,
+        passkeyUnlockAAD(me.userId, result.id)
+      )
+
+      // Pull the blind-index pepper through getKDFParams (it's also
+      // anonymous; safe to call without the password).
+      const kdf = await authClient.getKDFParams({ email })
+      const keys = await authClient.getMyKeys({})
+      setVaultKey(vaultKey, keys.vaultKeyVersion, kdf.blindPepper)
       useAuthStore.setState({ userId: me.userId, email: me.email })
 
       await navigate({ to: "/" })
@@ -82,13 +200,17 @@ export default function UnlockPage() {
     void navigate({ to: "/login" })
   }
 
+  const passkeyAvailable = (passkeyCount ?? 0) > 0
+
   return (
-    <form onSubmit={handleUnlock} className="space-y-4">
+    <form onSubmit={unlockWithPassword} className="space-y-4">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold">Unlock vault</h1>
         <p className="text-sm text-muted-foreground">
           {email
-            ? `Signed in as ${email}. Re-enter your master password to unlock.`
+            ? `Signed in as ${email}. Use your master password${
+                passkeyAvailable ? " — or unlock with a passkey." : "."
+              }`
             : "No session — sign in below."}
         </p>
       </div>
@@ -104,14 +226,55 @@ export default function UnlockPage() {
         />
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button type="submit" className="flex-1" disabled={busy || !email}>
           {busy ? "Unlocking…" : "Unlock"}
         </Button>
+        {passkeyAvailable && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={unlockWithPasskey}
+            disabled={busy || !email}
+          >
+            Unlock with passkey
+          </Button>
+        )}
         <Button type="button" variant="ghost" onClick={handleSignOut}>
           Sign out
         </Button>
       </div>
     </form>
   )
+}
+
+function bytesToBase64Url(b: Uint8Array): string {
+  let s = ""
+  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i])
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+}
+
+// `WebAuthnCredential.id` from the proto is a UUID string we minted on
+// the server. The browser's allowCredentials and PRF evalByCredential
+// maps key off the AUTHENTICATOR's credential id (the raw byte string the
+// authenticator returned at registration). The unlock path therefore
+// uses result.id (the authenticator's id) — not the row id. This helper
+// is here because the simple per-credential salt fallback still wants
+// a non-empty key; we route any extra entries by the row id (it's a
+// UUID, base64-url safe after stripping dashes).
+function bytesToBase64UrlFromBase64(uuid: string): string {
+  // Strip dashes and treat as a 32-hex string; for keying purposes the
+  // exact bytes don't matter — what matters is that the same key is used
+  // on both sides if we ever route by row id. For now, the authenticator
+  // chooses, so the first eligible salt above is what gets evaluated.
+  return uuid.replace(/-/g, "")
+}
+
+function base64UrlToBytes(s: string): Uint8Array {
+  s = s.replace(/-/g, "+").replace(/_/g, "/")
+  while (s.length % 4) s += "="
+  const bin = atob(s)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out
 }

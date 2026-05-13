@@ -736,7 +736,19 @@ func (s *Service) ChangeMasterPassword(ctx context.Context, req *connect.Request
 		// Caller is expected to have decrypted with the OLD K and re-sealed
 		// with the NEW one; we just upsert. When the new envelope is empty
 		// AND a row exists, the user has explicitly chosen to drop TOTP.
-		return rotateLoginTOTPInTx(ctx, s.st, tx, uc.UserID, r.NewLoginTotpEncryptedSecret, r.NewLoginTotpNonce)
+		if err := rotateLoginTOTPInTx(ctx, s.st, tx, uc.UserID, r.NewLoginTotpEncryptedSecret, r.NewLoginTotpNonce); err != nil {
+			return err
+		}
+		// Optionally clear every passkey-unlock bundle. vault_key itself
+		// is unchanged across a master-password rotation, so a previously-
+		// derived PRF key still decrypts the stored blob unless the blob
+		// is wiped. Users invoking ChangeMasterPassword due to suspected
+		// compromise can flip this to true to revoke the passkey-unlock
+		// pathway in one shot.
+		if r.RevokePasskeyUnlocks {
+			return s.st.UserWebAuthn(repos.WithTx(tx)).ClearAllWebAuthnUnlockBundles(ctx, uc.UserID)
+		}
+		return nil
 	}); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
