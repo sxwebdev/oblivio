@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -237,7 +238,7 @@ func (s *Server) buildHandler() http.Handler {
 		_, _ = w.Write([]byte("ok"))
 	})
 	if sub, err := fs.Sub(oblivio.FrontendFS, "frontend/dist"); err == nil {
-		root.Handle("/", http.FileServer(http.FS(sub)))
+		root.Handle("/", spaHandler(sub))
 	} else {
 		s.log.Warnf("frontend/dist not embedded: %v", err)
 	}
@@ -266,4 +267,25 @@ func (s *Server) Healthy(_ context.Context) error {
 		return fmt.Errorf("api server not started: %w", ops.ErrHealthCheckServiceStarting)
 	}
 	return nil
+}
+
+// spaHandler serves files from the embedded frontend FS and falls back to
+// index.html for unknown paths so client-side routes (e.g. /unlock) survive
+// a hard refresh.
+func spaHandler(root fs.FS) http.Handler {
+	fileServer := http.FileServer(http.FS(root))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := strings.TrimPrefix(r.URL.Path, "/")
+		if p == "" {
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+		if _, err := fs.Stat(root, p); err != nil {
+			r2 := r.Clone(r.Context())
+			r2.URL.Path = "/"
+			fileServer.ServeHTTP(w, r2)
+			return
+		}
+		fileServer.ServeHTTP(w, r)
+	})
 }
