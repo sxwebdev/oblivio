@@ -1,0 +1,10 @@
+go.sum -diff -merge
+go.sum linguist-generated=true
+*.pb.go -diff -merge
+*.pb.go linguist-generated=true
+*.sql.go -diff -merge
+*.sql.go linguist-generated=true
+*.connect.go -diff -merge
+*.connect.go linguist-generated=true
+*.swagger.json -diff -merge
+*.swagger.json linguist-generated=true

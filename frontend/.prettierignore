@@ -1,11 +1,7 @@
+node_modules/
+coverage/
+.pnpm-store/
+pnpm-lock.yaml
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
-.vscode-test/
-out/
-dist/
-test-fixtures/
-node_modules/
-*.svg
-*.tsbuildinfo
-src/app/api/gen/

@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package oblivio.v1;
+
+option go_package = "github.com/sxwebdev/oblivio/internal/api/pb/oblivio/v1;oblivio_v1";
+
+// VaultService exposes per-user metadata such as TOTP/WebAuthn status and
+// destructive operations like account deletion (crypto-shred).
+service VaultService {
+  rpc GetMe(GetMeRequest) returns (GetMeResponse);
+  rpc DeleteMe(DeleteMeRequest) returns (DeleteMeResponse);
+}
+
+message GetMeRequest {}
+message GetMeResponse {
+  string user_id = 1;
+  string email = 2;
+  bool email_verified = 3;
+  bool totp_enabled = 4;
+  uint32 webauthn_credentials_count = 5;
+}
+
+// DeleteMe wipes the caller's account. To prevent a stolen access token
+// from triggering a crypto-shred, the caller must re-prove the master
+// password (auth_key) AND every 2FA factor they have enrolled — a TOTP
+// code when login TOTP is enabled, AND a fresh WebAuthn assertion when
+// at least one passkey is registered. The server validates the factors
+// in that order before touching any data; an audit row is appended only
+// on successful verification.
+message DeleteMeRequest {
+  // Optional free-text reason recorded in the audit metadata.
+  string reason = 1;
+
+  // Master-password proof. Mandatory.
+  bytes auth_key = 2;
+
+  // Required when user_login_totp.enabled = true. Ignored otherwise.
+  string totp_code = 3;
+
+  // Required when the user has ≥1 webauthn credential. Pair with
+  // mfa_session_id from WebAuthnService.BeginAssertion.
+  bytes webauthn_assertion_json = 4;
+  string mfa_session_id = 5;
+}
+
+message DeleteMeResponse {}

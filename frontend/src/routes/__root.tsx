@@ -1,24 +1,26 @@
-import { Outlet, createRootRoute } from "@tanstack/react-router";
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { TanStackDevtools } from "@tanstack/react-devtools";
+import { Outlet, createRootRoute } from "@tanstack/react-router"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { Toaster } from "sonner"
 
-import Header from "../components/Header";
-import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/theme-provider"
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { refetchOnWindowFocus: false, retry: 1 },
+  },
+})
 
 export const Route = createRootRoute({
-  component: () => (
-    <>
-      <div className="mx-auto max-w-screen-lg px-4">
-        <Header />
+  component: RootComponent,
+})
+
+function RootComponent() {
+  return (
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
         <Outlet />
-      </div>
-      <Toaster position="bottom-right" />
-      <TanStackDevtools
-        config={{ position: "bottom-left" }}
-        plugins={[
-          { name: "Tanstack Router", render: <TanStackRouterDevtoolsPanel /> },
-        ]}
-      />
-    </>
-  ),
-});
+        <Toaster richColors closeButton position="bottom-right" />
+      </QueryClientProvider>
+    </ThemeProvider>
+  )
+}

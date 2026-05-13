@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package oblivio.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/sxwebdev/oblivio/internal/api/pb/oblivio/v1;oblivio_v1";
+
+// ProjectsService manages encrypted project groupings inside a user's vault.
+// The server never decrypts encrypted_blob — UI metadata (name, description,
+// color, icon) lives inside it under the client-side item key.
+service ProjectsService {
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+  rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse);
+  rpc UpdateProject(UpdateProjectRequest) returns (UpdateProjectResponse);
+  rpc DeleteProject(DeleteProjectRequest) returns (DeleteProjectResponse);
+  rpc ReorderProjects(ReorderProjectsRequest) returns (ReorderProjectsResponse);
+}
+
+// Project is the server-visible representation: identifiers, ciphertext,
+// wrapped key and metadata-free counters. Plaintext stays on the client.
+message Project {
+  string id = 1;
+  bytes encrypted_blob = 2;
+  bytes wrapped_item_key = 3;
+  bytes name_hash = 4;
+  uint32 version = 5;
+  int32 sort_order = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message ListProjectsRequest {}
+message ListProjectsResponse {
+  repeated Project projects = 1;
+}
+
+message GetProjectRequest {
+  string id = 1;
+}
+message GetProjectResponse {
+  Project project = 1;
+}
+
+message CreateProjectRequest {
+  bytes encrypted_blob = 1;
+  bytes wrapped_item_key = 2;
+  bytes name_hash = 3;
+  int32 sort_order = 4;
+  // Client-minted UUID. Must match the id baked into the AAD when sealing
+  // the blob, otherwise the recipient cannot authenticate the ciphertext.
+  // The server uses it as the row's primary key and rejects duplicates
+  // with AlreadyExists.
+  string id = 5;
+}
+message CreateProjectResponse {
+  Project project = 1;
+}
+
+message UpdateProjectRequest {
+  string id = 1;
+  uint32 expected_version = 2;
+  bytes encrypted_blob = 3;
+  bytes wrapped_item_key = 4;
+  bytes name_hash = 5;
+}
+message UpdateProjectResponse {
+  Project project = 1;
+}
+
+message DeleteProjectRequest {
+  string id = 1;
+  uint32 expected_version = 2;
+}
+message DeleteProjectResponse {}
+
+message ReorderProjectsRequest {
+  // Ordered list of project IDs. The first id receives sort_order=0, etc.
+  repeated string ordered_ids = 1;
+}
+message ReorderProjectsResponse {}

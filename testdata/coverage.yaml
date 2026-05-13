@@ -1,0 +1,25 @@
+# Per-package coverage thresholds enforced by `cmd/covgate` in `make test-coverage`.
+# Aligns with plan §13.1 "Что считается «критическим модулем»".
+#
+# These are *current* baselines measured with `make test-coverage`
+# (integration tag, testcontainers Postgres). The plan calls for 90–95% on
+# crypto and audit; we'll get there as handler/E2E tests land. Adjust
+# upward DELIBERATELY — lowering on critical modules is a security
+# regression. CI fails when actual < min.
+
+default_min: 0
+
+rules:
+  - prefix: github.com/sxwebdev/oblivio/internal/crypto
+    min: 75
+
+  - prefix: github.com/sxwebdev/oblivio/internal/audit
+    min: 80
+
+  - prefix: github.com/sxwebdev/oblivio/internal/auth
+    min: 80
+
+  # Handlers and full procedure flow not yet unit-tested; raise as new
+  # tests cover them.
+  - prefix: github.com/sxwebdev/oblivio/internal/api/middleware
+    min: 15

@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/tkcrm/pgxgen/master/schemas/pgxgen-schema.json
+version: "2"
+
+schemas:
+  - name: main
+    engine: postgresql
+    schema_dir: migrations
+
+    models:
+      output_dir: ../internal/models
+      output_file_name: models_gen.go
+      package_name: models
+      package_path: github.com/sxwebdev/oblivio/internal/models
+      emit_json_tags: true
+      emit_db_tags: true
+      sql_package: pgx/v5
+      custom_types:
+        - NullEntryKind
+        - NullAuditAction
+
+    sqlc:
+      defaults:
+        sql_package: pgx/v5
+        emit_json_tags: true
+        emit_db_tags: true
+        emit_empty_slices: true
+        emit_result_struct_pointers: true
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+      overrides:
+        types:
+          - db_type: uuid
+            go_type: github.com/google/uuid.UUID
+          - db_type: uuid
+            nullable: true
+            go_type: github.com/google/uuid.NullUUID
+
+    defaults:
+      queries_dir_prefix: queries
+      output_dir_prefix: ../internal/store/repos
+      package_prefix: "repo_"
+
+    tables:
+      users:
+        primary_column: id
+      user_kdf_params:
+        primary_column: user_id
+      user_auth:
+        primary_column: user_id
+      user_vault:
+        primary_column: user_id
+      user_login_totp:
+        primary_column: user_id
+      user_webauthn_credentials:
+        primary_column: id
+      auth_sessions:
+        primary_column: id
+      auth_tokens:
+        primary_column: key
+      email_verification_tokens:
+        primary_column: token_hash
+      projects:
+        primary_column: id
+      entries:
+        primary_column: id
+      audit_log:
+        primary_column: id
+      system_state:
+        primary_column: key
+      idempotency_keys:
+        primary_column: key
+      rate_limit_buckets:
+        primary_column: key
+      mfa_challenges:
+        primary_column: id
+      recovery_sessions:
+        primary_column: id
+      audit_chain_anchors:
+        primary_column: id

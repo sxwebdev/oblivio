@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package oblivio.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/sxwebdev/oblivio/internal/api/pb/oblivio/v1;oblivio_v1";
+
+// AuditService exposes a per-user, read-only view of the hash-chained
+// audit_log. The write path runs server-side at every mutation and is not
+// callable via RPC.
+service AuditService {
+  rpc ListAudit(ListAuditRequest) returns (ListAuditResponse);
+}
+
+enum AuditAction {
+  AUDIT_ACTION_UNSPECIFIED = 0;
+  AUDIT_ACTION_REGISTER = 1;
+  AUDIT_ACTION_LOGIN = 2;
+  AUDIT_ACTION_LOGOUT = 3;
+  AUDIT_ACTION_REFRESH = 4;
+  AUDIT_ACTION_PASSWORD_CHANGE = 5;
+  AUDIT_ACTION_RECOVERY_START = 6;
+  AUDIT_ACTION_RECOVERY_COMPLETE = 7;
+  AUDIT_ACTION_WEBAUTHN_REGISTER = 8;
+  AUDIT_ACTION_WEBAUTHN_REMOVE = 9;
+  AUDIT_ACTION_TOTP_ENABLE = 10;
+  AUDIT_ACTION_TOTP_DISABLE = 11;
+  AUDIT_ACTION_PROJECT_CREATE = 12;
+  AUDIT_ACTION_PROJECT_UPDATE = 13;
+  AUDIT_ACTION_PROJECT_DELETE = 14;
+  AUDIT_ACTION_ENTRY_CREATE = 15;
+  AUDIT_ACTION_ENTRY_UPDATE = 16;
+  AUDIT_ACTION_ENTRY_VIEW = 17;
+  AUDIT_ACTION_ENTRY_DELETE = 18;
+  AUDIT_ACTION_SESSION_TERMINATE = 19;
+  AUDIT_ACTION_ACCOUNT_DELETE = 20;
+  AUDIT_ACTION_EMAIL_VERIFY = 21;
+  AUDIT_ACTION_EMAIL_RESEND = 22;
+  // Emitted by VaultService.DeleteMe when any required factor
+  // (auth_key, TOTP, passkey assertion) fails verification. The audit
+  // row is appended before the connect.Unauthenticated returns so
+  // failed crypto-shred probes show up in the chain.
+  AUDIT_ACTION_ACCOUNT_DELETE_ATTEMPT_FAILED = 23;
+}
+
+message AuditEntry {
+  int64 id = 1;
+  AuditAction action = 2;
+  optional string target_id = 3;
+  optional string ip = 4;
+  optional string user_agent = 5;
+  bytes metadata_json = 6;
+  bytes prev_hash = 7;
+  bytes self_hash = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+message ListAuditRequest {
+  optional AuditAction action = 1;
+  optional google.protobuf.Timestamp from = 2;
+  optional google.protobuf.Timestamp to = 3;
+  optional int64 cursor_id = 4;
+  uint32 limit = 5; // server caps at 200; 0 → default 50
+}
+message ListAuditResponse {
+  repeated AuditEntry entries = 1;
+  optional int64 next_cursor_id = 2;
+}

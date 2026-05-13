@@ -1,0 +1,208 @@
+{
+  "argon2id": [
+    {
+      "password": "hunter2",
+      "salt_hex": "010003020504070609080b0a0d0c0f0e",
+      "t": 1,
+      "m_kib": 1024,
+      "p": 1,
+      "hash_hex": "ecd97ea4c6982a0c08cf1a9c8de872a6a548b5f9b98f7245383a1487a70fd742"
+    },
+    {
+      "password": "correct-horse-battery-staple",
+      "salt_hex": "02030001060704050a0b08090e0f0c0d",
+      "t": 2,
+      "m_kib": 2048,
+      "p": 1,
+      "hash_hex": "56144ae3e94a03ca63fd6b22f5d0af0ee734b5d009f366d3cc9a6115b8bd916d"
+    },
+    {
+      "password": "пароль-юникод-✓",
+      "salt_hex": "03020100070605040b0a09080f0e0d0c",
+      "t": 1,
+      "m_kib": 1024,
+      "p": 1,
+      "hash_hex": "d20c63f78a1be6e6dae2534e8ab514580741334079b647837a43e5525df89817"
+    }
+  ],
+  "hkdf": [
+    {
+      "ikm_hex": "101112131415161718191a1b1c1d1e1f000102030405060708090a0b0c0d0e0f",
+      "info": "oblivio/auth/v2",
+      "salt_hex": "707172737475767778797a7b7c7d7e7f",
+      "out_hex": "154e3310ede5dfaf66d1f940f637f9f172e29616b8e10ba20c4e828b37066828"
+    },
+    {
+      "ikm_hex": "111013121514171619181b1a1d1c1f1e010003020504070609080b0a0d0c0f0e",
+      "info": "oblivio/blind/v2",
+      "salt_hex": "717073727574777679787b7a7d7c7f7e",
+      "out_hex": "fdb6caa00d66100582d586eccb2e555c4ccea852cfe49373969c23708ccb73c1"
+    },
+    {
+      "ikm_hex": "12131011161714151a1b18191e1f1c1d02030001060704050a0b08090e0f0c0d",
+      "info": "oblivio/login-totp/v1",
+      "salt_hex": "",
+      "out_hex": "95a04679db930f16639edfde46b668296c0273fec1e2e8914e90d114c3f6155a"
+    }
+  ],
+  "aes_gcm": [
+    {
+      "key_hex": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+      "nonce_hex": "212023222524272629282b2a",
+      "aad_hex": "7661756c742d77726170",
+      "plaintext_hex": "68656c6c6f20776f726c64",
+      "ciphertext_hex": "0a77090eec7e76f1c686eb2e21a648937bd683809180e8c08f4467"
+    },
+    {
+      "key_hex": "22232021262724252a2b28292e2f2c2d32333031363734353a3b38393e3f3c3d",
+      "nonce_hex": "23222120272625242b2a2928",
+      "aad_hex": "",
+      "plaintext_hex": "",
+      "ciphertext_hex": "ec358cf05495a1310df39f43b54f27cd"
+    },
+    {
+      "key_hex": "24252627202122232c2d2e2f28292a2b34353637303132333c3d3e3f38393a3b",
+      "nonce_hex": "25242726212023222d2c2f2e",
+      "aad_hex": "6f626c6976696f2f6c6f67696e2d746f74702f7631",
+      "plaintext_hex": "26272425222320212e2f2c2d2a2b282936373435323330313e3f3c3d3a3b3839",
+      "ciphertext_hex": "bc5b2cd94ebbc114282f09a4e88660e08b1f6eec53dd9627592e5b2daa3ad868ea1cef829b467a15e06e085d95b06c2b"
+    }
+  ],
+  "verifier": [
+    {
+      "master_key_hex": "303132333435363738393a3b3c3d3e3f202122232425262728292a2b2c2d2e2f",
+      "nonce_hex": "b0b1b2b3b4b5b6b7b8b9babb",
+      "verifier_hex": "01b0b1b2b3b4b5b6b7b8b9babbff5097997d596a5c3be504dbae4d5671f0e23aa9f9e6ceb7da25e134d1bf"
+    },
+    {
+      "master_key_hex": "313033323534373639383b3a3d3c3f3e212023222524272629282b2a2d2c2f2e",
+      "nonce_hex": "b1b0b3b2b5b4b7b6b9b8bbba",
+      "verifier_hex": "01b1b0b3b2b5b4b7b6b9b8bbba05164d5a9b43fad8e7b60a61f0816403bdaa1939add9a462662375d74205"
+    }
+  ],
+  "blind_index": [
+    {
+      "vault_key_hex": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+      "pepper_hex": "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf",
+      "title": "GitHub",
+      "hash_hex": "fafddb0641c54a4616afd2f2c21642d00577b305e44f9d993dee04de32be71be"
+    },
+    {
+      "vault_key_hex": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+      "pepper_hex": "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf",
+      "title": "github",
+      "hash_hex": "fafddb0641c54a4616afd2f2c21642d00577b305e44f9d993dee04de32be71be"
+    },
+    {
+      "vault_key_hex": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+      "pepper_hex": "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf",
+      "title": "Café",
+      "hash_hex": "de1676a2d3759117e43a162c46cdb6e344ce015f498d50edf1db6afa13ef71c7"
+    },
+    {
+      "vault_key_hex": "414043424544474649484b4a4d4c4f4e515053525554575659585b5a5d5c5f5e",
+      "pepper_hex": "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf",
+      "title": "GitHub",
+      "hash_hex": "2374e1f34e512267db8606460a2a4016e0c93b45c365acdc76ca4a303b63316a"
+    },
+    {
+      "vault_key_hex": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+      "pepper_hex": "a1a0a3a2a5a4a7a6a9a8abaaadacafae",
+      "title": "GitHub",
+      "hash_hex": "83d18c794d9b5506ef42eddb2ebea1ddd1521854ce5049c078c54c14482f3ead"
+    },
+    {
+      "vault_key_hex": "42434041464744454a4b48494e4f4c4d52535051565754555a5b58595e5f5c5d",
+      "pepper_hex": "a2a3a0a1a6a7a4a5aaaba8a9aeafacad",
+      "title": "ＧｉｔＨｕｂ",
+      "hash_hex": "bf89c9b85318feea14d4430e61eb7e6e920cf88d2b1784116e814ef12714119b"
+    }
+  ],
+  "totp_rfc6238": [
+    {
+      "secret_b32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "unix": 59,
+      "period": 30,
+      "digits": 8,
+      "code": "94287082"
+    },
+    {
+      "secret_b32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "unix": 1111111109,
+      "period": 30,
+      "digits": 8,
+      "code": "07081804"
+    },
+    {
+      "secret_b32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "unix": 1111111111,
+      "period": 30,
+      "digits": 8,
+      "code": "14050471"
+    },
+    {
+      "secret_b32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "unix": 1234567890,
+      "period": 30,
+      "digits": 8,
+      "code": "89005924"
+    },
+    {
+      "secret_b32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "unix": 2000000000,
+      "period": 30,
+      "digits": 8,
+      "code": "69279037"
+    },
+    {
+      "secret_b32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "unix": 20000000000,
+      "period": 30,
+      "digits": 8,
+      "code": "65353130"
+    },
+    {
+      "secret_b32": "JBSWY3DPJBSWY3DPJBSWY3DPJBSWY3DP",
+      "unix": 1700000000,
+      "period": 30,
+      "digits": 6,
+      "code": "709280"
+    }
+  ],
+  "recovery_wrap": [
+    {
+      "recovery_code": "AAAAA-BBBBB-CCCCC-DDDDD-EEEEE",
+      "salt_hex": "505152535455565758595a5b5c5d5e5f",
+      "nonce_hex": "515053525554575659585b5a",
+      "vault_key_hex": "52535051565754555a5b58595e5f5c5d42434041464744454a4b48494e4f4c4d",
+      "wrapped_hex": "01515053525554575659585b5a087b9e6ff0a17aed20609d3f16db854231f1abd07d343a826c3fb582e3fdf5c599f80b12382173e1b09b80b7cf108b44"
+    },
+    {
+      "recovery_code": "aaaaa bbbbb-ccccc DDDDD-eeeee",
+      "salt_hex": "53525150575655545b5a59585f5e5d5c",
+      "nonce_hex": "54555657505152535c5d5e5f",
+      "vault_key_hex": "55545756515053525d5c5f5e59585b5a45444746414043424d4c4f4e49484b4a",
+      "wrapped_hex": "0154555657505152535c5d5e5f2844b41404e14f400056f985251d1a6eb06331dfb3e03a0b3914bc5a5f07bd4311bc994b3a5f15d5021147c402b90da5"
+    }
+  ],
+  "item_wrap": [
+    {
+      "vault_key_hex": "606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f",
+      "item_key_hex": "616063626564676669686b6a6d6c6f6e717073727574777679787b7a7d7c7f7e",
+      "nonce_hex": "62636061666764656a6b6869",
+      "vault_id": "00000000-0000-0000-0000-000000000001",
+      "item_id": "00000000-0000-0000-0000-000000000a01",
+      "version": 1,
+      "wrapped_hex": "0162636061666764656a6b686902b04569ecf71db043efc58608b8062a2d639b9caaaa84a6690ca82b48d8f803afbd00d46eb33228c7ac56e5f51d8d02"
+    },
+    {
+      "vault_key_hex": "606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f",
+      "item_key_hex": "63626160676665646b6a69686f6e6d6c73727170777675747b7a79787f7e7d7c",
+      "nonce_hex": "64656667606162636c6d6e6f",
+      "vault_id": "00000000-0000-0000-0000-000000000001",
+      "item_id": "00000000-0000-0000-0000-000000000a02",
+      "version": 3,
+      "wrapped_hex": "0164656667606162636c6d6e6f76a914882e76786a45434b8f911ad31d3b780ff20487f491935414728a8411736f3d16e243f725a958101a1aa0f2bd0e"
+    }
+  ]
+}

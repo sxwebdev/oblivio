@@ -1,0 +1,28 @@
+version: v2
+clean: true
+managed:
+  enabled: true
+  disable:
+    - file_option: go_package
+      module: buf.build/googleapis/googleapis
+    - file_option: go_package
+      module: buf.build/grpc-ecosystem/grpc-gateway
+  override:
+    - file_option: go_package_prefix
+      value: github.com/sxwebdev/oblivio/internal/api/gen/go
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: ../internal/api/gen/go
+    opt: paths=source_relative
+  - remote: buf.build/connectrpc/go
+    out: ../internal/api/gen/go
+    opt: paths=source_relative
+
+  # TypeScript
+  - remote: buf.build/bufbuild/es
+    out: ../frontend/src/api/gen
+    opt: target=ts
+    include_imports: true
+  - remote: buf.build/connectrpc/query-es
+    out: ../frontend/src/api/gen
+    opt: target=ts

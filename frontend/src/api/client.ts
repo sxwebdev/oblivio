@@ -1,119 +1,136 @@
-// In dev, point to backend on 8080 unless overridden by VITE_API_ORIGIN.
-const __env: any = (import.meta as any).env || {};
-const API_ORIGIN =
-  __env.VITE_API_ORIGIN ?? (__env.DEV ? "http://localhost:8080" : "");
-export const API_BASE = `${API_ORIGIN}/v1`;
+// ConnectRPC clients wired with two interceptors:
+//   1. bearerInterceptor   — injects `Authorization: Bearer <token>` from
+//      the Zustand auth store on every authenticated procedure.
+//   2. refreshOn401Interceptor — when a request fails with Unauthenticated
+//      and we have a refresh token, calls AuthService.RefreshToken once,
+//      updates the auth store, and retries the original RPC. On failure
+//      (or if there's no refresh token) clears the session and lets the
+//      caller redirect to /login. Multiple parallel 401s deduplicate
+//      against a single in-flight refresh promise.
 
-let authToken: string | undefined;
-export function setAuthToken(t?: string) {
-  authToken = t;
-}
+import {
+  Code,
+  ConnectError,
+  createClient,
+  type Interceptor,
+  type Transport,
+} from "@connectrpc/connect"
+import { createConnectTransport } from "@connectrpc/connect-web"
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...((init?.headers as any) || {}),
-  };
-  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
-  const res = await fetch(`${API_BASE}${path}`, {
-    credentials: "include",
-    headers,
-    ...init,
-  });
-  if (!res.ok) throw new Error(`API ${res.status}`);
-  if (res.status === 204) return undefined as unknown as T;
-  return (await res.json()) as T;
-}
+import { AuthService } from "./gen/oblivio/v1/auth_pb"
+import { VaultService } from "./gen/oblivio/v1/vault_pb"
+import { ProjectsService } from "./gen/oblivio/v1/projects_pb"
+import { EntriesService } from "./gen/oblivio/v1/entries_pb"
+import { AuditService } from "./gen/oblivio/v1/audit_pb"
+import { LoginTOTPService } from "./gen/oblivio/v1/login_totp_pb"
+import { WebAuthnService } from "./gen/oblivio/v1/webauthn_pb"
+import { SessionsService } from "./gen/oblivio/v1/sessions_pb"
+import { SubscriptionsService } from "./gen/oblivio/v1/subscriptions_pb"
 
-export type ListItem = { item_id: string; updated_at: number; size: number };
-export async function listItems(limit = 50, cursor?: string) {
-  const qs = new URLSearchParams();
-  qs.set("limit", String(limit));
-  if (cursor) qs.set("cursor", cursor);
-  return api<{ items: ListItem[]; next_cursor?: string }>(`/items/list?${qs}`);
-}
+import { useAuthStore } from "@/stores/auth"
+import { useVaultStore } from "@/stores/vault"
 
-export async function getItems(ids: string[]) {
-  const qs = new URLSearchParams();
-  qs.set("ids", ids.join(","));
-  return api<Array<{ item_id: string; ciphertext: string }>>(`/items?${qs}`);
-}
+// All ConnectRPC traffic is namespaced under `/api`. In dev the Vite
+// proxy on :5173 forwards `/api/*` to the Go backend on :8080; in prod
+// the WebUI is embedded and same-origin under the same `/api` prefix.
+const baseUrl = "/api"
 
-export async function createItem(body: {
-  item_id: string;
-  version?: number;
-  ciphertext_b64: string;
-  tokens?: Record<string, string[]>;
-}) {
-  return api<{ item_id: string; version: number }>(`/items`, {
-    method: "POST",
-    body: JSON.stringify({ version: 1, tokens: {}, ...body }),
-  });
+const bearerInterceptor: Interceptor = (next) => async (req) => {
+  const token = useAuthStore.getState().accessToken
+  if (token) {
+    req.header.set("Authorization", `Bearer ${token}`)
+  }
+  return next(req)
 }
 
-export async function updateItem(
-  id: string,
-  body: {
-    expected_version?: number;
-    version?: number;
-    ciphertext_b64: string;
-    tokens?: Record<string, string[]>;
-  },
-) {
-  return api<void>(`/items/${encodeURIComponent(id)}`, {
-    method: "PUT",
-    body: JSON.stringify({ version: 1, tokens: {}, ...body }),
-  });
+// In-flight refresh promise. All concurrent 401s wait on the same
+// promise so 5 parallel requests trigger ONE RefreshToken call.
+let refreshInFlight: Promise<boolean> | null = null
+
+// rawRefreshTransport is a no-interceptor transport used only by the
+// refresh-on-401 interceptor to call AuthService.RefreshToken. Recursing
+// through the interceptor stack would 401-loop on a failing refresh.
+const rawRefreshTransport: Transport = createConnectTransport({ baseUrl })
+const rawAuthClient = createClient(AuthService, rawRefreshTransport)
+
+async function refreshTokens(): Promise<boolean> {
+  const a = useAuthStore.getState()
+  if (!a.refreshToken) return false
+  try {
+    const resp = await rawAuthClient.refreshToken({
+      refreshToken: a.refreshToken,
+      deviceInfo: { deviceId: a.deviceId, deviceType: "web" },
+    })
+    const p = resp.authPayload
+    if (!p) return false
+    a.setSession({
+      userId: a.userId ?? "",
+      email: a.email ?? "",
+      accessToken: p.accessToken,
+      refreshToken: p.refreshToken,
+      accessExpiresAt: Number(p.accessExpiresAt?.seconds ?? 0n) * 1000,
+      refreshExpiresAt: Number(p.refreshExpiresAt?.seconds ?? 0n) * 1000,
+    })
+    return true
+  } catch {
+    return false
+  }
 }
 
-export async function deleteItem(id: string) {
-  return api<void>(`/items/${encodeURIComponent(id)}`, { method: "DELETE" });
+const refreshOn401Interceptor: Interceptor = (next) => async (req) => {
+  try {
+    return await next(req)
+  } catch (e) {
+    if (!(e instanceof ConnectError) || e.code !== Code.Unauthenticated) throw e
+    // Don't try to refresh a failing refresh itself — bail to login.
+    if (req.url.endsWith("/AuthService/RefreshToken")) {
+      useAuthStore.getState().clear()
+      useVaultStore.getState().lock()
+      throw e
+    }
+
+    if (!refreshInFlight) {
+      refreshInFlight = refreshTokens().finally(() => {
+        refreshInFlight = null
+      })
+    }
+    const ok = await refreshInFlight
+    if (!ok) {
+      useAuthStore.getState().clear()
+      useVaultStore.getState().lock()
+      throw e
+    }
+    // Replay with the freshly minted Bearer.
+    const freshToken = useAuthStore.getState().accessToken
+    if (freshToken) {
+      req.header.set("Authorization", `Bearer ${freshToken}`)
+    }
+    return next(req)
+  }
 }
 
-export async function searchEq(
-  tokens: Array<{ type: string; value_b64: string }>,
-  limit = 50,
-  cursor?: string,
-) {
-  return api<{ item_ids: string[]; next_cursor?: string }>(`/search/eq`, {
-    method: "POST",
-    body: JSON.stringify({ tokens, limit, cursor }),
-  });
-}
+const transport = createConnectTransport({
+  baseUrl,
+  // Order: bearer first (so the inner refresh interceptor sees the
+  // outgoing request with the current token), refresh wraps next() so
+  // it catches Unauthenticated from the actual network call.
+  interceptors: [bearerInterceptor, refreshOn401Interceptor],
+})
 
-// Auth stubs (backend not implemented yet)
-export async function authRegister(body: {
-  username: string;
-  password: string;
-}) {
-  return api<{ otpauth_url: string }>(`/auth/register`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-}
-export async function authLogin(body: {
-  username: string;
-  password: string;
-  code: string;
-}) {
-  return api<{ token: string; username: string }>(`/auth/login`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-}
-export async function authMFAVerify(body: {
-  username: string;
-  password: string;
-  code: string;
-}) {
-  return api<void>(`/auth/mfa/verify`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-}
-export async function authMe() {
-  return api<{ username: string }>(`/auth/me`, { method: "GET" });
-}
-export async function authLogout() {
-  return api<void>(`/auth/logout`, { method: "POST" });
+export const authClient = createClient(AuthService, transport)
+export const vaultClient = createClient(VaultService, transport)
+export const projectsClient = createClient(ProjectsService, transport)
+export const entriesClient = createClient(EntriesService, transport)
+export const auditClient = createClient(AuditService, transport)
+export const loginTotpClient = createClient(LoginTOTPService, transport)
+export const webauthnClient = createClient(WebAuthnService, transport)
+export const sessionsClient = createClient(SessionsService, transport)
+export const subscriptionsClient = createClient(SubscriptionsService, transport)
+
+// idempotencyHeaders returns a one-shot Idempotency-Key header dictionary.
+// Pass it through to a mutating RPC via { headers: idempotencyHeaders() }.
+// Each call generates a fresh UUID so retries by the user (e.g. double
+// click on Save) collapse into a single server-side write.
+export function idempotencyHeaders(): HeadersInit {
+  return { "Idempotency-Key": crypto.randomUUID() }
 }

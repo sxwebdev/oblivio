@@ -8,182 +8,484 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as VaultRouteImport } from "./routes/vault";
-import { Route as SearchRouteImport } from "./routes/search";
-import { Route as RegisterRouteImport } from "./routes/register";
-import { Route as LoginRouteImport } from "./routes/login";
-import { Route as EditorRouteImport } from "./routes/editor";
-import { Route as IndexRouteImport } from "./routes/index";
-import { Route as SettingsAlertsRouteImport } from "./routes/settings.alerts";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as PublicRouteImport } from './routes/_public'
+import { Route as AuthRouteImport } from './routes/_auth'
+import { Route as AuthIndexRouteImport } from './routes/_auth.index'
+import { Route as PublicVerifyEmailRouteImport } from './routes/_public.verify-email'
+import { Route as PublicUnlockRouteImport } from './routes/_public.unlock'
+import { Route as PublicRegisterRouteImport } from './routes/_public.register'
+import { Route as PublicRecoverRouteImport } from './routes/_public.recover'
+import { Route as PublicLoginRouteImport } from './routes/_public.login'
+import { Route as AuthSettingsIndexRouteImport } from './routes/_auth.settings.index'
+import { Route as AuthProjectsIndexRouteImport } from './routes/_auth.projects.index'
+import { Route as AuthNotesIndexRouteImport } from './routes/_auth.notes.index'
+import { Route as AuthEntriesIndexRouteImport } from './routes/_auth.entries.index'
+import { Route as AuthAuditIndexRouteImport } from './routes/_auth.audit.index'
+import { Route as AuthSettingsTwoFactorRouteImport } from './routes/_auth.settings.two-factor'
+import { Route as AuthSettingsSecurityRouteImport } from './routes/_auth.settings.security'
+import { Route as AuthProjectsNewRouteImport } from './routes/_auth.projects.new'
+import { Route as AuthNotesNewRouteImport } from './routes/_auth.notes.new'
+import { Route as AuthEntriesNewRouteImport } from './routes/_auth.entries.new'
+import { Route as AuthEntriesEntryIdIndexRouteImport } from './routes/_auth.entries.$entryId.index'
+import { Route as AuthProjectsProjectIdEditRouteImport } from './routes/_auth.projects.$projectId.edit'
+import { Route as AuthEntriesEntryIdEditRouteImport } from './routes/_auth.entries.$entryId.edit'
 
-const VaultRoute = VaultRouteImport.update({
-  id: "/vault",
-  path: "/vault",
+const PublicRoute = PublicRouteImport.update({
+  id: '/_public',
   getParentRoute: () => rootRouteImport,
-} as any);
-const SearchRoute = SearchRouteImport.update({
-  id: "/search",
-  path: "/search",
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/_auth',
   getParentRoute: () => rootRouteImport,
-} as any);
-const RegisterRoute = RegisterRouteImport.update({
-  id: "/register",
-  path: "/register",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const LoginRoute = LoginRouteImport.update({
-  id: "/login",
-  path: "/login",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const EditorRoute = EditorRouteImport.update({
-  id: "/editor",
-  path: "/editor",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const SettingsAlertsRoute = SettingsAlertsRouteImport.update({
-  id: "/settings/alerts",
-  path: "/settings/alerts",
-  getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
+const AuthIndexRoute = AuthIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthRoute,
+} as any)
+const PublicVerifyEmailRoute = PublicVerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicUnlockRoute = PublicUnlockRouteImport.update({
+  id: '/unlock',
+  path: '/unlock',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicRegisterRoute = PublicRegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicRecoverRoute = PublicRecoverRouteImport.update({
+  id: '/recover',
+  path: '/recover',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicLoginRoute = PublicLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => PublicRoute,
+} as any)
+const AuthSettingsIndexRoute = AuthSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthProjectsIndexRoute = AuthProjectsIndexRouteImport.update({
+  id: '/projects/',
+  path: '/projects/',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthNotesIndexRoute = AuthNotesIndexRouteImport.update({
+  id: '/notes/',
+  path: '/notes/',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthEntriesIndexRoute = AuthEntriesIndexRouteImport.update({
+  id: '/entries/',
+  path: '/entries/',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthAuditIndexRoute = AuthAuditIndexRouteImport.update({
+  id: '/audit/',
+  path: '/audit/',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthSettingsTwoFactorRoute = AuthSettingsTwoFactorRouteImport.update({
+  id: '/settings/two-factor',
+  path: '/settings/two-factor',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthSettingsSecurityRoute = AuthSettingsSecurityRouteImport.update({
+  id: '/settings/security',
+  path: '/settings/security',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthProjectsNewRoute = AuthProjectsNewRouteImport.update({
+  id: '/projects/new',
+  path: '/projects/new',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthNotesNewRoute = AuthNotesNewRouteImport.update({
+  id: '/notes/new',
+  path: '/notes/new',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthEntriesNewRoute = AuthEntriesNewRouteImport.update({
+  id: '/entries/new',
+  path: '/entries/new',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthEntriesEntryIdIndexRoute = AuthEntriesEntryIdIndexRouteImport.update({
+  id: '/entries/$entryId/',
+  path: '/entries/$entryId/',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthProjectsProjectIdEditRoute =
+  AuthProjectsProjectIdEditRouteImport.update({
+    id: '/projects/$projectId/edit',
+    path: '/projects/$projectId/edit',
+    getParentRoute: () => AuthRoute,
+  } as any)
+const AuthEntriesEntryIdEditRoute = AuthEntriesEntryIdEditRouteImport.update({
+  id: '/entries/$entryId/edit',
+  path: '/entries/$entryId/edit',
+  getParentRoute: () => AuthRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/editor": typeof EditorRoute;
-  "/login": typeof LoginRoute;
-  "/register": typeof RegisterRoute;
-  "/search": typeof SearchRoute;
-  "/vault": typeof VaultRoute;
-  "/settings/alerts": typeof SettingsAlertsRoute;
+  '/': typeof AuthIndexRoute
+  '/login': typeof PublicLoginRoute
+  '/recover': typeof PublicRecoverRoute
+  '/register': typeof PublicRegisterRoute
+  '/unlock': typeof PublicUnlockRoute
+  '/verify-email': typeof PublicVerifyEmailRoute
+  '/entries/new': typeof AuthEntriesNewRoute
+  '/notes/new': typeof AuthNotesNewRoute
+  '/projects/new': typeof AuthProjectsNewRoute
+  '/settings/security': typeof AuthSettingsSecurityRoute
+  '/settings/two-factor': typeof AuthSettingsTwoFactorRoute
+  '/audit/': typeof AuthAuditIndexRoute
+  '/entries/': typeof AuthEntriesIndexRoute
+  '/notes/': typeof AuthNotesIndexRoute
+  '/projects/': typeof AuthProjectsIndexRoute
+  '/settings/': typeof AuthSettingsIndexRoute
+  '/entries/$entryId/edit': typeof AuthEntriesEntryIdEditRoute
+  '/projects/$projectId/edit': typeof AuthProjectsProjectIdEditRoute
+  '/entries/$entryId/': typeof AuthEntriesEntryIdIndexRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/editor": typeof EditorRoute;
-  "/login": typeof LoginRoute;
-  "/register": typeof RegisterRoute;
-  "/search": typeof SearchRoute;
-  "/vault": typeof VaultRoute;
-  "/settings/alerts": typeof SettingsAlertsRoute;
+  '/': typeof AuthIndexRoute
+  '/login': typeof PublicLoginRoute
+  '/recover': typeof PublicRecoverRoute
+  '/register': typeof PublicRegisterRoute
+  '/unlock': typeof PublicUnlockRoute
+  '/verify-email': typeof PublicVerifyEmailRoute
+  '/entries/new': typeof AuthEntriesNewRoute
+  '/notes/new': typeof AuthNotesNewRoute
+  '/projects/new': typeof AuthProjectsNewRoute
+  '/settings/security': typeof AuthSettingsSecurityRoute
+  '/settings/two-factor': typeof AuthSettingsTwoFactorRoute
+  '/audit': typeof AuthAuditIndexRoute
+  '/entries': typeof AuthEntriesIndexRoute
+  '/notes': typeof AuthNotesIndexRoute
+  '/projects': typeof AuthProjectsIndexRoute
+  '/settings': typeof AuthSettingsIndexRoute
+  '/entries/$entryId/edit': typeof AuthEntriesEntryIdEditRoute
+  '/projects/$projectId/edit': typeof AuthProjectsProjectIdEditRoute
+  '/entries/$entryId': typeof AuthEntriesEntryIdIndexRoute
 }
 export interface FileRoutesById {
-  "__root__": typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/editor": typeof EditorRoute;
-  "/login": typeof LoginRoute;
-  "/register": typeof RegisterRoute;
-  "/search": typeof SearchRoute;
-  "/vault": typeof VaultRoute;
-  "/settings/alerts": typeof SettingsAlertsRoute;
+  __root__: typeof rootRouteImport
+  '/_auth': typeof AuthRouteWithChildren
+  '/_public': typeof PublicRouteWithChildren
+  '/_public/login': typeof PublicLoginRoute
+  '/_public/recover': typeof PublicRecoverRoute
+  '/_public/register': typeof PublicRegisterRoute
+  '/_public/unlock': typeof PublicUnlockRoute
+  '/_public/verify-email': typeof PublicVerifyEmailRoute
+  '/_auth/': typeof AuthIndexRoute
+  '/_auth/entries/new': typeof AuthEntriesNewRoute
+  '/_auth/notes/new': typeof AuthNotesNewRoute
+  '/_auth/projects/new': typeof AuthProjectsNewRoute
+  '/_auth/settings/security': typeof AuthSettingsSecurityRoute
+  '/_auth/settings/two-factor': typeof AuthSettingsTwoFactorRoute
+  '/_auth/audit/': typeof AuthAuditIndexRoute
+  '/_auth/entries/': typeof AuthEntriesIndexRoute
+  '/_auth/notes/': typeof AuthNotesIndexRoute
+  '/_auth/projects/': typeof AuthProjectsIndexRoute
+  '/_auth/settings/': typeof AuthSettingsIndexRoute
+  '/_auth/entries/$entryId/edit': typeof AuthEntriesEntryIdEditRoute
+  '/_auth/projects/$projectId/edit': typeof AuthProjectsProjectIdEditRoute
+  '/_auth/entries/$entryId/': typeof AuthEntriesEntryIdIndexRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | "/"
-    | "/editor"
-    | "/login"
-    | "/register"
-    | "/search"
-    | "/vault"
-    | "/settings/alerts";
-  fileRoutesByTo: FileRoutesByTo;
+    | '/'
+    | '/login'
+    | '/recover'
+    | '/register'
+    | '/unlock'
+    | '/verify-email'
+    | '/entries/new'
+    | '/notes/new'
+    | '/projects/new'
+    | '/settings/security'
+    | '/settings/two-factor'
+    | '/audit/'
+    | '/entries/'
+    | '/notes/'
+    | '/projects/'
+    | '/settings/'
+    | '/entries/$entryId/edit'
+    | '/projects/$projectId/edit'
+    | '/entries/$entryId/'
+  fileRoutesByTo: FileRoutesByTo
   to:
-    | "/"
-    | "/editor"
-    | "/login"
-    | "/register"
-    | "/search"
-    | "/vault"
-    | "/settings/alerts";
+    | '/'
+    | '/login'
+    | '/recover'
+    | '/register'
+    | '/unlock'
+    | '/verify-email'
+    | '/entries/new'
+    | '/notes/new'
+    | '/projects/new'
+    | '/settings/security'
+    | '/settings/two-factor'
+    | '/audit'
+    | '/entries'
+    | '/notes'
+    | '/projects'
+    | '/settings'
+    | '/entries/$entryId/edit'
+    | '/projects/$projectId/edit'
+    | '/entries/$entryId'
   id:
-    | "__root__"
-    | "/"
-    | "/editor"
-    | "/login"
-    | "/register"
-    | "/search"
-    | "/vault"
-    | "/settings/alerts";
-  fileRoutesById: FileRoutesById;
+    | '__root__'
+    | '/_auth'
+    | '/_public'
+    | '/_public/login'
+    | '/_public/recover'
+    | '/_public/register'
+    | '/_public/unlock'
+    | '/_public/verify-email'
+    | '/_auth/'
+    | '/_auth/entries/new'
+    | '/_auth/notes/new'
+    | '/_auth/projects/new'
+    | '/_auth/settings/security'
+    | '/_auth/settings/two-factor'
+    | '/_auth/audit/'
+    | '/_auth/entries/'
+    | '/_auth/notes/'
+    | '/_auth/projects/'
+    | '/_auth/settings/'
+    | '/_auth/entries/$entryId/edit'
+    | '/_auth/projects/$projectId/edit'
+    | '/_auth/entries/$entryId/'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  EditorRoute: typeof EditorRoute;
-  LoginRoute: typeof LoginRoute;
-  RegisterRoute: typeof RegisterRoute;
-  SearchRoute: typeof SearchRoute;
-  VaultRoute: typeof VaultRoute;
-  SettingsAlertsRoute: typeof SettingsAlertsRoute;
+  AuthRoute: typeof AuthRouteWithChildren
+  PublicRoute: typeof PublicRouteWithChildren
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/vault": {
-      id: "/vault";
-      path: "/vault";
-      fullPath: "/vault";
-      preLoaderRoute: typeof VaultRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/search": {
-      id: "/search";
-      path: "/search";
-      fullPath: "/search";
-      preLoaderRoute: typeof SearchRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/register": {
-      id: "/register";
-      path: "/register";
-      fullPath: "/register";
-      preLoaderRoute: typeof RegisterRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/login": {
-      id: "/login";
-      path: "/login";
-      fullPath: "/login";
-      preLoaderRoute: typeof LoginRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/editor": {
-      id: "/editor";
-      path: "/editor";
-      fullPath: "/editor";
-      preLoaderRoute: typeof EditorRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/settings/alerts": {
-      id: "/settings/alerts";
-      path: "/settings/alerts";
-      fullPath: "/settings/alerts";
-      preLoaderRoute: typeof SettingsAlertsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+    '/_public': {
+      id: '/_public'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PublicRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_auth': {
+      id: '/_auth'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_auth/': {
+      id: '/_auth/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_public/verify-email': {
+      id: '/_public/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof PublicVerifyEmailRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/unlock': {
+      id: '/_public/unlock'
+      path: '/unlock'
+      fullPath: '/unlock'
+      preLoaderRoute: typeof PublicUnlockRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/register': {
+      id: '/_public/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof PublicRegisterRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/recover': {
+      id: '/_public/recover'
+      path: '/recover'
+      fullPath: '/recover'
+      preLoaderRoute: typeof PublicRecoverRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/login': {
+      id: '/_public/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof PublicLoginRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_auth/settings/': {
+      id: '/_auth/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthSettingsIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/projects/': {
+      id: '/_auth/projects/'
+      path: '/projects'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof AuthProjectsIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/notes/': {
+      id: '/_auth/notes/'
+      path: '/notes'
+      fullPath: '/notes/'
+      preLoaderRoute: typeof AuthNotesIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/entries/': {
+      id: '/_auth/entries/'
+      path: '/entries'
+      fullPath: '/entries/'
+      preLoaderRoute: typeof AuthEntriesIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/audit/': {
+      id: '/_auth/audit/'
+      path: '/audit'
+      fullPath: '/audit/'
+      preLoaderRoute: typeof AuthAuditIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/settings/two-factor': {
+      id: '/_auth/settings/two-factor'
+      path: '/settings/two-factor'
+      fullPath: '/settings/two-factor'
+      preLoaderRoute: typeof AuthSettingsTwoFactorRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/settings/security': {
+      id: '/_auth/settings/security'
+      path: '/settings/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof AuthSettingsSecurityRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/projects/new': {
+      id: '/_auth/projects/new'
+      path: '/projects/new'
+      fullPath: '/projects/new'
+      preLoaderRoute: typeof AuthProjectsNewRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/notes/new': {
+      id: '/_auth/notes/new'
+      path: '/notes/new'
+      fullPath: '/notes/new'
+      preLoaderRoute: typeof AuthNotesNewRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/entries/new': {
+      id: '/_auth/entries/new'
+      path: '/entries/new'
+      fullPath: '/entries/new'
+      preLoaderRoute: typeof AuthEntriesNewRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/entries/$entryId/': {
+      id: '/_auth/entries/$entryId/'
+      path: '/entries/$entryId'
+      fullPath: '/entries/$entryId/'
+      preLoaderRoute: typeof AuthEntriesEntryIdIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/projects/$projectId/edit': {
+      id: '/_auth/projects/$projectId/edit'
+      path: '/projects/$projectId/edit'
+      fullPath: '/projects/$projectId/edit'
+      preLoaderRoute: typeof AuthProjectsProjectIdEditRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/entries/$entryId/edit': {
+      id: '/_auth/entries/$entryId/edit'
+      path: '/entries/$entryId/edit'
+      fullPath: '/entries/$entryId/edit'
+      preLoaderRoute: typeof AuthEntriesEntryIdEditRouteImport
+      parentRoute: typeof AuthRoute
+    }
   }
 }
 
+interface AuthRouteChildren {
+  AuthIndexRoute: typeof AuthIndexRoute
+  AuthEntriesNewRoute: typeof AuthEntriesNewRoute
+  AuthNotesNewRoute: typeof AuthNotesNewRoute
+  AuthProjectsNewRoute: typeof AuthProjectsNewRoute
+  AuthSettingsSecurityRoute: typeof AuthSettingsSecurityRoute
+  AuthSettingsTwoFactorRoute: typeof AuthSettingsTwoFactorRoute
+  AuthAuditIndexRoute: typeof AuthAuditIndexRoute
+  AuthEntriesIndexRoute: typeof AuthEntriesIndexRoute
+  AuthNotesIndexRoute: typeof AuthNotesIndexRoute
+  AuthProjectsIndexRoute: typeof AuthProjectsIndexRoute
+  AuthSettingsIndexRoute: typeof AuthSettingsIndexRoute
+  AuthEntriesEntryIdEditRoute: typeof AuthEntriesEntryIdEditRoute
+  AuthProjectsProjectIdEditRoute: typeof AuthProjectsProjectIdEditRoute
+  AuthEntriesEntryIdIndexRoute: typeof AuthEntriesEntryIdIndexRoute
+}
+
+const AuthRouteChildren: AuthRouteChildren = {
+  AuthIndexRoute: AuthIndexRoute,
+  AuthEntriesNewRoute: AuthEntriesNewRoute,
+  AuthNotesNewRoute: AuthNotesNewRoute,
+  AuthProjectsNewRoute: AuthProjectsNewRoute,
+  AuthSettingsSecurityRoute: AuthSettingsSecurityRoute,
+  AuthSettingsTwoFactorRoute: AuthSettingsTwoFactorRoute,
+  AuthAuditIndexRoute: AuthAuditIndexRoute,
+  AuthEntriesIndexRoute: AuthEntriesIndexRoute,
+  AuthNotesIndexRoute: AuthNotesIndexRoute,
+  AuthProjectsIndexRoute: AuthProjectsIndexRoute,
+  AuthSettingsIndexRoute: AuthSettingsIndexRoute,
+  AuthEntriesEntryIdEditRoute: AuthEntriesEntryIdEditRoute,
+  AuthProjectsProjectIdEditRoute: AuthProjectsProjectIdEditRoute,
+  AuthEntriesEntryIdIndexRoute: AuthEntriesEntryIdIndexRoute,
+}
+
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+
+interface PublicRouteChildren {
+  PublicLoginRoute: typeof PublicLoginRoute
+  PublicRecoverRoute: typeof PublicRecoverRoute
+  PublicRegisterRoute: typeof PublicRegisterRoute
+  PublicUnlockRoute: typeof PublicUnlockRoute
+  PublicVerifyEmailRoute: typeof PublicVerifyEmailRoute
+}
+
+const PublicRouteChildren: PublicRouteChildren = {
+  PublicLoginRoute: PublicLoginRoute,
+  PublicRecoverRoute: PublicRecoverRoute,
+  PublicRegisterRoute: PublicRegisterRoute,
+  PublicUnlockRoute: PublicUnlockRoute,
+  PublicVerifyEmailRoute: PublicVerifyEmailRoute,
+}
+
+const PublicRouteWithChildren =
+  PublicRoute._addFileChildren(PublicRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  EditorRoute: EditorRoute,
-  LoginRoute: LoginRoute,
-  RegisterRoute: RegisterRoute,
-  SearchRoute: SearchRoute,
-  VaultRoute: VaultRoute,
-  SettingsAlertsRoute: SettingsAlertsRoute,
-};
+  AuthRoute: AuthRouteWithChildren,
+  PublicRoute: PublicRouteWithChildren,
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()

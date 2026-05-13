@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package oblivio.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/sxwebdev/oblivio/internal/api/pb/oblivio/v1;oblivio_v1";
+
+// EntriesService stores every secret record kind — logins, TOTP-only, cards,
+// identities, SSH keys and notes — as a single encrypted blob with kind-
+// dependent JSON inside. The server stores only ciphertext plus a few
+// blind-indexable hashes and integrity-cheap booleans for list-view filtering.
+service EntriesService {
+  rpc ListEntries(ListEntriesRequest) returns (ListEntriesResponse);
+  rpc GetEntriesByIds(GetEntriesByIdsRequest) returns (GetEntriesByIdsResponse);
+  rpc GetEntry(GetEntryRequest) returns (GetEntryResponse);
+  rpc CreateEntry(CreateEntryRequest) returns (CreateEntryResponse);
+  rpc UpdateEntry(UpdateEntryRequest) returns (UpdateEntryResponse);
+  rpc DeleteEntry(DeleteEntryRequest) returns (DeleteEntryResponse);
+  rpc ToggleFavorite(ToggleFavoriteRequest) returns (ToggleFavoriteResponse);
+}
+
+enum EntryKind {
+  ENTRY_KIND_UNSPECIFIED = 0;
+  ENTRY_KIND_LOGIN = 1;
+  ENTRY_KIND_TOTP = 2;
+  ENTRY_KIND_CARD = 3;
+  ENTRY_KIND_IDENTITY = 4;
+  ENTRY_KIND_SSH_KEY = 5;
+  ENTRY_KIND_NOTE = 6;
+}
+
+// EntryMeta carries everything the list view needs WITHOUT plaintext or
+// ciphertext-payload. The blob is fetched separately via GetByIds when the
+// user opens a single entry, so the list endpoint stays cheap.
+message EntryMeta {
+  string id = 1;
+  string project_id = 2;
+  EntryKind kind = 3;
+  bytes title_hash = 4;
+  bytes domain_hash = 5;
+  bool has_totp = 6;
+  bool is_favorite = 7;
+  uint32 version = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// Entry is the full server-side row, including ciphertext. Used for the
+// detail view after the user opens an item.
+message Entry {
+  string id = 1;
+  string project_id = 2;
+  EntryKind kind = 3;
+  bytes encrypted_blob = 4;
+  bytes wrapped_item_key = 5;
+  bytes title_hash = 6;
+  bytes domain_hash = 7;
+  bool has_totp = 8;
+  bool is_favorite = 9;
+  uint32 version = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message ListEntriesRequest {
+  // All filters are optional; empty/missing = no constraint.
+  optional string project_id = 1;
+  optional EntryKind kind = 2;
+  repeated bytes title_hashes = 3;
+  repeated bytes domain_hashes = 4;
+  optional bool favorites_only = 5;
+  optional bool has_totp_only = 6;
+  optional google.protobuf.Timestamp updated_after = 7;
+  uint32 limit = 8; // server caps at 500; 0 → default 100
+}
+message ListEntriesResponse {
+  repeated EntryMeta entries = 1;
+  // Cursor for the next page in the form of an updated_at timestamp; pass
+  // back via updated_after to continue.
+  optional google.protobuf.Timestamp next_updated_after = 2;
+}
+
+message GetEntriesByIdsRequest {
+  repeated string ids = 1;
+}
+message GetEntriesByIdsResponse {
+  repeated Entry entries = 1;
+}
+
+message GetEntryRequest {
+  string id = 1;
+}
+message GetEntryResponse {
+  Entry entry = 1;
+}
+
+message CreateEntryRequest {
+  optional string project_id = 1;
+  EntryKind kind = 2;
+  bytes encrypted_blob = 3;
+  bytes wrapped_item_key = 4;
+  bytes title_hash = 5;
+  bytes domain_hash = 6;
+  bool has_totp = 7;
+  bool is_favorite = 8;
+  // Client-minted UUID; same contract as CreateProjectRequest.id.
+  string id = 9;
+}
+message CreateEntryResponse {
+  Entry entry = 1;
+}
+
+message UpdateEntryRequest {
+  string id = 1;
+  uint32 expected_version = 2;
+  optional string project_id = 3;
+  EntryKind kind = 4;
+  bytes encrypted_blob = 5;
+  bytes wrapped_item_key = 6;
+  bytes title_hash = 7;
+  bytes domain_hash = 8;
+  bool has_totp = 9;
+  bool is_favorite = 10;
+}
+message UpdateEntryResponse {
+  Entry entry = 1;
+}
+
+message DeleteEntryRequest {
+  string id = 1;
+}
+message DeleteEntryResponse {}
+
+message ToggleFavoriteRequest {
+  string id = 1;
+  bool is_favorite = 2;
+}
+message ToggleFavoriteResponse {
+  Entry entry = 1;
+}

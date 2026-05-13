@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS entries;
+DROP TYPE  IF EXISTS entry_kind;
+DROP TABLE IF EXISTS projects;

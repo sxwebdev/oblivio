@@ -1,0 +1,4 @@
+Contact: mailto:security@oblivio.local
+Preferred-Languages: en, ru
+Expires: 2027-01-01T00:00:00.000Z
+Policy: https://github.com/sxwebdev/oblivio/blob/master/SECURITY.md

@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: oblivio
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    restart: unless-stopped
+    healthcheck:
+      test: pg_isready -U postgres
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  vault:
+    image: hashicorp/vault:latest
+    ports:
+      - 8200:8200
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+      SKIP_SETCAP: "true"
+    cap_add:
+      - IPC_LOCK
+    restart: unless-stopped
+    healthcheck:
+      test: vault status
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # mailhog catches every outbound email locally so the verification flow
+  # is end-to-end testable without a real SMTP relay. UI lives at :8025.
+  # Configure config.yaml: email.provider=smtp, email.smtp.host=localhost,
+  # email.smtp.port=1025, email.smtp.allow_insecure=true.
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - 1025:1025 # SMTP
+      - 8025:8025 # Web UI
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
