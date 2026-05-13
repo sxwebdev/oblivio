@@ -12,6 +12,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/sxwebdev/oblivio/internal/api/gen/go/oblivio/v1"
@@ -66,14 +67,21 @@ func (s *Service) GetProject(ctx context.Context, req *connect.Request[pb.GetPro
 }
 
 // CreateProject inserts a new project. All payload fields are opaque
-// ciphertext to the server.
+// ciphertext to the server. The client must supply the id it baked into
+// the AAD when sealing the blob — otherwise the recipient can never
+// authenticate the ciphertext on the next ListProjects.
 func (s *Service) CreateProject(ctx context.Context, req *connect.Request[pb.CreateProjectRequest]) (*connect.Response[pb.CreateProjectResponse], error) {
 	uc := middleware.MustFromContext(ctx)
 	tx := middleware.MustTxFromContext(ctx)
+	id, err := uuid.Parse(req.Msg.GetId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid project id"))
+	}
 	if err := validateBlob(req.Msg.EncryptedBlob, req.Msg.WrappedItemKey, req.Msg.NameHash); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	row, err := repo_projects.New(tx).CreateProject(ctx, repo_projects.CreateProjectParams{
+		ID:             id,
 		UserID:         uc.UserID,
 		EncryptedBlob:  req.Msg.EncryptedBlob,
 		WrappedItemKey: req.Msg.WrappedItemKey,
@@ -81,6 +89,9 @@ func (s *Service) CreateProject(ctx context.Context, req *connect.Request[pb.Cre
 		SortOrder:      req.Msg.SortOrder,
 	})
 	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, connect.NewError(connect.CodeAlreadyExists, errors.New("project id already exists"))
+		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	middleware.SetAuditTarget(ctx, row.ID)
@@ -88,6 +99,15 @@ func (s *Service) CreateProject(ctx context.Context, req *connect.Request[pb.Cre
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&pb.CreateProjectResponse{Project: toProject(row)}), nil
+}
+
+// isUniqueViolation reports whether err is a Postgres 23505 unique_violation.
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
 }
 
 // UpdateProject overwrites blob+wrapped_key+name_hash using optimistic

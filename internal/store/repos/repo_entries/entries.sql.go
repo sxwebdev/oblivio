@@ -32,13 +32,14 @@ func (q *Queries) CountEntriesByProject(ctx context.Context, arg CountEntriesByP
 
 const createEntry = `-- name: CreateEntry :one
 INSERT INTO entries (
-    user_id, project_id, kind, encrypted_blob, wrapped_item_key,
+    id, user_id, project_id, kind, encrypted_blob, wrapped_item_key,
     title_hash, domain_hash, has_totp, is_favorite
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING id, user_id, project_id, kind, encrypted_blob, wrapped_item_key, title_hash, domain_hash, has_totp, is_favorite, version, created_at, updated_at
 `
 
 type CreateEntryParams struct {
+	ID             uuid.UUID        `db:"id" json:"id"`
 	UserID         uuid.UUID        `db:"user_id" json:"user_id"`
 	ProjectID      uuid.NullUUID    `db:"project_id" json:"project_id"`
 	Kind           models.EntryKind `db:"kind" json:"kind"`
@@ -52,6 +53,7 @@ type CreateEntryParams struct {
 
 func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (*models.Entry, error) {
 	row := q.db.QueryRow(ctx, createEntry,
+		arg.ID,
 		arg.UserID,
 		arg.ProjectID,
 		arg.Kind,

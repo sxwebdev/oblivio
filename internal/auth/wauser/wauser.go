@@ -37,9 +37,15 @@ func New(u *models.User, creds []*models.UserWebauthnCredential) *User {
 		if len(c.Aaguid) > 0 {
 			aaguid = c.Aaguid
 		}
+		// Flags must round-trip from registration — go-webauthn's
+		// ValidateLogin enforces BackupEligible immutability. Without
+		// restoring them every login fails on iCloud-Keychain / Chrome-
+		// sync passkeys (BE=1).
+		flags := webauthn.CredentialFlagsFromMsgpByte(byte(c.Flags)) //nolint:gosec
 		out.credentials = append(out.credentials, webauthn.Credential{
 			ID:        c.CredentialID,
 			PublicKey: c.PublicKey,
+			Flags:     flags,
 			Authenticator: webauthn.Authenticator{
 				AAGUID:    aaguid,
 				SignCount: uint32(c.SignCount), //nolint:gosec

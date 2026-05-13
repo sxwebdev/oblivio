@@ -25,9 +25,9 @@ func (q *Queries) CountWebAuthnCredentials(ctx context.Context, userID uuid.UUID
 
 const createWebAuthnCredential = `-- name: CreateWebAuthnCredential :one
 INSERT INTO user_webauthn_credentials (
-    user_id, name, credential_id, public_key, aaguid, sign_count, transports
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at
+    user_id, name, credential_id, public_key, aaguid, sign_count, transports, flags
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at, flags
 `
 
 type CreateWebAuthnCredentialParams struct {
@@ -38,6 +38,7 @@ type CreateWebAuthnCredentialParams struct {
 	Aaguid       []byte    `db:"aaguid" json:"aaguid"`
 	SignCount    int64     `db:"sign_count" json:"sign_count"`
 	Transports   []string  `db:"transports" json:"transports"`
+	Flags        int16     `db:"flags" json:"flags"`
 }
 
 func (q *Queries) CreateWebAuthnCredential(ctx context.Context, arg CreateWebAuthnCredentialParams) (*models.UserWebauthnCredential, error) {
@@ -49,6 +50,7 @@ func (q *Queries) CreateWebAuthnCredential(ctx context.Context, arg CreateWebAut
 		arg.Aaguid,
 		arg.SignCount,
 		arg.Transports,
+		arg.Flags,
 	)
 	var i models.UserWebauthnCredential
 	err := row.Scan(
@@ -62,6 +64,7 @@ func (q *Queries) CreateWebAuthnCredential(ctx context.Context, arg CreateWebAut
 		&i.Transports,
 		&i.CreatedAt,
 		&i.LastUsedAt,
+		&i.Flags,
 	)
 	return &i, err
 }
@@ -82,7 +85,7 @@ func (q *Queries) DeleteWebAuthnCredential(ctx context.Context, arg DeleteWebAut
 }
 
 const getWebAuthnCredentialByCredID = `-- name: GetWebAuthnCredentialByCredID :one
-SELECT id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at FROM user_webauthn_credentials WHERE credential_id = $1
+SELECT id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at, flags FROM user_webauthn_credentials WHERE credential_id = $1
 `
 
 func (q *Queries) GetWebAuthnCredentialByCredID(ctx context.Context, credentialID []byte) (*models.UserWebauthnCredential, error) {
@@ -99,12 +102,13 @@ func (q *Queries) GetWebAuthnCredentialByCredID(ctx context.Context, credentialI
 		&i.Transports,
 		&i.CreatedAt,
 		&i.LastUsedAt,
+		&i.Flags,
 	)
 	return &i, err
 }
 
 const getWebAuthnCredentialByID = `-- name: GetWebAuthnCredentialByID :one
-SELECT id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at FROM user_webauthn_credentials
+SELECT id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at, flags FROM user_webauthn_credentials
 WHERE id = $1 AND user_id = $2
 `
 
@@ -127,12 +131,13 @@ func (q *Queries) GetWebAuthnCredentialByID(ctx context.Context, arg GetWebAuthn
 		&i.Transports,
 		&i.CreatedAt,
 		&i.LastUsedAt,
+		&i.Flags,
 	)
 	return &i, err
 }
 
 const listWebAuthnCredentials = `-- name: ListWebAuthnCredentials :many
-SELECT id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at FROM user_webauthn_credentials
+SELECT id, user_id, name, credential_id, public_key, aaguid, sign_count, transports, created_at, last_used_at, flags FROM user_webauthn_credentials
 WHERE user_id = $1
 ORDER BY created_at DESC
 `
@@ -157,6 +162,7 @@ func (q *Queries) ListWebAuthnCredentials(ctx context.Context, userID uuid.UUID)
 			&i.Transports,
 			&i.CreatedAt,
 			&i.LastUsedAt,
+			&i.Flags,
 		); err != nil {
 			return nil, err
 		}
@@ -171,6 +177,7 @@ func (q *Queries) ListWebAuthnCredentials(ctx context.Context, userID uuid.UUID)
 const touchWebAuthnCredential = `-- name: TouchWebAuthnCredential :exec
 UPDATE user_webauthn_credentials
 SET sign_count   = $2,
+    flags        = $3,
     last_used_at = now()
 WHERE id = $1
 `
@@ -178,9 +185,10 @@ WHERE id = $1
 type TouchWebAuthnCredentialParams struct {
 	ID        uuid.UUID `db:"id" json:"id"`
 	SignCount int64     `db:"sign_count" json:"sign_count"`
+	Flags     int16     `db:"flags" json:"flags"`
 }
 
 func (q *Queries) TouchWebAuthnCredential(ctx context.Context, arg TouchWebAuthnCredentialParams) error {
-	_, err := q.db.Exec(ctx, touchWebAuthnCredential, arg.ID, arg.SignCount)
+	_, err := q.db.Exec(ctx, touchWebAuthnCredential, arg.ID, arg.SignCount, arg.Flags)
 	return err
 }

@@ -48,6 +48,11 @@ message CreateProjectRequest {
   bytes wrapped_item_key = 2;
   bytes name_hash = 3;
   int32 sort_order = 4;
+  // Client-minted UUID. Must match the id baked into the AAD when sealing
+  // the blob, otherwise the recipient cannot authenticate the ciphertext.
+  // The server uses it as the row's primary key and rejects duplicates
+  // with AlreadyExists.
+  string id = 5;
 }
 message CreateProjectResponse {
   Project project = 1;

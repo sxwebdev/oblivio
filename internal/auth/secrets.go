@@ -15,6 +15,11 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
+// Warnf matches the structured-logger Warnf method (e.g. mx/logger). Used
+// by LoadSecrets so the on-disk fallback warning lands in the application
+// log stream instead of bare stderr. Pass nil from tests/scripts.
+type Warnf func(format string, args ...any)
+
 // Secrets owns the signing keys for access and refresh tokens. Both keys are
 // held inside memguard.LockedBuffer pages so they are excluded from core dumps
 // and zeroed on Destroy. Call Close when the process shuts down.
@@ -66,7 +71,7 @@ func (s *Secrets) Close() {
 // The HKDF path is the recommended production setup when Vault is not
 // available: keep the seed in your secret manager (1Password, sealed env,
 // etc.) and the binary never touches the disk for signing material.
-func LoadSecrets(dir, access, refresh string) (*Secrets, error) {
+func LoadSecrets(warn Warnf, dir, access, refresh string) (*Secrets, error) {
 	if access != "" && refresh != "" {
 		return wrapSecrets([]byte(access), []byte(refresh))
 	}
@@ -103,9 +108,9 @@ func LoadSecrets(dir, access, refresh string) (*Secrets, error) {
 	// startup logs. The on-disk file holds the JWT signing material in
 	// plaintext base64; protect the disk accordingly or move to Vault /
 	// OBLIVIO_MASTER_SEED.
-	fmt.Fprintln(os.Stderr,
-		"WARN auth.LoadSecrets: falling back to on-disk secrets.json — "+
-			"prefer Vault or OBLIVIO_MASTER_SEED in production")
+	if warn != nil {
+		warn("auth.LoadSecrets: falling back to on-disk secrets.json — prefer Vault or OBLIVIO_MASTER_SEED in production")
+	}
 
 	type onDisk struct {
 		Access  string `json:"access_token_secret"`

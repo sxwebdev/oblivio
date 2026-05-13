@@ -272,4 +272,5 @@ type UserWebauthnCredential struct {
 	Transports   []string           `db:"transports" json:"transports"`
 	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	LastUsedAt   pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
+	Flags        int16              `db:"flags" json:"flags"`
 }

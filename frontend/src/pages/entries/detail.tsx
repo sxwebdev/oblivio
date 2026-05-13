@@ -68,7 +68,7 @@ export default function EntryDetailPage({ entryId }: { entryId: string }) {
     onSuccess: async () => {
       toast.success("Item deleted")
       await qc.invalidateQueries({ queryKey: ["entries"] })
-      await navigate({ to: "/app/entries" })
+      await navigate({ to: "/entries" })
     },
     onError: (err) => toast.error(`Delete failed: ${(err as Error).message}`),
   })
@@ -105,7 +105,7 @@ export default function EntryDetailPage({ entryId }: { entryId: string }) {
         </div>
         <div className="flex gap-2">
           <Link
-            to="/app/entries/$entryId/edit"
+            to="/entries/$entryId/edit"
             params={{ entryId: entry.id }}
             className={buttonVariants({ variant: "outline" })}
           >

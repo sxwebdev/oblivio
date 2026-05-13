@@ -6,7 +6,7 @@ import { EntryKind } from "@/api/gen/oblivio/v1/entries_pb"
 
 const search = z.object({ kind: z.string().optional() })
 
-export const Route = createFileRoute("/_auth/app/entries/new")({
+export const Route = createFileRoute("/_auth/entries/new")({
   validateSearch: search,
   component: NewEntryRoute,
 })

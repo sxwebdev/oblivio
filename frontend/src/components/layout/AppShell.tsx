@@ -25,12 +25,12 @@ import { useVaultStore } from "@/stores/vault"
 import { cancelPendingClear } from "@/lib/clipboard"
 
 const NAV = [
-  { to: "/app", label: "Dashboard", Icon: AppWindow },
-  { to: "/app/projects", label: "Projects", Icon: FolderClosed },
-  { to: "/app/entries", label: "Items", Icon: KeyRound },
-  { to: "/app/notes", label: "Notes", Icon: FileText },
-  { to: "/app/audit", label: "Audit log", Icon: ScrollText },
-  { to: "/app/settings", label: "Settings", Icon: Settings },
+  { to: "/", label: "Dashboard", Icon: AppWindow },
+  { to: "/projects", label: "Projects", Icon: FolderClosed },
+  { to: "/entries", label: "Items", Icon: KeyRound },
+  { to: "/notes", label: "Notes", Icon: FileText },
+  { to: "/audit", label: "Audit log", Icon: ScrollText },
+  { to: "/settings", label: "Settings", Icon: Settings },
 ] as const
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -69,7 +69,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Separator />
         <nav className="space-y-1 p-3">
           {NAV.map(({ to, label, Icon }) => {
-            const active = pathname === to || pathname.startsWith(`${to}/`)
+            const active =
+              to === "/"
+                ? pathname === "/"
+                : pathname === to || pathname.startsWith(`${to}/`)
             return (
               <Link
                 key={to}

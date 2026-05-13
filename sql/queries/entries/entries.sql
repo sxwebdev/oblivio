@@ -25,9 +25,9 @@ WHERE user_id = sqlc.arg(user_id) AND id = ANY(sqlc.arg(ids)::uuid[]);
 
 -- name: CreateEntry :one
 INSERT INTO entries (
-    user_id, project_id, kind, encrypted_blob, wrapped_item_key,
+    id, user_id, project_id, kind, encrypted_blob, wrapped_item_key,
     title_hash, domain_hash, has_totp, is_favorite
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: UpdateEntry :one

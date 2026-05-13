@@ -1,7 +1,8 @@
 // Audit log viewer. The chain hashes are visible so the user can verify
 // integrity off-line if they wish.
 
-import { useQuery } from "@tanstack/react-query"
+import { useState } from "react"
+import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
 import { auditClient } from "@/api/client"
 import {
@@ -12,6 +13,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import {
   Table,
   TableBody,
   TableCell,
@@ -20,6 +28,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { AuditAction } from "@/api/gen/oblivio/v1/audit_pb"
+
+const PAGE_SIZE = 25
 
 const ACTION_LABELS: Record<number, string> = {
   [AuditAction.REGISTER]: "Register",
@@ -44,10 +54,40 @@ const ACTION_LABELS: Record<number, string> = {
 }
 
 export default function AuditPage() {
+  // The API exposes opaque cursor IDs (descending by created_at). We keep the
+  // history of cursors visited so the user can walk back without re-paging
+  // from the start. cursorHistory[i] is the cursorId used to FETCH page i;
+  // undefined = first page (no cursor).
+  const [cursorHistory, setCursorHistory] = useState<
+    (bigint | undefined)[]
+  >([undefined])
+  const [pageIndex, setPageIndex] = useState(0)
+  const cursorId = cursorHistory[pageIndex]
+
   const listQ = useQuery({
-    queryKey: ["audit"],
-    queryFn: () => auditClient.listAudit({ limit: 100 }),
+    queryKey: ["audit", cursorId?.toString() ?? "head"],
+    queryFn: () =>
+      auditClient.listAudit({ cursorId, limit: PAGE_SIZE }),
+    placeholderData: keepPreviousData,
   })
+
+  const hasNext = !!listQ.data?.nextCursorId
+  const hasPrev = pageIndex > 0
+
+  function goNext() {
+    if (!listQ.data?.nextCursorId) return
+    const next = listQ.data.nextCursorId
+    setCursorHistory((h) => {
+      if (pageIndex === h.length - 1) return [...h, next]
+      return h
+    })
+    setPageIndex((i) => i + 1)
+  }
+
+  function goPrev() {
+    if (pageIndex === 0) return
+    setPageIndex((i) => i - 1)
+  }
 
   return (
     <div className="space-y-6">
@@ -61,8 +101,10 @@ export default function AuditPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Latest events</CardTitle>
-          <CardDescription>Newest first, up to 100 entries.</CardDescription>
+          <CardTitle>Events</CardTitle>
+          <CardDescription>
+            Newest first, {PAGE_SIZE} per page.
+          </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {listQ.isLoading && (
@@ -70,11 +112,13 @@ export default function AuditPage() {
               Loading…
             </p>
           )}
-          {!listQ.isLoading && listQ.data?.entries.length === 0 && (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              No audit entries yet.
-            </p>
-          )}
+          {!listQ.isLoading &&
+            pageIndex === 0 &&
+            listQ.data?.entries.length === 0 && (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No audit entries yet.
+              </p>
+            )}
           {!!listQ.data?.entries.length && (
             <Table>
               <TableHeader>
@@ -111,6 +155,42 @@ export default function AuditPage() {
           )}
         </CardContent>
       </Card>
+
+      {(hasPrev || hasNext) && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={(e) => {
+                  e.preventDefault()
+                  if (hasPrev) goPrev()
+                }}
+                aria-disabled={!hasPrev}
+                className={
+                  !hasPrev ? "pointer-events-none opacity-50" : undefined
+                }
+              />
+            </PaginationItem>
+            <PaginationItem>
+              <span className="px-3 text-sm text-muted-foreground">
+                Page {pageIndex + 1}
+              </span>
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationNext
+                onClick={(e) => {
+                  e.preventDefault()
+                  if (hasNext) goNext()
+                }}
+                aria-disabled={!hasNext}
+                className={
+                  !hasNext ? "pointer-events-none opacity-50" : undefined
+                }
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
     </div>
   )
 }

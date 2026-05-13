@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card"
 import { buttonVariants } from "@/components/ui/button"
 
-export const Route = createFileRoute("/_auth/app/settings/")({
+export const Route = createFileRoute("/_auth/settings/")({
   component: SettingsIndex,
 })
 
@@ -37,7 +37,7 @@ function SettingsIndex() {
           </CardHeader>
           <CardContent>
             <Link
-              to="/app/settings/two-factor"
+              to="/settings/two-factor"
               className={buttonVariants({ variant: "outline" })}
             >
               Manage 2FA
@@ -56,7 +56,7 @@ function SettingsIndex() {
           </CardHeader>
           <CardContent>
             <Link
-              to="/app/settings/security"
+              to="/settings/security"
               className={buttonVariants({ variant: "outline" })}
             >
               Sessions &amp; danger zone

@@ -25,13 +25,13 @@ func TestManager_IssueAuthenticateRefreshLogout(t *testing.T) {
 	st := storeFromPool(t, pg.Pool)
 	uid := mustInsertUser(t, pg.Pool, "alice@example.com")
 
-	secrets, err := auth.LoadSecrets(t.TempDir(), genSecret(t), genSecret(t))
+	secrets, err := auth.LoadSecrets(nil, t.TempDir(), genSecret(t), genSecret(t))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer secrets.Close()
 
-	m := auth.NewManager(secrets, st, 5*time.Minute, time.Hour)
+	m := auth.NewManager(secrets, st, auth.NewPGTokenStore(pg.Pool), 5*time.Minute, time.Hour)
 
 	ctx := context.Background()
 
@@ -78,9 +78,9 @@ func TestManager_DeviceIDUpsertsSession(t *testing.T) {
 	pg := testutil.NewPostgres(t)
 	st := storeFromPool(t, pg.Pool)
 	uid := mustInsertUser(t, pg.Pool, "bob@example.com")
-	secrets, _ := auth.LoadSecrets(t.TempDir(), genSecret(t), genSecret(t))
+	secrets, _ := auth.LoadSecrets(nil, t.TempDir(), genSecret(t), genSecret(t))
 	defer secrets.Close()
-	m := auth.NewManager(secrets, st, time.Minute, time.Hour)
+	m := auth.NewManager(secrets, st, auth.NewPGTokenStore(pg.Pool), time.Minute, time.Hour)
 
 	ctx := context.Background()
 	first, err := m.Issue(ctx, uid, "device-X", "web", "")
@@ -109,9 +109,9 @@ func TestManager_RevokeAllUserTokens(t *testing.T) {
 	pg := testutil.NewPostgres(t)
 	st := storeFromPool(t, pg.Pool)
 	uid := mustInsertUser(t, pg.Pool, "carol@example.com")
-	secrets, _ := auth.LoadSecrets(t.TempDir(), genSecret(t), genSecret(t))
+	secrets, _ := auth.LoadSecrets(nil, t.TempDir(), genSecret(t), genSecret(t))
 	defer secrets.Close()
-	m := auth.NewManager(secrets, st, time.Minute, time.Hour)
+	m := auth.NewManager(secrets, st, auth.NewPGTokenStore(pg.Pool), time.Minute, time.Hour)
 
 	ctx := context.Background()
 	a, _ := m.Issue(ctx, uid, "d1", "web", "")
@@ -141,9 +141,9 @@ func TestManager_ConcurrentRefresh_ExactlyOneWins(t *testing.T) {
 	pg := testutil.NewPostgres(t)
 	st := storeFromPool(t, pg.Pool)
 	uid := mustInsertUser(t, pg.Pool, "dave@example.com")
-	secrets, _ := auth.LoadSecrets(t.TempDir(), genSecret(t), genSecret(t))
+	secrets, _ := auth.LoadSecrets(nil, t.TempDir(), genSecret(t), genSecret(t))
 	defer secrets.Close()
-	m := auth.NewManager(secrets, st, time.Minute, time.Hour)
+	m := auth.NewManager(secrets, st, auth.NewPGTokenStore(pg.Pool), time.Minute, time.Hour)
 	ctx := context.Background()
 
 	issued, err := m.Issue(ctx, uid, "device-Y", "web", "")

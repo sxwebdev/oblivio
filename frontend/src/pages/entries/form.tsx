@@ -153,6 +153,7 @@ export default function EntryForm(props: EntryFormMode) {
         })
         return entriesClient.createEntry(
           {
+            id: newId,
             projectId: projectId || undefined,
             kind,
             encryptedBlob: sealed.encryptedBlob,
@@ -196,7 +197,7 @@ export default function EntryForm(props: EntryFormMode) {
     onSuccess: async () => {
       toast.success(props.mode === "create" ? "Item created" : "Item updated")
       await qc.invalidateQueries({ queryKey: ["entries"] })
-      await navigate({ to: "/app/entries" })
+      await navigate({ to: "/entries" })
     },
     onError: (err) =>
       setError(err instanceof Error ? err.message : String(err)),
@@ -231,6 +232,13 @@ export default function EntryForm(props: EntryFormMode) {
               value={kind.toString()}
               onValueChange={(v) => v && setKind(Number(v) as EntryKind)}
               disabled={props.mode === "edit"}
+              // base-ui's Select.Value needs an items map (or a children
+              // render fn) to display labels — without it the trigger
+              // shows the raw value, i.e. "1" instead of "Login".
+              items={ENTRY_KINDS.map((m) => ({
+                value: m.kind.toString(),
+                label: m.label,
+              }))}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -249,6 +257,15 @@ export default function EntryForm(props: EntryFormMode) {
             <Select
               value={projectId || "none"}
               onValueChange={(v) => setProjectId(!v || v === "none" ? "" : v)}
+              items={[
+                { value: "none", label: "(no project)" },
+                ...(projectsQ.data?.projects ?? []).map((p) => ({
+                  value: p.id,
+                  label:
+                    projectNamesQ.data?.[p.id] ||
+                    `Project ${p.id.slice(0, 8)}`,
+                })),
+              ]}
             >
               <SelectTrigger>
                 <SelectValue placeholder="No project" />
@@ -481,7 +498,7 @@ export default function EntryForm(props: EntryFormMode) {
       <div className="flex justify-end gap-2">
         <Button
           variant="ghost"
-          onClick={() => navigate({ to: "/app/entries" })}
+          onClick={() => navigate({ to: "/entries" })}
         >
           Cancel
         </Button>

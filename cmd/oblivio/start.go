@@ -30,7 +30,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-func startCMD() *cli.Command {
+func startCMD(l logger.ExtendedLogger) *cli.Command {
 	return &cli.Command{
 		Name:  "start",
 		Usage: "start the oblivio service",
@@ -41,8 +41,6 @@ func startCMD() *cli.Command {
 			// keys leak into a coredump on abnormal exit.
 			memguard.CatchInterrupt()
 			defer memguard.Purge()
-
-			l := logger.NewExtended(defaultLoggerOpts()...)
 
 			conf := new(config.Config)
 			loadResult, err := config.Load(ctx, l, conf, envPrefix, cl.StringSlice("config"))
@@ -92,7 +90,7 @@ func startCMD() *cli.Command {
 			// SetArgon2Concurrency.
 			auth.SetArgon2Concurrency(conf.Auth.Argon2Server.MaxConcurrent)
 
-			secrets, err := auth.LoadSecrets("data/secrets", conf.Auth.AccessTokenSecretKey, conf.Auth.RefreshTokenSecretKey)
+			secrets, err := auth.LoadSecrets(l.Warnf, "data/secrets", conf.Auth.AccessTokenSecretKey, conf.Auth.RefreshTokenSecretKey)
 			if err != nil {
 				return fmt.Errorf("load auth secrets: %w", err)
 			}

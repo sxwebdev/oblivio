@@ -88,7 +88,7 @@ func main() {
 		Version: getBuildVersion(),
 		Suggest: true,
 		Commands: []*cli.Command{
-			startCMD(),
+			startCMD(l),
 			configCMD(),
 			migrationsCMD(),
 			utilsCMD(),

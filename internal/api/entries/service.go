@@ -13,6 +13,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -126,10 +127,16 @@ func (s *Service) GetEntry(ctx context.Context, req *connect.Request[pb.GetEntry
 	return connect.NewResponse(&pb.GetEntryResponse{Entry: toEntry(row)}), nil
 }
 
-// CreateEntry persists a new ciphertext record.
+// CreateEntry persists a new ciphertext record. The client must supply
+// the id it baked into the AAD when sealing — same contract as
+// projects.CreateProject.
 func (s *Service) CreateEntry(ctx context.Context, req *connect.Request[pb.CreateEntryRequest]) (*connect.Response[pb.CreateEntryResponse], error) {
 	uc := middleware.MustFromContext(ctx)
 	tx := middleware.MustTxFromContext(ctx)
+	id, err := uuid.Parse(req.Msg.GetId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid entry id"))
+	}
 	if err := validateBlob(req.Msg.EncryptedBlob, req.Msg.WrappedItemKey, req.Msg.TitleHash); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -142,6 +149,7 @@ func (s *Service) CreateEntry(ctx context.Context, req *connect.Request[pb.Creat
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	row, err := repo_entries.New(tx).CreateEntry(ctx, repo_entries.CreateEntryParams{
+		ID:             id,
 		UserID:         uc.UserID,
 		ProjectID:      projectID,
 		Kind:           kind,
@@ -153,6 +161,9 @@ func (s *Service) CreateEntry(ctx context.Context, req *connect.Request[pb.Creat
 		IsFavorite:     req.Msg.IsFavorite,
 	})
 	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, connect.NewError(connect.CodeAlreadyExists, errors.New("entry id already exists"))
+		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	middleware.SetAuditTarget(ctx, row.ID)
@@ -160,6 +171,15 @@ func (s *Service) CreateEntry(ctx context.Context, req *connect.Request[pb.Creat
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&pb.CreateEntryResponse{Entry: toEntry(row)}), nil
+}
+
+// isUniqueViolation reports whether err is a Postgres 23505 unique_violation.
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
 }
 
 // UpdateEntry overwrites all mutable fields with optimistic concurrency.

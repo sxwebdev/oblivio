@@ -104,6 +104,8 @@ message CreateEntryRequest {
   bytes domain_hash = 6;
   bool has_totp = 7;
   bool is_favorite = 8;
+  // Client-minted UUID; same contract as CreateProjectRequest.id.
+  string id = 9;
 }
 message CreateEntryResponse {
   Entry entry = 1;

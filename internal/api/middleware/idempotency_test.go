@@ -77,8 +77,9 @@ func TestProcedureFromPath_PassThrough(t *testing.T) {
 
 func TestReplay_WritesBodyAndStatus(t *testing.T) {
 	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
 	body := []byte("cached-body")
-	replay(rec, http.StatusOK, body)
+	replay(rec, req, http.StatusOK, body)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("code=%d", rec.Code)
 	}
@@ -96,8 +97,41 @@ func TestReplay_WritesBodyAndStatus(t *testing.T) {
 func TestReplay_KeepsExistingContentType(t *testing.T) {
 	rec := httptest.NewRecorder()
 	rec.Header().Set("Content-Type", "application/grpc+proto")
-	replay(rec, http.StatusOK, []byte("x"))
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	replay(rec, req, http.StatusOK, []byte("x"))
 	if got := rec.Header().Get("Content-Type"); got != "application/grpc+proto" {
 		t.Fatalf("Content-Type=%q want preserved", got)
+	}
+}
+
+func TestFrameRoundTrip_PreservesHeaders(t *testing.T) {
+	in := http.Header{}
+	in.Set("Content-Type", "application/proto")
+	in.Set("Content-Encoding", "gzip")
+	body := []byte{0x1f, 0x8b, 0x00, 0x99}
+
+	framed := frameResponse(in, body)
+	out, got := unframeResponse(framed)
+	if !bytes.Equal(got, body) {
+		t.Fatalf("body roundtrip mismatch: got %x want %x", got, body)
+	}
+	if out.Get("Content-Type") != "application/proto" {
+		t.Fatalf("Content-Type lost: %q", out.Get("Content-Type"))
+	}
+	if out.Get("Content-Encoding") != "gzip" {
+		t.Fatalf("Content-Encoding lost: %q", out.Get("Content-Encoding"))
+	}
+}
+
+func TestUnframe_LegacyEntryWithoutHeaders(t *testing.T) {
+	// Cache entries written before frameResponse existed are bare body
+	// bytes. unframeResponse must treat them as body, not error out.
+	raw := []byte("legacy-body")
+	hdr, body := unframeResponse(raw)
+	if hdr != nil {
+		t.Fatalf("legacy entry should have no parsed headers, got %v", hdr)
+	}
+	if !bytes.Equal(body, raw) {
+		t.Fatalf("legacy body = %q want %q", body, raw)
 	}
 }

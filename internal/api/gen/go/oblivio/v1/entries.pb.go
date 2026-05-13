@@ -677,8 +677,10 @@ type CreateEntryRequest struct {
 	DomainHash     []byte                 `protobuf:"bytes,6,opt,name=domain_hash,json=domainHash,proto3" json:"domain_hash,omitempty"`
 	HasTotp        bool                   `protobuf:"varint,7,opt,name=has_totp,json=hasTotp,proto3" json:"has_totp,omitempty"`
 	IsFavorite     bool                   `protobuf:"varint,8,opt,name=is_favorite,json=isFavorite,proto3" json:"is_favorite,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Client-minted UUID; same contract as CreateProjectRequest.id.
+	Id            string `protobuf:"bytes,9,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateEntryRequest) Reset() {
@@ -765,6 +767,13 @@ func (x *CreateEntryRequest) GetIsFavorite() bool {
 		return x.IsFavorite
 	}
 	return false
+}
+
+func (x *CreateEntryRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
 }
 
 type CreateEntryResponse struct {
@@ -1217,7 +1226,7 @@ const file_oblivio_v1_entries_proto_rawDesc = "" +
 	"\x0fGetEntryRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\";\n" +
 	"\x10GetEntryResponse\x12'\n" +
-	"\x05entry\x18\x01 \x01(\v2\x11.oblivio.v1.EntryR\x05entry\"\xbf\x02\n" +
+	"\x05entry\x18\x01 \x01(\v2\x11.oblivio.v1.EntryR\x05entry\"\xcf\x02\n" +
 	"\x12CreateEntryRequest\x12\"\n" +
 	"\n" +
 	"project_id\x18\x01 \x01(\tH\x00R\tprojectId\x88\x01\x01\x12)\n" +
@@ -1230,7 +1239,8 @@ const file_oblivio_v1_entries_proto_rawDesc = "" +
 	"domainHash\x12\x19\n" +
 	"\bhas_totp\x18\a \x01(\bR\ahasTotp\x12\x1f\n" +
 	"\vis_favorite\x18\b \x01(\bR\n" +
-	"isFavoriteB\r\n" +
+	"isFavorite\x12\x0e\n" +
+	"\x02id\x18\t \x01(\tR\x02idB\r\n" +
 	"\v_project_id\">\n" +
 	"\x13CreateEntryResponse\x12'\n" +
 	"\x05entry\x18\x01 \x01(\v2\x11.oblivio.v1.EntryR\x05entry\"\xfa\x02\n" +

@@ -68,7 +68,7 @@ export default function UnlockPage() {
       const me = await vaultClient.getMe({})
       useAuthStore.setState({ userId: me.userId, email: me.email })
 
-      await navigate({ to: "/app" })
+      await navigate({ to: "/" })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {

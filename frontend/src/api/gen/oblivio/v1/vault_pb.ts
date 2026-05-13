@@ -2,39 +2,28 @@
 // @generated from file oblivio/v1/vault.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import type {
-  GenFile,
-  GenMessage,
-  GenService,
-} from "@bufbuild/protobuf/codegenv2"
-import {
-  fileDesc,
-  messageDesc,
-  serviceDesc,
-} from "@bufbuild/protobuf/codegenv2"
-import type { Message } from "@bufbuild/protobuf"
+import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
+import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file oblivio/v1/vault.proto.
  */
-export const file_oblivio_v1_vault: GenFile =
-  /*@__PURE__*/
-  fileDesc(
-    "ChZvYmxpdmlvL3YxL3ZhdWx0LnByb3RvEgpvYmxpdmlvLnYxIg4KDEdldE1lUmVxdWVzdCKBAQoNR2V0TWVSZXNwb25zZRIPCgd1c2VyX2lkGAEgASgJEg0KBWVtYWlsGAIgASgJEhYKDmVtYWlsX3ZlcmlmaWVkGAMgASgIEhQKDHRvdHBfZW5hYmxlZBgEIAEoCBIiChp3ZWJhdXRobl9jcmVkZW50aWFsc19jb3VudBgFIAEoDSIhCg9EZWxldGVNZVJlcXVlc3QSDgoGcmVhc29uGAEgASgJIhIKEERlbGV0ZU1lUmVzcG9uc2UykwEKDFZhdWx0U2VydmljZRI8CgVHZXRNZRIYLm9ibGl2aW8udjEuR2V0TWVSZXF1ZXN0Ghkub2JsaXZpby52MS5HZXRNZVJlc3BvbnNlEkUKCERlbGV0ZU1lEhsub2JsaXZpby52MS5EZWxldGVNZVJlcXVlc3QaHC5vYmxpdmlvLnYxLkRlbGV0ZU1lUmVzcG9uc2VCqwEKDmNvbS5vYmxpdmlvLnYxQgpWYXVsdFByb3RvUAFaRGdpdGh1Yi5jb20vc3h3ZWJkZXYvb2JsaXZpby9pbnRlcm5hbC9hcGkvZ2VuL2dvL29ibGl2aW8vdjE7b2JsaXZpb3YxogIDT1hYqgIKT2JsaXZpby5WMcoCCk9ibGl2aW9cVjHiAhZPYmxpdmlvXFYxXEdQQk1ldGFkYXRh6gILT2JsaXZpbzo6VjFiBnByb3RvMw"
-  )
+export const file_oblivio_v1_vault: GenFile = /*@__PURE__*/
+  fileDesc("ChZvYmxpdmlvL3YxL3ZhdWx0LnByb3RvEgpvYmxpdmlvLnYxIg4KDEdldE1lUmVxdWVzdCKBAQoNR2V0TWVSZXNwb25zZRIPCgd1c2VyX2lkGAEgASgJEg0KBWVtYWlsGAIgASgJEhYKDmVtYWlsX3ZlcmlmaWVkGAMgASgIEhQKDHRvdHBfZW5hYmxlZBgEIAEoCBIiChp3ZWJhdXRobl9jcmVkZW50aWFsc19jb3VudBgFIAEoDSIhCg9EZWxldGVNZVJlcXVlc3QSDgoGcmVhc29uGAEgASgJIhIKEERlbGV0ZU1lUmVzcG9uc2UykwEKDFZhdWx0U2VydmljZRI8CgVHZXRNZRIYLm9ibGl2aW8udjEuR2V0TWVSZXF1ZXN0Ghkub2JsaXZpby52MS5HZXRNZVJlc3BvbnNlEkUKCERlbGV0ZU1lEhsub2JsaXZpby52MS5EZWxldGVNZVJlcXVlc3QaHC5vYmxpdmlvLnYxLkRlbGV0ZU1lUmVzcG9uc2VCqwEKDmNvbS5vYmxpdmlvLnYxQgpWYXVsdFByb3RvUAFaRGdpdGh1Yi5jb20vc3h3ZWJkZXYvb2JsaXZpby9pbnRlcm5hbC9hcGkvZ2VuL2dvL29ibGl2aW8vdjE7b2JsaXZpb3YxogIDT1hYqgIKT2JsaXZpby5WMcoCCk9ibGl2aW9cVjHiAhZPYmxpdmlvXFYxXEdQQk1ldGFkYXRh6gILT2JsaXZpbzo6VjFiBnByb3RvMw");
 
 /**
  * @generated from message oblivio.v1.GetMeRequest
  */
-export type GetMeRequest = Message<"oblivio.v1.GetMeRequest"> & {}
+export type GetMeRequest = Message<"oblivio.v1.GetMeRequest"> & {
+};
 
 /**
  * Describes the message oblivio.v1.GetMeRequest.
  * Use `create(GetMeRequestSchema)` to create a new message.
  */
-export const GetMeRequestSchema: GenMessage<GetMeRequest> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_vault, 0)
+export const GetMeRequestSchema: GenMessage<GetMeRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_vault, 0);
 
 /**
  * @generated from message oblivio.v1.GetMeResponse
@@ -43,36 +32,35 @@ export type GetMeResponse = Message<"oblivio.v1.GetMeResponse"> & {
   /**
    * @generated from field: string user_id = 1;
    */
-  userId: string
+  userId: string;
 
   /**
    * @generated from field: string email = 2;
    */
-  email: string
+  email: string;
 
   /**
    * @generated from field: bool email_verified = 3;
    */
-  emailVerified: boolean
+  emailVerified: boolean;
 
   /**
    * @generated from field: bool totp_enabled = 4;
    */
-  totpEnabled: boolean
+  totpEnabled: boolean;
 
   /**
    * @generated from field: uint32 webauthn_credentials_count = 5;
    */
-  webauthnCredentialsCount: number
-}
+  webauthnCredentialsCount: number;
+};
 
 /**
  * Describes the message oblivio.v1.GetMeResponse.
  * Use `create(GetMeResponseSchema)` to create a new message.
  */
-export const GetMeResponseSchema: GenMessage<GetMeResponse> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_vault, 1)
+export const GetMeResponseSchema: GenMessage<GetMeResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_vault, 1);
 
 /**
  * @generated from message oblivio.v1.DeleteMeRequest
@@ -81,29 +69,28 @@ export type DeleteMeRequest = Message<"oblivio.v1.DeleteMeRequest"> & {
   /**
    * @generated from field: string reason = 1;
    */
-  reason: string
-}
+  reason: string;
+};
 
 /**
  * Describes the message oblivio.v1.DeleteMeRequest.
  * Use `create(DeleteMeRequestSchema)` to create a new message.
  */
-export const DeleteMeRequestSchema: GenMessage<DeleteMeRequest> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_vault, 2)
+export const DeleteMeRequestSchema: GenMessage<DeleteMeRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_vault, 2);
 
 /**
  * @generated from message oblivio.v1.DeleteMeResponse
  */
-export type DeleteMeResponse = Message<"oblivio.v1.DeleteMeResponse"> & {}
+export type DeleteMeResponse = Message<"oblivio.v1.DeleteMeResponse"> & {
+};
 
 /**
  * Describes the message oblivio.v1.DeleteMeResponse.
  * Use `create(DeleteMeResponseSchema)` to create a new message.
  */
-export const DeleteMeResponseSchema: GenMessage<DeleteMeResponse> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_vault, 3)
+export const DeleteMeResponseSchema: GenMessage<DeleteMeResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_vault, 3);
 
 /**
  * VaultService exposes per-user metadata such as TOTP/WebAuthn status and
@@ -116,16 +103,18 @@ export const VaultService: GenService<{
    * @generated from rpc oblivio.v1.VaultService.GetMe
    */
   getMe: {
-    methodKind: "unary"
-    input: typeof GetMeRequestSchema
-    output: typeof GetMeResponseSchema
-  }
+    methodKind: "unary";
+    input: typeof GetMeRequestSchema;
+    output: typeof GetMeResponseSchema;
+  },
   /**
    * @generated from rpc oblivio.v1.VaultService.DeleteMe
    */
   deleteMe: {
-    methodKind: "unary"
-    input: typeof DeleteMeRequestSchema
-    output: typeof DeleteMeResponseSchema
-  }
-}> = /*@__PURE__*/ serviceDesc(file_oblivio_v1_vault, 0)
+    methodKind: "unary";
+    input: typeof DeleteMeRequestSchema;
+    output: typeof DeleteMeResponseSchema;
+  },
+}> = /*@__PURE__*/
+  serviceDesc(file_oblivio_v1_vault, 0);
+

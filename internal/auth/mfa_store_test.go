@@ -97,6 +97,34 @@ func TestMFAStorePutTakeRoundTrip(t *testing.T) {
 	}
 }
 
+// TestMFAStorePutWithoutAuthKey covers the WebAuthn registration path,
+// where the ceremony runs for an already-authenticated user and the
+// challenge has no auth_key to encrypt. Regression test for the
+// NOT NULL constraint on mfa_challenges.auth_key_ct (migration 011).
+func TestMFAStorePutWithoutAuthKey(t *testing.T) {
+	s, _, uid := newTestMFAStore(t, time.Minute)
+	ctx := context.Background()
+
+	id, err := s.Put(ctx, MFAChallenge{
+		UserID:     uid,
+		Email:      "mfa-test@example.com",
+		DeviceName: "macbook",
+	})
+	if err != nil {
+		t.Fatalf("put without auth_key: %v", err)
+	}
+	got, err := s.Take(ctx, id)
+	if err != nil {
+		t.Fatalf("take: %v", err)
+	}
+	if got.AuthKey != nil {
+		t.Errorf("AuthKey = %v, want nil for WebAuthn-registration challenge", got.AuthKey)
+	}
+	if got.DeviceName != "macbook" {
+		t.Errorf("DeviceName = %q, want %q", got.DeviceName, "macbook")
+	}
+}
+
 func TestMFAStorePeekDoesNotConsume(t *testing.T) {
 	s, _, uid := newTestMFAStore(t, time.Minute)
 	ctx := context.Background()

@@ -14,12 +14,13 @@ import (
 
 const createProject = `-- name: CreateProject :one
 INSERT INTO projects (
-    user_id, encrypted_blob, wrapped_item_key, name_hash, sort_order
-) VALUES ($1, $2, $3, $4, $5)
+    id, user_id, encrypted_blob, wrapped_item_key, name_hash, sort_order
+) VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, user_id, encrypted_blob, wrapped_item_key, name_hash, version, sort_order, created_at, updated_at
 `
 
 type CreateProjectParams struct {
+	ID             uuid.UUID `db:"id" json:"id"`
 	UserID         uuid.UUID `db:"user_id" json:"user_id"`
 	EncryptedBlob  []byte    `db:"encrypted_blob" json:"encrypted_blob"`
 	WrappedItemKey []byte    `db:"wrapped_item_key" json:"wrapped_item_key"`
@@ -29,6 +30,7 @@ type CreateProjectParams struct {
 
 func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (*models.Project, error) {
 	row := q.db.QueryRow(ctx, createProject,
+		arg.ID,
 		arg.UserID,
 		arg.EncryptedBlob,
 		arg.WrappedItemKey,

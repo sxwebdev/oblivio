@@ -298,8 +298,13 @@ type CreateProjectRequest struct {
 	WrappedItemKey []byte                 `protobuf:"bytes,2,opt,name=wrapped_item_key,json=wrappedItemKey,proto3" json:"wrapped_item_key,omitempty"`
 	NameHash       []byte                 `protobuf:"bytes,3,opt,name=name_hash,json=nameHash,proto3" json:"name_hash,omitempty"`
 	SortOrder      int32                  `protobuf:"varint,4,opt,name=sort_order,json=sortOrder,proto3" json:"sort_order,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Client-minted UUID. Must match the id baked into the AAD when sealing
+	// the blob, otherwise the recipient cannot authenticate the ciphertext.
+	// The server uses it as the row's primary key and rejects duplicates
+	// with AlreadyExists.
+	Id            string `protobuf:"bytes,5,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateProjectRequest) Reset() {
@@ -358,6 +363,13 @@ func (x *CreateProjectRequest) GetSortOrder() int32 {
 		return x.SortOrder
 	}
 	return 0
+}
+
+func (x *CreateProjectRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
 }
 
 type CreateProjectResponse struct {
@@ -717,13 +729,14 @@ const file_oblivio_v1_projects_proto_rawDesc = "" +
 	"\x11GetProjectRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"C\n" +
 	"\x12GetProjectResponse\x12-\n" +
-	"\aproject\x18\x01 \x01(\v2\x13.oblivio.v1.ProjectR\aproject\"\xa3\x01\n" +
+	"\aproject\x18\x01 \x01(\v2\x13.oblivio.v1.ProjectR\aproject\"\xb3\x01\n" +
 	"\x14CreateProjectRequest\x12%\n" +
 	"\x0eencrypted_blob\x18\x01 \x01(\fR\rencryptedBlob\x12(\n" +
 	"\x10wrapped_item_key\x18\x02 \x01(\fR\x0ewrappedItemKey\x12\x1b\n" +
 	"\tname_hash\x18\x03 \x01(\fR\bnameHash\x12\x1d\n" +
 	"\n" +
-	"sort_order\x18\x04 \x01(\x05R\tsortOrder\"F\n" +
+	"sort_order\x18\x04 \x01(\x05R\tsortOrder\x12\x0e\n" +
+	"\x02id\x18\x05 \x01(\tR\x02id\"F\n" +
 	"\x15CreateProjectResponse\x12-\n" +
 	"\aproject\x18\x01 \x01(\v2\x13.oblivio.v1.ProjectR\aproject\"\xbf\x01\n" +
 	"\x14UpdateProjectRequest\x12\x0e\n" +

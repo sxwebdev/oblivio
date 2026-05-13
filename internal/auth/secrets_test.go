@@ -11,7 +11,7 @@ import (
 func TestLoadSecrets_VaultPassthrough(t *testing.T) {
 	access := base64.RawStdEncoding.EncodeToString(randBytes(32))
 	refresh := base64.RawStdEncoding.EncodeToString(randBytes(32))
-	s, err := LoadSecrets("", access, refresh)
+	s, err := LoadSecrets(nil, "", access, refresh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func TestLoadSecrets_VaultPassthrough(t *testing.T) {
 
 func TestLoadSecrets_FilePersists(t *testing.T) {
 	dir := t.TempDir()
-	s, err := LoadSecrets(dir, "", "")
+	s, err := LoadSecrets(nil, dir, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestLoadSecrets_FilePersists(t *testing.T) {
 	}
 
 	// Re-loading returns the same material.
-	s2, err := LoadSecrets(dir, "", "")
+	s2, err := LoadSecrets(nil, dir, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestLoadSecrets_FilePersists(t *testing.T) {
 
 func TestSecretsCloseZeros(t *testing.T) {
 	// After Close, AccessSecret/RefreshSecret must return empty (no panic).
-	s, err := LoadSecrets("", "a", "b")
+	s, err := LoadSecrets(nil, "", "a", "b")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestLoadSecrets_RejectIncompleteFile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "secrets.json"), []byte(`{"access_token_secret":"x"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := LoadSecrets(dir, "", ""); err == nil {
+	if _, err := LoadSecrets(nil, dir, "", ""); err == nil {
 		t.Fatal("expected error for incomplete secrets.json")
 	}
 }
@@ -82,7 +82,7 @@ func TestLoadSecrets_RejectGarbageFile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "secrets.json"), []byte("not-json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := LoadSecrets(dir, "", ""); err == nil {
+	if _, err := LoadSecrets(nil, dir, "", ""); err == nil {
 		t.Fatal("expected parse error")
 	}
 }
@@ -101,12 +101,12 @@ func TestLoadSecrets_MasterSeedDeterministic(t *testing.T) {
 	seed := base64.RawStdEncoding.EncodeToString(randBytes(48))
 	t.Setenv("OBLIVIO_MASTER_SEED", seed)
 
-	s1, err := LoadSecrets(t.TempDir(), "", "")
+	s1, err := LoadSecrets(nil, t.TempDir(), "", "")
 	if err != nil {
 		t.Fatalf("first load: %v", err)
 	}
 	defer s1.Close()
-	s2, err := LoadSecrets(t.TempDir(), "", "")
+	s2, err := LoadSecrets(nil, t.TempDir(), "", "")
 	if err != nil {
 		t.Fatalf("second load: %v", err)
 	}
@@ -124,14 +124,14 @@ func TestLoadSecrets_MasterSeedDeterministic(t *testing.T) {
 
 func TestLoadSecrets_MasterSeedShortFails(t *testing.T) {
 	t.Setenv("OBLIVIO_MASTER_SEED", base64.RawStdEncoding.EncodeToString(randBytes(16)))
-	if _, err := LoadSecrets(t.TempDir(), "", ""); err == nil {
+	if _, err := LoadSecrets(nil, t.TempDir(), "", ""); err == nil {
 		t.Fatal("expected rejection of <32-byte seed")
 	}
 }
 
 func TestLoadSecrets_MasterSeedGarbageFails(t *testing.T) {
 	t.Setenv("OBLIVIO_MASTER_SEED", "not-hex-not-base64-!@#$")
-	if _, err := LoadSecrets(t.TempDir(), "", ""); err == nil {
+	if _, err := LoadSecrets(nil, t.TempDir(), "", ""); err == nil {
 		t.Fatal("expected rejection of malformed seed")
 	}
 }

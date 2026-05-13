@@ -2,123 +2,106 @@
 // @generated from file oblivio/v1/login_totp.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import type {
-  GenFile,
-  GenMessage,
-  GenService,
-} from "@bufbuild/protobuf/codegenv2"
-import {
-  fileDesc,
-  messageDesc,
-  serviceDesc,
-} from "@bufbuild/protobuf/codegenv2"
-import type { Message } from "@bufbuild/protobuf"
+import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
+import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file oblivio/v1/login_totp.proto.
  */
-export const file_oblivio_v1_login_totp: GenFile =
-  /*@__PURE__*/
-  fileDesc(
-    "ChtvYmxpdmlvL3YxL2xvZ2luX3RvdHAucHJvdG8SCm9ibGl2aW8udjEibAocTG9naW5UT1RQU2VydmljZVNldHVwUmVxdWVzdBIYChBlbmNyeXB0ZWRfc2VjcmV0GAEgASgMEg0KBW5vbmNlGAIgASgMEhAKCGF1dGhfa2V5GAMgASgMEhEKCXRvdHBfY29kZRgEIAEoCSIfCh1Mb2dpblRPVFBTZXJ2aWNlU2V0dXBSZXNwb25zZSJECh1Mb2dpblRPVFBTZXJ2aWNlRW5hYmxlUmVxdWVzdBIQCghhdXRoX2tleRgBIAEoDBIRCgl0b3RwX2NvZGUYAiABKAkiIAoeTG9naW5UT1RQU2VydmljZUVuYWJsZVJlc3BvbnNlIn4KHkxvZ2luVE9UUFNlcnZpY2VEaXNhYmxlUmVxdWVzdBIQCghhdXRoX2tleRgBIAEoDBIRCgl0b3RwX2NvZGUYAiABKAkSHwoXd2ViYXV0aG5fYXNzZXJ0aW9uX2pzb24YAyABKAwSFgoObWZhX3Nlc3Npb25faWQYBCABKAkiIQofTG9naW5UT1RQU2VydmljZURpc2FibGVSZXNwb25zZSIfCh1Mb2dpblRPVFBTZXJ2aWNlU3RhdHVzUmVxdWVzdCJFCh5Mb2dpblRPVFBTZXJ2aWNlU3RhdHVzUmVzcG9uc2USEgoKY29uZmlndXJlZBgBIAEoCBIPCgdlbmFibGVkGAIgASgIMpYDChBMb2dpblRPVFBTZXJ2aWNlElwKBVNldHVwEigub2JsaXZpby52MS5Mb2dpblRPVFBTZXJ2aWNlU2V0dXBSZXF1ZXN0Gikub2JsaXZpby52MS5Mb2dpblRPVFBTZXJ2aWNlU2V0dXBSZXNwb25zZRJfCgZFbmFibGUSKS5vYmxpdmlvLnYxLkxvZ2luVE9UUFNlcnZpY2VFbmFibGVSZXF1ZXN0Gioub2JsaXZpby52MS5Mb2dpblRPVFBTZXJ2aWNlRW5hYmxlUmVzcG9uc2USYgoHRGlzYWJsZRIqLm9ibGl2aW8udjEuTG9naW5UT1RQU2VydmljZURpc2FibGVSZXF1ZXN0Gisub2JsaXZpby52MS5Mb2dpblRPVFBTZXJ2aWNlRGlzYWJsZVJlc3BvbnNlEl8KBlN0YXR1cxIpLm9ibGl2aW8udjEuTG9naW5UT1RQU2VydmljZVN0YXR1c1JlcXVlc3QaKi5vYmxpdmlvLnYxLkxvZ2luVE9UUFNlcnZpY2VTdGF0dXNSZXNwb25zZUKvAQoOY29tLm9ibGl2aW8udjFCDkxvZ2luVG90cFByb3RvUAFaRGdpdGh1Yi5jb20vc3h3ZWJkZXYvb2JsaXZpby9pbnRlcm5hbC9hcGkvZ2VuL2dvL29ibGl2aW8vdjE7b2JsaXZpb3YxogIDT1hYqgIKT2JsaXZpby5WMcoCCk9ibGl2aW9cVjHiAhZPYmxpdmlvXFYxXEdQQk1ldGFkYXRh6gILT2JsaXZpbzo6VjFiBnByb3RvMw"
-  )
+export const file_oblivio_v1_login_totp: GenFile = /*@__PURE__*/
+  fileDesc("ChtvYmxpdmlvL3YxL2xvZ2luX3RvdHAucHJvdG8SCm9ibGl2aW8udjEibAocTG9naW5UT1RQU2VydmljZVNldHVwUmVxdWVzdBIYChBlbmNyeXB0ZWRfc2VjcmV0GAEgASgMEg0KBW5vbmNlGAIgASgMEhAKCGF1dGhfa2V5GAMgASgMEhEKCXRvdHBfY29kZRgEIAEoCSIfCh1Mb2dpblRPVFBTZXJ2aWNlU2V0dXBSZXNwb25zZSJECh1Mb2dpblRPVFBTZXJ2aWNlRW5hYmxlUmVxdWVzdBIQCghhdXRoX2tleRgBIAEoDBIRCgl0b3RwX2NvZGUYAiABKAkiIAoeTG9naW5UT1RQU2VydmljZUVuYWJsZVJlc3BvbnNlIn4KHkxvZ2luVE9UUFNlcnZpY2VEaXNhYmxlUmVxdWVzdBIQCghhdXRoX2tleRgBIAEoDBIRCgl0b3RwX2NvZGUYAiABKAkSHwoXd2ViYXV0aG5fYXNzZXJ0aW9uX2pzb24YAyABKAwSFgoObWZhX3Nlc3Npb25faWQYBCABKAkiIQofTG9naW5UT1RQU2VydmljZURpc2FibGVSZXNwb25zZSIfCh1Mb2dpblRPVFBTZXJ2aWNlU3RhdHVzUmVxdWVzdCJFCh5Mb2dpblRPVFBTZXJ2aWNlU3RhdHVzUmVzcG9uc2USEgoKY29uZmlndXJlZBgBIAEoCBIPCgdlbmFibGVkGAIgASgIMpYDChBMb2dpblRPVFBTZXJ2aWNlElwKBVNldHVwEigub2JsaXZpby52MS5Mb2dpblRPVFBTZXJ2aWNlU2V0dXBSZXF1ZXN0Gikub2JsaXZpby52MS5Mb2dpblRPVFBTZXJ2aWNlU2V0dXBSZXNwb25zZRJfCgZFbmFibGUSKS5vYmxpdmlvLnYxLkxvZ2luVE9UUFNlcnZpY2VFbmFibGVSZXF1ZXN0Gioub2JsaXZpby52MS5Mb2dpblRPVFBTZXJ2aWNlRW5hYmxlUmVzcG9uc2USYgoHRGlzYWJsZRIqLm9ibGl2aW8udjEuTG9naW5UT1RQU2VydmljZURpc2FibGVSZXF1ZXN0Gisub2JsaXZpby52MS5Mb2dpblRPVFBTZXJ2aWNlRGlzYWJsZVJlc3BvbnNlEl8KBlN0YXR1cxIpLm9ibGl2aW8udjEuTG9naW5UT1RQU2VydmljZVN0YXR1c1JlcXVlc3QaKi5vYmxpdmlvLnYxLkxvZ2luVE9UUFNlcnZpY2VTdGF0dXNSZXNwb25zZUKvAQoOY29tLm9ibGl2aW8udjFCDkxvZ2luVG90cFByb3RvUAFaRGdpdGh1Yi5jb20vc3h3ZWJkZXYvb2JsaXZpby9pbnRlcm5hbC9hcGkvZ2VuL2dvL29ibGl2aW8vdjE7b2JsaXZpb3YxogIDT1hYqgIKT2JsaXZpby5WMcoCCk9ibGl2aW9cVjHiAhZPYmxpdmlvXFYxXEdQQk1ldGFkYXRh6gILT2JsaXZpbzo6VjFiBnByb3RvMw");
 
 /**
  * @generated from message oblivio.v1.LoginTOTPServiceSetupRequest
  */
-export type LoginTOTPServiceSetupRequest =
-  Message<"oblivio.v1.LoginTOTPServiceSetupRequest"> & {
-    /**
-     * AES-GCM(K_login_totp, normalized_base32_secret) — envelope is
-     * `nonce(12) || ct+tag`. AAD is the fixed string "oblivio/login-totp/v1".
-     *
-     * @generated from field: bytes encrypted_secret = 1;
-     */
-    encryptedSecret: Uint8Array
+export type LoginTOTPServiceSetupRequest = Message<"oblivio.v1.LoginTOTPServiceSetupRequest"> & {
+  /**
+   * AES-GCM(K_login_totp, normalized_base32_secret) — envelope is
+   * `nonce(12) || ct+tag`. AAD is the fixed string "oblivio/login-totp/v1".
+   *
+   * @generated from field: bytes encrypted_secret = 1;
+   */
+  encryptedSecret: Uint8Array;
 
-    /**
-     * Echoed back for convenience; the server stores it in its own column so a
-     * future migration can move to a different envelope layout without re-encrypting.
-     *
-     * @generated from field: bytes nonce = 2;
-     */
-    nonce: Uint8Array
+  /**
+   * Echoed back for convenience; the server stores it in its own column so a
+   * future migration can move to a different envelope layout without re-encrypting.
+   *
+   * @generated from field: bytes nonce = 2;
+   */
+  nonce: Uint8Array;
 
-    /**
-     * auth_key is required so the server can derive K_login_totp itself and
-     * validate the round-trip before storing — guards against client bugs.
-     *
-     * @generated from field: bytes auth_key = 3;
-     */
-    authKey: Uint8Array
+  /**
+   * auth_key is required so the server can derive K_login_totp itself and
+   * validate the round-trip before storing — guards against client bugs.
+   *
+   * @generated from field: bytes auth_key = 3;
+   */
+  authKey: Uint8Array;
 
-    /**
-     * The first valid TOTP code, proving the client can read the secret.
-     *
-     * @generated from field: string totp_code = 4;
-     */
-    totpCode: string
-  }
+  /**
+   * The first valid TOTP code, proving the client can read the secret.
+   *
+   * @generated from field: string totp_code = 4;
+   */
+  totpCode: string;
+};
 
 /**
  * Describes the message oblivio.v1.LoginTOTPServiceSetupRequest.
  * Use `create(LoginTOTPServiceSetupRequestSchema)` to create a new message.
  */
-export const LoginTOTPServiceSetupRequestSchema: GenMessage<LoginTOTPServiceSetupRequest> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_login_totp, 0)
+export const LoginTOTPServiceSetupRequestSchema: GenMessage<LoginTOTPServiceSetupRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_login_totp, 0);
 
 /**
  * @generated from message oblivio.v1.LoginTOTPServiceSetupResponse
  */
-export type LoginTOTPServiceSetupResponse =
-  Message<"oblivio.v1.LoginTOTPServiceSetupResponse"> & {}
+export type LoginTOTPServiceSetupResponse = Message<"oblivio.v1.LoginTOTPServiceSetupResponse"> & {
+};
 
 /**
  * Describes the message oblivio.v1.LoginTOTPServiceSetupResponse.
  * Use `create(LoginTOTPServiceSetupResponseSchema)` to create a new message.
  */
-export const LoginTOTPServiceSetupResponseSchema: GenMessage<LoginTOTPServiceSetupResponse> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_login_totp, 1)
+export const LoginTOTPServiceSetupResponseSchema: GenMessage<LoginTOTPServiceSetupResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_login_totp, 1);
 
 /**
  * @generated from message oblivio.v1.LoginTOTPServiceEnableRequest
  */
-export type LoginTOTPServiceEnableRequest =
-  Message<"oblivio.v1.LoginTOTPServiceEnableRequest"> & {
-    /**
-     * @generated from field: bytes auth_key = 1;
-     */
-    authKey: Uint8Array
+export type LoginTOTPServiceEnableRequest = Message<"oblivio.v1.LoginTOTPServiceEnableRequest"> & {
+  /**
+   * @generated from field: bytes auth_key = 1;
+   */
+  authKey: Uint8Array;
 
-    /**
-     * @generated from field: string totp_code = 2;
-     */
-    totpCode: string
-  }
+  /**
+   * @generated from field: string totp_code = 2;
+   */
+  totpCode: string;
+};
 
 /**
  * Describes the message oblivio.v1.LoginTOTPServiceEnableRequest.
  * Use `create(LoginTOTPServiceEnableRequestSchema)` to create a new message.
  */
-export const LoginTOTPServiceEnableRequestSchema: GenMessage<LoginTOTPServiceEnableRequest> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_login_totp, 2)
+export const LoginTOTPServiceEnableRequestSchema: GenMessage<LoginTOTPServiceEnableRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_login_totp, 2);
 
 /**
  * @generated from message oblivio.v1.LoginTOTPServiceEnableResponse
  */
-export type LoginTOTPServiceEnableResponse =
-  Message<"oblivio.v1.LoginTOTPServiceEnableResponse"> & {}
+export type LoginTOTPServiceEnableResponse = Message<"oblivio.v1.LoginTOTPServiceEnableResponse"> & {
+};
 
 /**
  * Describes the message oblivio.v1.LoginTOTPServiceEnableResponse.
  * Use `create(LoginTOTPServiceEnableResponseSchema)` to create a new message.
  */
-export const LoginTOTPServiceEnableResponseSchema: GenMessage<LoginTOTPServiceEnableResponse> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_login_totp, 3)
+export const LoginTOTPServiceEnableResponseSchema: GenMessage<LoginTOTPServiceEnableResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_login_totp, 3);
 
 /**
  * Disable accepts EITHER totp_code OR a webauthn assertion. The webauthn
@@ -129,88 +112,82 @@ export const LoginTOTPServiceEnableResponseSchema: GenMessage<LoginTOTPServiceEn
  *
  * @generated from message oblivio.v1.LoginTOTPServiceDisableRequest
  */
-export type LoginTOTPServiceDisableRequest =
-  Message<"oblivio.v1.LoginTOTPServiceDisableRequest"> & {
-    /**
-     * @generated from field: bytes auth_key = 1;
-     */
-    authKey: Uint8Array
+export type LoginTOTPServiceDisableRequest = Message<"oblivio.v1.LoginTOTPServiceDisableRequest"> & {
+  /**
+   * @generated from field: bytes auth_key = 1;
+   */
+  authKey: Uint8Array;
 
-    /**
-     * @generated from field: string totp_code = 2;
-     */
-    totpCode: string
+  /**
+   * @generated from field: string totp_code = 2;
+   */
+  totpCode: string;
 
-    /**
-     * @generated from field: bytes webauthn_assertion_json = 3;
-     */
-    webauthnAssertionJson: Uint8Array
+  /**
+   * @generated from field: bytes webauthn_assertion_json = 3;
+   */
+  webauthnAssertionJson: Uint8Array;
 
-    /**
-     * @generated from field: string mfa_session_id = 4;
-     */
-    mfaSessionId: string
-  }
+  /**
+   * @generated from field: string mfa_session_id = 4;
+   */
+  mfaSessionId: string;
+};
 
 /**
  * Describes the message oblivio.v1.LoginTOTPServiceDisableRequest.
  * Use `create(LoginTOTPServiceDisableRequestSchema)` to create a new message.
  */
-export const LoginTOTPServiceDisableRequestSchema: GenMessage<LoginTOTPServiceDisableRequest> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_login_totp, 4)
+export const LoginTOTPServiceDisableRequestSchema: GenMessage<LoginTOTPServiceDisableRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_login_totp, 4);
 
 /**
  * @generated from message oblivio.v1.LoginTOTPServiceDisableResponse
  */
-export type LoginTOTPServiceDisableResponse =
-  Message<"oblivio.v1.LoginTOTPServiceDisableResponse"> & {}
+export type LoginTOTPServiceDisableResponse = Message<"oblivio.v1.LoginTOTPServiceDisableResponse"> & {
+};
 
 /**
  * Describes the message oblivio.v1.LoginTOTPServiceDisableResponse.
  * Use `create(LoginTOTPServiceDisableResponseSchema)` to create a new message.
  */
-export const LoginTOTPServiceDisableResponseSchema: GenMessage<LoginTOTPServiceDisableResponse> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_login_totp, 5)
+export const LoginTOTPServiceDisableResponseSchema: GenMessage<LoginTOTPServiceDisableResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_login_totp, 5);
 
 /**
  * @generated from message oblivio.v1.LoginTOTPServiceStatusRequest
  */
-export type LoginTOTPServiceStatusRequest =
-  Message<"oblivio.v1.LoginTOTPServiceStatusRequest"> & {}
+export type LoginTOTPServiceStatusRequest = Message<"oblivio.v1.LoginTOTPServiceStatusRequest"> & {
+};
 
 /**
  * Describes the message oblivio.v1.LoginTOTPServiceStatusRequest.
  * Use `create(LoginTOTPServiceStatusRequestSchema)` to create a new message.
  */
-export const LoginTOTPServiceStatusRequestSchema: GenMessage<LoginTOTPServiceStatusRequest> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_login_totp, 6)
+export const LoginTOTPServiceStatusRequestSchema: GenMessage<LoginTOTPServiceStatusRequest> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_login_totp, 6);
 
 /**
  * @generated from message oblivio.v1.LoginTOTPServiceStatusResponse
  */
-export type LoginTOTPServiceStatusResponse =
-  Message<"oblivio.v1.LoginTOTPServiceStatusResponse"> & {
-    /**
-     * @generated from field: bool configured = 1;
-     */
-    configured: boolean
+export type LoginTOTPServiceStatusResponse = Message<"oblivio.v1.LoginTOTPServiceStatusResponse"> & {
+  /**
+   * @generated from field: bool configured = 1;
+   */
+  configured: boolean;
 
-    /**
-     * @generated from field: bool enabled = 2;
-     */
-    enabled: boolean
-  }
+  /**
+   * @generated from field: bool enabled = 2;
+   */
+  enabled: boolean;
+};
 
 /**
  * Describes the message oblivio.v1.LoginTOTPServiceStatusResponse.
  * Use `create(LoginTOTPServiceStatusResponseSchema)` to create a new message.
  */
-export const LoginTOTPServiceStatusResponseSchema: GenMessage<LoginTOTPServiceStatusResponse> =
-  /*@__PURE__*/
-  messageDesc(file_oblivio_v1_login_totp, 7)
+export const LoginTOTPServiceStatusResponseSchema: GenMessage<LoginTOTPServiceStatusResponse> = /*@__PURE__*/
+  messageDesc(file_oblivio_v1_login_totp, 7);
 
 /**
  * LoginTOTPService manages the server-side login TOTP factor.
@@ -228,32 +205,34 @@ export const LoginTOTPService: GenService<{
    * @generated from rpc oblivio.v1.LoginTOTPService.Setup
    */
   setup: {
-    methodKind: "unary"
-    input: typeof LoginTOTPServiceSetupRequestSchema
-    output: typeof LoginTOTPServiceSetupResponseSchema
-  }
+    methodKind: "unary";
+    input: typeof LoginTOTPServiceSetupRequestSchema;
+    output: typeof LoginTOTPServiceSetupResponseSchema;
+  },
   /**
    * @generated from rpc oblivio.v1.LoginTOTPService.Enable
    */
   enable: {
-    methodKind: "unary"
-    input: typeof LoginTOTPServiceEnableRequestSchema
-    output: typeof LoginTOTPServiceEnableResponseSchema
-  }
+    methodKind: "unary";
+    input: typeof LoginTOTPServiceEnableRequestSchema;
+    output: typeof LoginTOTPServiceEnableResponseSchema;
+  },
   /**
    * @generated from rpc oblivio.v1.LoginTOTPService.Disable
    */
   disable: {
-    methodKind: "unary"
-    input: typeof LoginTOTPServiceDisableRequestSchema
-    output: typeof LoginTOTPServiceDisableResponseSchema
-  }
+    methodKind: "unary";
+    input: typeof LoginTOTPServiceDisableRequestSchema;
+    output: typeof LoginTOTPServiceDisableResponseSchema;
+  },
   /**
    * @generated from rpc oblivio.v1.LoginTOTPService.Status
    */
   status: {
-    methodKind: "unary"
-    input: typeof LoginTOTPServiceStatusRequestSchema
-    output: typeof LoginTOTPServiceStatusResponseSchema
-  }
-}> = /*@__PURE__*/ serviceDesc(file_oblivio_v1_login_totp, 0)
+    methodKind: "unary";
+    input: typeof LoginTOTPServiceStatusRequestSchema;
+    output: typeof LoginTOTPServiceStatusResponseSchema;
+  },
+}> = /*@__PURE__*/
+  serviceDesc(file_oblivio_v1_login_totp, 0);
+

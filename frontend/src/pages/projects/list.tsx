@@ -73,7 +73,7 @@ export default function ProjectsListPage() {
             Group related items. Names are encrypted client-side.
           </p>
         </div>
-        <Link to="/app/projects/new" className={buttonVariants()}>
+        <Link to="/projects/new" className={buttonVariants()}>
           <Plus className="size-4" />
           New project
         </Link>
@@ -99,7 +99,7 @@ export default function ProjectsListPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-            <Link to="/app/projects/new" className={buttonVariants()}>
+            <Link to="/projects/new" className={buttonVariants()}>
               Create your first project
             </Link>
           </CardContent>
@@ -115,7 +115,7 @@ export default function ProjectsListPage() {
             vaultId={vaultIdScope(userId)}
             onEdit={() =>
               navigate({
-                to: "/app/projects/$projectId/edit",
+                to: "/projects/$projectId/edit",
                 params: { projectId: p.id },
               })
             }
@@ -224,7 +224,7 @@ function ProjectCard({
       <CardContent className="flex items-center justify-between text-xs text-muted-foreground">
         <span>v{project.version}</span>
         <Link
-          to="/app/entries"
+          to="/entries"
           search={{ projectId: project.id }}
           className="underline"
         >

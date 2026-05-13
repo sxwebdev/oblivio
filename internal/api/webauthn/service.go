@@ -150,6 +150,9 @@ func (s *Service) RegisterFinish(ctx context.Context, req *connect.Request[pb.Re
 		Aaguid:       cred.Authenticator.AAGUID,
 		SignCount:    int64(cred.Authenticator.SignCount),
 		Transports:   transports,
+		// Persist the authenticator-data flags byte so ValidateLogin can
+		// compare BackupEligible across ceremonies — see migration 012.
+		Flags: int16(cred.Flags.ProtocolValue()), //nolint:gosec
 	})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

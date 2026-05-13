@@ -68,6 +68,7 @@ func (s *Service) consumeWebAuthnAssertion(ctx context.Context, tx pgx.Tx, userI
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
+
 	wuser := wauser.FromIdentity(u.ID, u.Email, creds)
 
 	parsed, err := protocol.ParseCredentialRequestResponseBody(bytes.NewReader(assertion))
@@ -83,6 +84,7 @@ func (s *Service) consumeWebAuthnAssertion(ctx context.Context, tx pgx.Tx, userI
 		_ = repo_user_webauthn_credentials.New(tx).TouchWebAuthnCredential(ctx, repo_user_webauthn_credentials.TouchWebAuthnCredentialParams{
 			ID:        matched.ID,
 			SignCount: int64(credential.Authenticator.SignCount),
+			Flags:     int16(credential.Flags.ProtocolValue()), //nolint:gosec
 		})
 	}
 	return nil

@@ -9,8 +9,8 @@ WHERE id = $1 AND user_id = $2;
 
 -- name: CreateProject :one
 INSERT INTO projects (
-    user_id, encrypted_blob, wrapped_item_key, name_hash, sort_order
-) VALUES ($1, $2, $3, $4, $5)
+    id, user_id, encrypted_blob, wrapped_item_key, name_hash, sort_order
+) VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: UpdateProject :one

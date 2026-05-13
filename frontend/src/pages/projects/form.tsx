@@ -90,6 +90,7 @@ export default function ProjectForm(props: ProjectFormMode) {
         })
         return projectsClient.createProject(
           {
+            id: newId,
             encryptedBlob: sealed.encryptedBlob,
             wrappedItemKey: sealed.wrappedItemKey,
             nameHash: sealed.titleHash,
@@ -126,7 +127,7 @@ export default function ProjectForm(props: ProjectFormMode) {
         props.mode === "create" ? "Project created" : "Project updated"
       )
       await qc.invalidateQueries({ queryKey: ["projects"] })
-      await navigate({ to: "/app/projects" })
+      await navigate({ to: "/projects" })
     },
     onError: (err) => {
       setError(err instanceof Error ? err.message : String(err))
@@ -175,7 +176,7 @@ export default function ProjectForm(props: ProjectFormMode) {
       <div className="flex justify-end gap-2">
         <Button
           variant="ghost"
-          onClick={() => navigate({ to: "/app/projects" })}
+          onClick={() => navigate({ to: "/projects" })}
         >
           Cancel
         </Button>

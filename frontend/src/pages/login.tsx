@@ -215,7 +215,7 @@ export default function LoginPage() {
     setMfa(null)
     setTotpCode("")
     setPassword("")
-    navigate({ to: "/app" })
+    navigate({ to: "/" })
   }
 
   if (mfa) {

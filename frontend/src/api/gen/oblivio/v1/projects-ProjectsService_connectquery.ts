@@ -2,34 +2,34 @@
 // @generated from file oblivio/v1/projects.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import { ProjectsService } from "./projects_pb"
+import { ProjectsService } from "./projects_pb";
 
 /**
  * @generated from rpc oblivio.v1.ProjectsService.ListProjects
  */
-export const listProjects = ProjectsService.method.listProjects
+export const listProjects = ProjectsService.method.listProjects;
 
 /**
  * @generated from rpc oblivio.v1.ProjectsService.GetProject
  */
-export const getProject = ProjectsService.method.getProject
+export const getProject = ProjectsService.method.getProject;
 
 /**
  * @generated from rpc oblivio.v1.ProjectsService.CreateProject
  */
-export const createProject = ProjectsService.method.createProject
+export const createProject = ProjectsService.method.createProject;
 
 /**
  * @generated from rpc oblivio.v1.ProjectsService.UpdateProject
  */
-export const updateProject = ProjectsService.method.updateProject
+export const updateProject = ProjectsService.method.updateProject;
 
 /**
  * @generated from rpc oblivio.v1.ProjectsService.DeleteProject
  */
-export const deleteProject = ProjectsService.method.deleteProject
+export const deleteProject = ProjectsService.method.deleteProject;
 
 /**
  * @generated from rpc oblivio.v1.ProjectsService.ReorderProjects
  */
-export const reorderProjects = ProjectsService.method.reorderProjects
+export const reorderProjects = ProjectsService.method.reorderProjects;

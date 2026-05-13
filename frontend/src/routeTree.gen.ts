@@ -11,27 +11,25 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PublicRouteImport } from './routes/_public'
 import { Route as AuthRouteImport } from './routes/_auth'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthIndexRouteImport } from './routes/_auth.index'
 import { Route as PublicVerifyEmailRouteImport } from './routes/_public.verify-email'
 import { Route as PublicUnlockRouteImport } from './routes/_public.unlock'
 import { Route as PublicRegisterRouteImport } from './routes/_public.register'
 import { Route as PublicRecoverRouteImport } from './routes/_public.recover'
 import { Route as PublicLoginRouteImport } from './routes/_public.login'
-import { Route as AuthAppRouteImport } from './routes/_auth.app'
-import { Route as AuthAppIndexRouteImport } from './routes/_auth.app.index'
-import { Route as AuthAppSettingsIndexRouteImport } from './routes/_auth.app.settings.index'
-import { Route as AuthAppProjectsIndexRouteImport } from './routes/_auth.app.projects.index'
-import { Route as AuthAppNotesIndexRouteImport } from './routes/_auth.app.notes.index'
-import { Route as AuthAppEntriesIndexRouteImport } from './routes/_auth.app.entries.index'
-import { Route as AuthAppAuditIndexRouteImport } from './routes/_auth.app.audit.index'
-import { Route as AuthAppSettingsTwoFactorRouteImport } from './routes/_auth.app.settings.two-factor'
-import { Route as AuthAppSettingsSecurityRouteImport } from './routes/_auth.app.settings.security'
-import { Route as AuthAppProjectsNewRouteImport } from './routes/_auth.app.projects.new'
-import { Route as AuthAppNotesNewRouteImport } from './routes/_auth.app.notes.new'
-import { Route as AuthAppEntriesNewRouteImport } from './routes/_auth.app.entries.new'
-import { Route as AuthAppEntriesEntryIdIndexRouteImport } from './routes/_auth.app.entries.$entryId.index'
-import { Route as AuthAppProjectsProjectIdEditRouteImport } from './routes/_auth.app.projects.$projectId.edit'
-import { Route as AuthAppEntriesEntryIdEditRouteImport } from './routes/_auth.app.entries.$entryId.edit'
+import { Route as AuthSettingsIndexRouteImport } from './routes/_auth.settings.index'
+import { Route as AuthProjectsIndexRouteImport } from './routes/_auth.projects.index'
+import { Route as AuthNotesIndexRouteImport } from './routes/_auth.notes.index'
+import { Route as AuthEntriesIndexRouteImport } from './routes/_auth.entries.index'
+import { Route as AuthAuditIndexRouteImport } from './routes/_auth.audit.index'
+import { Route as AuthSettingsTwoFactorRouteImport } from './routes/_auth.settings.two-factor'
+import { Route as AuthSettingsSecurityRouteImport } from './routes/_auth.settings.security'
+import { Route as AuthProjectsNewRouteImport } from './routes/_auth.projects.new'
+import { Route as AuthNotesNewRouteImport } from './routes/_auth.notes.new'
+import { Route as AuthEntriesNewRouteImport } from './routes/_auth.entries.new'
+import { Route as AuthEntriesEntryIdIndexRouteImport } from './routes/_auth.entries.$entryId.index'
+import { Route as AuthProjectsProjectIdEditRouteImport } from './routes/_auth.projects.$projectId.edit'
+import { Route as AuthEntriesEntryIdEditRouteImport } from './routes/_auth.entries.$entryId.edit'
 
 const PublicRoute = PublicRouteImport.update({
   id: '/_public',
@@ -41,10 +39,10 @@ const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthRoute,
 } as any)
 const PublicVerifyEmailRoute = PublicVerifyEmailRouteImport.update({
   id: '/verify-email',
@@ -71,181 +69,161 @@ const PublicLoginRoute = PublicLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => PublicRoute,
 } as any)
-const AuthAppRoute = AuthAppRouteImport.update({
-  id: '/app',
-  path: '/app',
-  getParentRoute: () => AuthRoute,
-} as any)
-const AuthAppIndexRoute = AuthAppIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthAppRoute,
-} as any)
-const AuthAppSettingsIndexRoute = AuthAppSettingsIndexRouteImport.update({
+const AuthSettingsIndexRoute = AuthSettingsIndexRouteImport.update({
   id: '/settings/',
   path: '/settings/',
-  getParentRoute: () => AuthAppRoute,
+  getParentRoute: () => AuthRoute,
 } as any)
-const AuthAppProjectsIndexRoute = AuthAppProjectsIndexRouteImport.update({
+const AuthProjectsIndexRoute = AuthProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
-  getParentRoute: () => AuthAppRoute,
+  getParentRoute: () => AuthRoute,
 } as any)
-const AuthAppNotesIndexRoute = AuthAppNotesIndexRouteImport.update({
+const AuthNotesIndexRoute = AuthNotesIndexRouteImport.update({
   id: '/notes/',
   path: '/notes/',
-  getParentRoute: () => AuthAppRoute,
+  getParentRoute: () => AuthRoute,
 } as any)
-const AuthAppEntriesIndexRoute = AuthAppEntriesIndexRouteImport.update({
+const AuthEntriesIndexRoute = AuthEntriesIndexRouteImport.update({
   id: '/entries/',
   path: '/entries/',
-  getParentRoute: () => AuthAppRoute,
+  getParentRoute: () => AuthRoute,
 } as any)
-const AuthAppAuditIndexRoute = AuthAppAuditIndexRouteImport.update({
+const AuthAuditIndexRoute = AuthAuditIndexRouteImport.update({
   id: '/audit/',
   path: '/audit/',
-  getParentRoute: () => AuthAppRoute,
+  getParentRoute: () => AuthRoute,
 } as any)
-const AuthAppSettingsTwoFactorRoute =
-  AuthAppSettingsTwoFactorRouteImport.update({
-    id: '/settings/two-factor',
-    path: '/settings/two-factor',
-    getParentRoute: () => AuthAppRoute,
-  } as any)
-const AuthAppSettingsSecurityRoute = AuthAppSettingsSecurityRouteImport.update({
+const AuthSettingsTwoFactorRoute = AuthSettingsTwoFactorRouteImport.update({
+  id: '/settings/two-factor',
+  path: '/settings/two-factor',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthSettingsSecurityRoute = AuthSettingsSecurityRouteImport.update({
   id: '/settings/security',
   path: '/settings/security',
-  getParentRoute: () => AuthAppRoute,
+  getParentRoute: () => AuthRoute,
 } as any)
-const AuthAppProjectsNewRoute = AuthAppProjectsNewRouteImport.update({
+const AuthProjectsNewRoute = AuthProjectsNewRouteImport.update({
   id: '/projects/new',
   path: '/projects/new',
-  getParentRoute: () => AuthAppRoute,
+  getParentRoute: () => AuthRoute,
 } as any)
-const AuthAppNotesNewRoute = AuthAppNotesNewRouteImport.update({
+const AuthNotesNewRoute = AuthNotesNewRouteImport.update({
   id: '/notes/new',
   path: '/notes/new',
-  getParentRoute: () => AuthAppRoute,
+  getParentRoute: () => AuthRoute,
 } as any)
-const AuthAppEntriesNewRoute = AuthAppEntriesNewRouteImport.update({
+const AuthEntriesNewRoute = AuthEntriesNewRouteImport.update({
   id: '/entries/new',
   path: '/entries/new',
-  getParentRoute: () => AuthAppRoute,
+  getParentRoute: () => AuthRoute,
 } as any)
-const AuthAppEntriesEntryIdIndexRoute =
-  AuthAppEntriesEntryIdIndexRouteImport.update({
-    id: '/entries/$entryId/',
-    path: '/entries/$entryId/',
-    getParentRoute: () => AuthAppRoute,
-  } as any)
-const AuthAppProjectsProjectIdEditRoute =
-  AuthAppProjectsProjectIdEditRouteImport.update({
+const AuthEntriesEntryIdIndexRoute = AuthEntriesEntryIdIndexRouteImport.update({
+  id: '/entries/$entryId/',
+  path: '/entries/$entryId/',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthProjectsProjectIdEditRoute =
+  AuthProjectsProjectIdEditRouteImport.update({
     id: '/projects/$projectId/edit',
     path: '/projects/$projectId/edit',
-    getParentRoute: () => AuthAppRoute,
+    getParentRoute: () => AuthRoute,
   } as any)
-const AuthAppEntriesEntryIdEditRoute =
-  AuthAppEntriesEntryIdEditRouteImport.update({
-    id: '/entries/$entryId/edit',
-    path: '/entries/$entryId/edit',
-    getParentRoute: () => AuthAppRoute,
-  } as any)
+const AuthEntriesEntryIdEditRoute = AuthEntriesEntryIdEditRouteImport.update({
+  id: '/entries/$entryId/edit',
+  path: '/entries/$entryId/edit',
+  getParentRoute: () => AuthRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/app': typeof AuthAppRouteWithChildren
+  '/': typeof AuthIndexRoute
   '/login': typeof PublicLoginRoute
   '/recover': typeof PublicRecoverRoute
   '/register': typeof PublicRegisterRoute
   '/unlock': typeof PublicUnlockRoute
   '/verify-email': typeof PublicVerifyEmailRoute
-  '/app/': typeof AuthAppIndexRoute
-  '/app/entries/new': typeof AuthAppEntriesNewRoute
-  '/app/notes/new': typeof AuthAppNotesNewRoute
-  '/app/projects/new': typeof AuthAppProjectsNewRoute
-  '/app/settings/security': typeof AuthAppSettingsSecurityRoute
-  '/app/settings/two-factor': typeof AuthAppSettingsTwoFactorRoute
-  '/app/audit/': typeof AuthAppAuditIndexRoute
-  '/app/entries/': typeof AuthAppEntriesIndexRoute
-  '/app/notes/': typeof AuthAppNotesIndexRoute
-  '/app/projects/': typeof AuthAppProjectsIndexRoute
-  '/app/settings/': typeof AuthAppSettingsIndexRoute
-  '/app/entries/$entryId/edit': typeof AuthAppEntriesEntryIdEditRoute
-  '/app/projects/$projectId/edit': typeof AuthAppProjectsProjectIdEditRoute
-  '/app/entries/$entryId/': typeof AuthAppEntriesEntryIdIndexRoute
+  '/entries/new': typeof AuthEntriesNewRoute
+  '/notes/new': typeof AuthNotesNewRoute
+  '/projects/new': typeof AuthProjectsNewRoute
+  '/settings/security': typeof AuthSettingsSecurityRoute
+  '/settings/two-factor': typeof AuthSettingsTwoFactorRoute
+  '/audit/': typeof AuthAuditIndexRoute
+  '/entries/': typeof AuthEntriesIndexRoute
+  '/notes/': typeof AuthNotesIndexRoute
+  '/projects/': typeof AuthProjectsIndexRoute
+  '/settings/': typeof AuthSettingsIndexRoute
+  '/entries/$entryId/edit': typeof AuthEntriesEntryIdEditRoute
+  '/projects/$projectId/edit': typeof AuthProjectsProjectIdEditRoute
+  '/entries/$entryId/': typeof AuthEntriesEntryIdIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
+  '/': typeof AuthIndexRoute
   '/login': typeof PublicLoginRoute
   '/recover': typeof PublicRecoverRoute
   '/register': typeof PublicRegisterRoute
   '/unlock': typeof PublicUnlockRoute
   '/verify-email': typeof PublicVerifyEmailRoute
-  '/app': typeof AuthAppIndexRoute
-  '/app/entries/new': typeof AuthAppEntriesNewRoute
-  '/app/notes/new': typeof AuthAppNotesNewRoute
-  '/app/projects/new': typeof AuthAppProjectsNewRoute
-  '/app/settings/security': typeof AuthAppSettingsSecurityRoute
-  '/app/settings/two-factor': typeof AuthAppSettingsTwoFactorRoute
-  '/app/audit': typeof AuthAppAuditIndexRoute
-  '/app/entries': typeof AuthAppEntriesIndexRoute
-  '/app/notes': typeof AuthAppNotesIndexRoute
-  '/app/projects': typeof AuthAppProjectsIndexRoute
-  '/app/settings': typeof AuthAppSettingsIndexRoute
-  '/app/entries/$entryId/edit': typeof AuthAppEntriesEntryIdEditRoute
-  '/app/projects/$projectId/edit': typeof AuthAppProjectsProjectIdEditRoute
-  '/app/entries/$entryId': typeof AuthAppEntriesEntryIdIndexRoute
+  '/entries/new': typeof AuthEntriesNewRoute
+  '/notes/new': typeof AuthNotesNewRoute
+  '/projects/new': typeof AuthProjectsNewRoute
+  '/settings/security': typeof AuthSettingsSecurityRoute
+  '/settings/two-factor': typeof AuthSettingsTwoFactorRoute
+  '/audit': typeof AuthAuditIndexRoute
+  '/entries': typeof AuthEntriesIndexRoute
+  '/notes': typeof AuthNotesIndexRoute
+  '/projects': typeof AuthProjectsIndexRoute
+  '/settings': typeof AuthSettingsIndexRoute
+  '/entries/$entryId/edit': typeof AuthEntriesEntryIdEditRoute
+  '/projects/$projectId/edit': typeof AuthProjectsProjectIdEditRoute
+  '/entries/$entryId': typeof AuthEntriesEntryIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/_auth': typeof AuthRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
-  '/_auth/app': typeof AuthAppRouteWithChildren
   '/_public/login': typeof PublicLoginRoute
   '/_public/recover': typeof PublicRecoverRoute
   '/_public/register': typeof PublicRegisterRoute
   '/_public/unlock': typeof PublicUnlockRoute
   '/_public/verify-email': typeof PublicVerifyEmailRoute
-  '/_auth/app/': typeof AuthAppIndexRoute
-  '/_auth/app/entries/new': typeof AuthAppEntriesNewRoute
-  '/_auth/app/notes/new': typeof AuthAppNotesNewRoute
-  '/_auth/app/projects/new': typeof AuthAppProjectsNewRoute
-  '/_auth/app/settings/security': typeof AuthAppSettingsSecurityRoute
-  '/_auth/app/settings/two-factor': typeof AuthAppSettingsTwoFactorRoute
-  '/_auth/app/audit/': typeof AuthAppAuditIndexRoute
-  '/_auth/app/entries/': typeof AuthAppEntriesIndexRoute
-  '/_auth/app/notes/': typeof AuthAppNotesIndexRoute
-  '/_auth/app/projects/': typeof AuthAppProjectsIndexRoute
-  '/_auth/app/settings/': typeof AuthAppSettingsIndexRoute
-  '/_auth/app/entries/$entryId/edit': typeof AuthAppEntriesEntryIdEditRoute
-  '/_auth/app/projects/$projectId/edit': typeof AuthAppProjectsProjectIdEditRoute
-  '/_auth/app/entries/$entryId/': typeof AuthAppEntriesEntryIdIndexRoute
+  '/_auth/': typeof AuthIndexRoute
+  '/_auth/entries/new': typeof AuthEntriesNewRoute
+  '/_auth/notes/new': typeof AuthNotesNewRoute
+  '/_auth/projects/new': typeof AuthProjectsNewRoute
+  '/_auth/settings/security': typeof AuthSettingsSecurityRoute
+  '/_auth/settings/two-factor': typeof AuthSettingsTwoFactorRoute
+  '/_auth/audit/': typeof AuthAuditIndexRoute
+  '/_auth/entries/': typeof AuthEntriesIndexRoute
+  '/_auth/notes/': typeof AuthNotesIndexRoute
+  '/_auth/projects/': typeof AuthProjectsIndexRoute
+  '/_auth/settings/': typeof AuthSettingsIndexRoute
+  '/_auth/entries/$entryId/edit': typeof AuthEntriesEntryIdEditRoute
+  '/_auth/projects/$projectId/edit': typeof AuthProjectsProjectIdEditRoute
+  '/_auth/entries/$entryId/': typeof AuthEntriesEntryIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/app'
     | '/login'
     | '/recover'
     | '/register'
     | '/unlock'
     | '/verify-email'
-    | '/app/'
-    | '/app/entries/new'
-    | '/app/notes/new'
-    | '/app/projects/new'
-    | '/app/settings/security'
-    | '/app/settings/two-factor'
-    | '/app/audit/'
-    | '/app/entries/'
-    | '/app/notes/'
-    | '/app/projects/'
-    | '/app/settings/'
-    | '/app/entries/$entryId/edit'
-    | '/app/projects/$projectId/edit'
-    | '/app/entries/$entryId/'
+    | '/entries/new'
+    | '/notes/new'
+    | '/projects/new'
+    | '/settings/security'
+    | '/settings/two-factor'
+    | '/audit/'
+    | '/entries/'
+    | '/notes/'
+    | '/projects/'
+    | '/settings/'
+    | '/entries/$entryId/edit'
+    | '/projects/$projectId/edit'
+    | '/entries/$entryId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -254,49 +232,45 @@ export interface FileRouteTypes {
     | '/register'
     | '/unlock'
     | '/verify-email'
-    | '/app'
-    | '/app/entries/new'
-    | '/app/notes/new'
-    | '/app/projects/new'
-    | '/app/settings/security'
-    | '/app/settings/two-factor'
-    | '/app/audit'
-    | '/app/entries'
-    | '/app/notes'
-    | '/app/projects'
-    | '/app/settings'
-    | '/app/entries/$entryId/edit'
-    | '/app/projects/$projectId/edit'
-    | '/app/entries/$entryId'
+    | '/entries/new'
+    | '/notes/new'
+    | '/projects/new'
+    | '/settings/security'
+    | '/settings/two-factor'
+    | '/audit'
+    | '/entries'
+    | '/notes'
+    | '/projects'
+    | '/settings'
+    | '/entries/$entryId/edit'
+    | '/projects/$projectId/edit'
+    | '/entries/$entryId'
   id:
     | '__root__'
-    | '/'
     | '/_auth'
     | '/_public'
-    | '/_auth/app'
     | '/_public/login'
     | '/_public/recover'
     | '/_public/register'
     | '/_public/unlock'
     | '/_public/verify-email'
-    | '/_auth/app/'
-    | '/_auth/app/entries/new'
-    | '/_auth/app/notes/new'
-    | '/_auth/app/projects/new'
-    | '/_auth/app/settings/security'
-    | '/_auth/app/settings/two-factor'
-    | '/_auth/app/audit/'
-    | '/_auth/app/entries/'
-    | '/_auth/app/notes/'
-    | '/_auth/app/projects/'
-    | '/_auth/app/settings/'
-    | '/_auth/app/entries/$entryId/edit'
-    | '/_auth/app/projects/$projectId/edit'
-    | '/_auth/app/entries/$entryId/'
+    | '/_auth/'
+    | '/_auth/entries/new'
+    | '/_auth/notes/new'
+    | '/_auth/projects/new'
+    | '/_auth/settings/security'
+    | '/_auth/settings/two-factor'
+    | '/_auth/audit/'
+    | '/_auth/entries/'
+    | '/_auth/notes/'
+    | '/_auth/projects/'
+    | '/_auth/settings/'
+    | '/_auth/entries/$entryId/edit'
+    | '/_auth/projects/$projectId/edit'
+    | '/_auth/entries/$entryId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
 }
@@ -317,12 +291,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/_auth/': {
+      id: '/_auth/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthIndexRouteImport
+      parentRoute: typeof AuthRoute
     }
     '/_public/verify-email': {
       id: '/_public/verify-email'
@@ -359,157 +333,132 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicLoginRouteImport
       parentRoute: typeof PublicRoute
     }
-    '/_auth/app': {
-      id: '/_auth/app'
-      path: '/app'
-      fullPath: '/app'
-      preLoaderRoute: typeof AuthAppRouteImport
+    '/_auth/settings/': {
+      id: '/_auth/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthSettingsIndexRouteImport
       parentRoute: typeof AuthRoute
     }
-    '/_auth/app/': {
-      id: '/_auth/app/'
-      path: '/'
-      fullPath: '/app/'
-      preLoaderRoute: typeof AuthAppIndexRouteImport
-      parentRoute: typeof AuthAppRoute
-    }
-    '/_auth/app/settings/': {
-      id: '/_auth/app/settings/'
-      path: '/settings'
-      fullPath: '/app/settings/'
-      preLoaderRoute: typeof AuthAppSettingsIndexRouteImport
-      parentRoute: typeof AuthAppRoute
-    }
-    '/_auth/app/projects/': {
-      id: '/_auth/app/projects/'
+    '/_auth/projects/': {
+      id: '/_auth/projects/'
       path: '/projects'
-      fullPath: '/app/projects/'
-      preLoaderRoute: typeof AuthAppProjectsIndexRouteImport
-      parentRoute: typeof AuthAppRoute
+      fullPath: '/projects/'
+      preLoaderRoute: typeof AuthProjectsIndexRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/_auth/app/notes/': {
-      id: '/_auth/app/notes/'
+    '/_auth/notes/': {
+      id: '/_auth/notes/'
       path: '/notes'
-      fullPath: '/app/notes/'
-      preLoaderRoute: typeof AuthAppNotesIndexRouteImport
-      parentRoute: typeof AuthAppRoute
+      fullPath: '/notes/'
+      preLoaderRoute: typeof AuthNotesIndexRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/_auth/app/entries/': {
-      id: '/_auth/app/entries/'
+    '/_auth/entries/': {
+      id: '/_auth/entries/'
       path: '/entries'
-      fullPath: '/app/entries/'
-      preLoaderRoute: typeof AuthAppEntriesIndexRouteImport
-      parentRoute: typeof AuthAppRoute
+      fullPath: '/entries/'
+      preLoaderRoute: typeof AuthEntriesIndexRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/_auth/app/audit/': {
-      id: '/_auth/app/audit/'
+    '/_auth/audit/': {
+      id: '/_auth/audit/'
       path: '/audit'
-      fullPath: '/app/audit/'
-      preLoaderRoute: typeof AuthAppAuditIndexRouteImport
-      parentRoute: typeof AuthAppRoute
+      fullPath: '/audit/'
+      preLoaderRoute: typeof AuthAuditIndexRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/_auth/app/settings/two-factor': {
-      id: '/_auth/app/settings/two-factor'
+    '/_auth/settings/two-factor': {
+      id: '/_auth/settings/two-factor'
       path: '/settings/two-factor'
-      fullPath: '/app/settings/two-factor'
-      preLoaderRoute: typeof AuthAppSettingsTwoFactorRouteImport
-      parentRoute: typeof AuthAppRoute
+      fullPath: '/settings/two-factor'
+      preLoaderRoute: typeof AuthSettingsTwoFactorRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/_auth/app/settings/security': {
-      id: '/_auth/app/settings/security'
+    '/_auth/settings/security': {
+      id: '/_auth/settings/security'
       path: '/settings/security'
-      fullPath: '/app/settings/security'
-      preLoaderRoute: typeof AuthAppSettingsSecurityRouteImport
-      parentRoute: typeof AuthAppRoute
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof AuthSettingsSecurityRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/_auth/app/projects/new': {
-      id: '/_auth/app/projects/new'
+    '/_auth/projects/new': {
+      id: '/_auth/projects/new'
       path: '/projects/new'
-      fullPath: '/app/projects/new'
-      preLoaderRoute: typeof AuthAppProjectsNewRouteImport
-      parentRoute: typeof AuthAppRoute
+      fullPath: '/projects/new'
+      preLoaderRoute: typeof AuthProjectsNewRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/_auth/app/notes/new': {
-      id: '/_auth/app/notes/new'
+    '/_auth/notes/new': {
+      id: '/_auth/notes/new'
       path: '/notes/new'
-      fullPath: '/app/notes/new'
-      preLoaderRoute: typeof AuthAppNotesNewRouteImport
-      parentRoute: typeof AuthAppRoute
+      fullPath: '/notes/new'
+      preLoaderRoute: typeof AuthNotesNewRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/_auth/app/entries/new': {
-      id: '/_auth/app/entries/new'
+    '/_auth/entries/new': {
+      id: '/_auth/entries/new'
       path: '/entries/new'
-      fullPath: '/app/entries/new'
-      preLoaderRoute: typeof AuthAppEntriesNewRouteImport
-      parentRoute: typeof AuthAppRoute
+      fullPath: '/entries/new'
+      preLoaderRoute: typeof AuthEntriesNewRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/_auth/app/entries/$entryId/': {
-      id: '/_auth/app/entries/$entryId/'
+    '/_auth/entries/$entryId/': {
+      id: '/_auth/entries/$entryId/'
       path: '/entries/$entryId'
-      fullPath: '/app/entries/$entryId/'
-      preLoaderRoute: typeof AuthAppEntriesEntryIdIndexRouteImport
-      parentRoute: typeof AuthAppRoute
+      fullPath: '/entries/$entryId/'
+      preLoaderRoute: typeof AuthEntriesEntryIdIndexRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/_auth/app/projects/$projectId/edit': {
-      id: '/_auth/app/projects/$projectId/edit'
+    '/_auth/projects/$projectId/edit': {
+      id: '/_auth/projects/$projectId/edit'
       path: '/projects/$projectId/edit'
-      fullPath: '/app/projects/$projectId/edit'
-      preLoaderRoute: typeof AuthAppProjectsProjectIdEditRouteImport
-      parentRoute: typeof AuthAppRoute
+      fullPath: '/projects/$projectId/edit'
+      preLoaderRoute: typeof AuthProjectsProjectIdEditRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/_auth/app/entries/$entryId/edit': {
-      id: '/_auth/app/entries/$entryId/edit'
+    '/_auth/entries/$entryId/edit': {
+      id: '/_auth/entries/$entryId/edit'
       path: '/entries/$entryId/edit'
-      fullPath: '/app/entries/$entryId/edit'
-      preLoaderRoute: typeof AuthAppEntriesEntryIdEditRouteImport
-      parentRoute: typeof AuthAppRoute
+      fullPath: '/entries/$entryId/edit'
+      preLoaderRoute: typeof AuthEntriesEntryIdEditRouteImport
+      parentRoute: typeof AuthRoute
     }
   }
 }
 
-interface AuthAppRouteChildren {
-  AuthAppIndexRoute: typeof AuthAppIndexRoute
-  AuthAppEntriesNewRoute: typeof AuthAppEntriesNewRoute
-  AuthAppNotesNewRoute: typeof AuthAppNotesNewRoute
-  AuthAppProjectsNewRoute: typeof AuthAppProjectsNewRoute
-  AuthAppSettingsSecurityRoute: typeof AuthAppSettingsSecurityRoute
-  AuthAppSettingsTwoFactorRoute: typeof AuthAppSettingsTwoFactorRoute
-  AuthAppAuditIndexRoute: typeof AuthAppAuditIndexRoute
-  AuthAppEntriesIndexRoute: typeof AuthAppEntriesIndexRoute
-  AuthAppNotesIndexRoute: typeof AuthAppNotesIndexRoute
-  AuthAppProjectsIndexRoute: typeof AuthAppProjectsIndexRoute
-  AuthAppSettingsIndexRoute: typeof AuthAppSettingsIndexRoute
-  AuthAppEntriesEntryIdEditRoute: typeof AuthAppEntriesEntryIdEditRoute
-  AuthAppProjectsProjectIdEditRoute: typeof AuthAppProjectsProjectIdEditRoute
-  AuthAppEntriesEntryIdIndexRoute: typeof AuthAppEntriesEntryIdIndexRoute
-}
-
-const AuthAppRouteChildren: AuthAppRouteChildren = {
-  AuthAppIndexRoute: AuthAppIndexRoute,
-  AuthAppEntriesNewRoute: AuthAppEntriesNewRoute,
-  AuthAppNotesNewRoute: AuthAppNotesNewRoute,
-  AuthAppProjectsNewRoute: AuthAppProjectsNewRoute,
-  AuthAppSettingsSecurityRoute: AuthAppSettingsSecurityRoute,
-  AuthAppSettingsTwoFactorRoute: AuthAppSettingsTwoFactorRoute,
-  AuthAppAuditIndexRoute: AuthAppAuditIndexRoute,
-  AuthAppEntriesIndexRoute: AuthAppEntriesIndexRoute,
-  AuthAppNotesIndexRoute: AuthAppNotesIndexRoute,
-  AuthAppProjectsIndexRoute: AuthAppProjectsIndexRoute,
-  AuthAppSettingsIndexRoute: AuthAppSettingsIndexRoute,
-  AuthAppEntriesEntryIdEditRoute: AuthAppEntriesEntryIdEditRoute,
-  AuthAppProjectsProjectIdEditRoute: AuthAppProjectsProjectIdEditRoute,
-  AuthAppEntriesEntryIdIndexRoute: AuthAppEntriesEntryIdIndexRoute,
-}
-
-const AuthAppRouteWithChildren =
-  AuthAppRoute._addFileChildren(AuthAppRouteChildren)
-
 interface AuthRouteChildren {
-  AuthAppRoute: typeof AuthAppRouteWithChildren
+  AuthIndexRoute: typeof AuthIndexRoute
+  AuthEntriesNewRoute: typeof AuthEntriesNewRoute
+  AuthNotesNewRoute: typeof AuthNotesNewRoute
+  AuthProjectsNewRoute: typeof AuthProjectsNewRoute
+  AuthSettingsSecurityRoute: typeof AuthSettingsSecurityRoute
+  AuthSettingsTwoFactorRoute: typeof AuthSettingsTwoFactorRoute
+  AuthAuditIndexRoute: typeof AuthAuditIndexRoute
+  AuthEntriesIndexRoute: typeof AuthEntriesIndexRoute
+  AuthNotesIndexRoute: typeof AuthNotesIndexRoute
+  AuthProjectsIndexRoute: typeof AuthProjectsIndexRoute
+  AuthSettingsIndexRoute: typeof AuthSettingsIndexRoute
+  AuthEntriesEntryIdEditRoute: typeof AuthEntriesEntryIdEditRoute
+  AuthProjectsProjectIdEditRoute: typeof AuthProjectsProjectIdEditRoute
+  AuthEntriesEntryIdIndexRoute: typeof AuthEntriesEntryIdIndexRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
-  AuthAppRoute: AuthAppRouteWithChildren,
+  AuthIndexRoute: AuthIndexRoute,
+  AuthEntriesNewRoute: AuthEntriesNewRoute,
+  AuthNotesNewRoute: AuthNotesNewRoute,
+  AuthProjectsNewRoute: AuthProjectsNewRoute,
+  AuthSettingsSecurityRoute: AuthSettingsSecurityRoute,
+  AuthSettingsTwoFactorRoute: AuthSettingsTwoFactorRoute,
+  AuthAuditIndexRoute: AuthAuditIndexRoute,
+  AuthEntriesIndexRoute: AuthEntriesIndexRoute,
+  AuthNotesIndexRoute: AuthNotesIndexRoute,
+  AuthProjectsIndexRoute: AuthProjectsIndexRoute,
+  AuthSettingsIndexRoute: AuthSettingsIndexRoute,
+  AuthEntriesEntryIdEditRoute: AuthEntriesEntryIdEditRoute,
+  AuthProjectsProjectIdEditRoute: AuthProjectsProjectIdEditRoute,
+  AuthEntriesEntryIdIndexRoute: AuthEntriesEntryIdIndexRoute,
 }
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
@@ -534,7 +483,6 @@ const PublicRouteWithChildren =
   PublicRoute._addFileChildren(PublicRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AuthRoute: AuthRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,
 }

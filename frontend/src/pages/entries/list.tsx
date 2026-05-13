@@ -195,7 +195,7 @@ export default function EntriesListPage({
           </p>
         </div>
         <Link
-          to="/app/entries/new"
+          to="/entries/new"
           search={pinKind === EntryKind.NOTE ? { kind: "note" } : {}}
           className={buttonVariants()}
         >
@@ -259,6 +259,13 @@ export default function EntriesListPage({
                     !v || v === "all" ? undefined : (Number(v) as EntryKind)
                   )
                 }
+                items={[
+                  { value: "all", label: "All kinds" },
+                  ...ENTRY_KINDS.map((m) => ({
+                    value: m.kind.toString(),
+                    label: m.label,
+                  })),
+                ]}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All kinds" />
@@ -399,7 +406,7 @@ function EntryRow({
       </TableCell>
       <TableCell>
         <Link
-          to="/app/entries/$entryId"
+          to="/entries/$entryId"
           params={{ entryId: entry.id }}
           className="font-medium underline-offset-2 hover:underline"
         >

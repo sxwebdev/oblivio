@@ -125,7 +125,7 @@ export default function RegisterPage() {
         <pre className="rounded-md border bg-muted p-4 text-center font-mono text-sm">
           {recoveryCode}
         </pre>
-        <Button onClick={() => navigate({ to: "/app" })} className="w-full">
+        <Button onClick={() => navigate({ to: "/" })} className="w-full">
           I have saved it — continue
         </Button>
       </div>

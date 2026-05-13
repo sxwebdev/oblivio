@@ -56,9 +56,10 @@ func NewRLSInterceptor(pool *pgxpool.Pool) connect.UnaryInterceptorFunc {
 				}
 			}()
 
-			// SET LOCAL persists only until COMMIT/ROLLBACK and is the
-			// idiomatic way to scope a GUC to a single tx.
-			if _, err := tx.Exec(ctx, "SET LOCAL app.current_user_id = $1", uc.UserID.String()); err != nil {
+			// set_config(..., is_local=true) is the parameterised
+			// equivalent of `SET LOCAL` — the latter rejects $-placeholders
+			// because SET is parsed before plan-time substitution.
+			if _, err := tx.Exec(ctx, "SELECT set_config('app.current_user_id', $1, true)", uc.UserID.String()); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 

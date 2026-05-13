@@ -2,24 +2,24 @@
 // @generated from file oblivio/v1/login_totp.proto (package oblivio.v1, syntax proto3)
 /* eslint-disable */
 
-import { LoginTOTPService } from "./login_totp_pb"
+import { LoginTOTPService } from "./login_totp_pb";
 
 /**
  * @generated from rpc oblivio.v1.LoginTOTPService.Setup
  */
-export const setup = LoginTOTPService.method.setup
+export const setup = LoginTOTPService.method.setup;
 
 /**
  * @generated from rpc oblivio.v1.LoginTOTPService.Enable
  */
-export const enable = LoginTOTPService.method.enable
+export const enable = LoginTOTPService.method.enable;
 
 /**
  * @generated from rpc oblivio.v1.LoginTOTPService.Disable
  */
-export const disable = LoginTOTPService.method.disable
+export const disable = LoginTOTPService.method.disable;
 
 /**
  * @generated from rpc oblivio.v1.LoginTOTPService.Status
  */
-export const status = LoginTOTPService.method.status
+export const status = LoginTOTPService.method.status;

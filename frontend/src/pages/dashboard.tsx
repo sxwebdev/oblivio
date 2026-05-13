@@ -73,7 +73,7 @@ export default function Dashboard() {
               {projectsQ.data?.projects.length ?? "—"}
             </div>
             <CardDescription>
-              <Link to="/app/projects" className="underline">
+              <Link to="/projects" className="underline">
                 Manage projects
               </Link>
             </CardDescription>
@@ -90,7 +90,7 @@ export default function Dashboard() {
               {recentQ.data?.entries.length ?? "—"}
             </div>
             <CardDescription>
-              <Link to="/app/entries" className="underline">
+              <Link to="/entries" className="underline">
                 Browse items
               </Link>
             </CardDescription>
@@ -108,7 +108,7 @@ export default function Dashboard() {
             </div>
             <CardDescription>
               <Link
-                to="/app/entries"
+                to="/entries"
                 search={{ favorites: true }}
                 className="underline"
               >
@@ -128,7 +128,7 @@ export default function Dashboard() {
               {notesQ.data?.entries.length ?? "—"}
             </div>
             <CardDescription>
-              <Link to="/app/notes" className="underline">
+              <Link to="/notes" className="underline">
                 Open notes
               </Link>
             </CardDescription>
@@ -145,19 +145,19 @@ export default function Dashboard() {
           <ShieldCheck className="size-5 text-primary" />
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <Link to="/app/entries/new" className={buttonVariants()}>
+          <Link to="/entries/new" className={buttonVariants()}>
             <Plus className="size-4" />
             New item
           </Link>
           <Link
-            to="/app/projects/new"
+            to="/projects/new"
             className={buttonVariants({ variant: "outline" })}
           >
             <Plus className="size-4" />
             New project
           </Link>
           <Link
-            to="/app/notes/new"
+            to="/notes/new"
             className={buttonVariants({ variant: "outline" })}
           >
             <Plus className="size-4" />

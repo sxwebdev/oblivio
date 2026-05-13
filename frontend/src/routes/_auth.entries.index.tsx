@@ -10,7 +10,7 @@ const search = z.object({
   favorites: z.boolean().optional(),
 })
 
-export const Route = createFileRoute("/_auth/app/entries/")({
+export const Route = createFileRoute("/_auth/entries/")({
   validateSearch: search,
   component: EntriesIndexRoute,
 })

@@ -109,8 +109,43 @@ var idempotentProcedures = map[string]struct{}{
 	"/oblivio.v1.VaultService/DeleteMe":                     {},
 }
 
+// Handler returns the fully wired HTTP handler — same stack Start binds to a
+// listener. Exposed so end-to-end tests can mount the real middleware chain
+// under httptest without opening a socket.
+func (s *Server) Handler() http.Handler {
+	return s.buildHandler()
+}
+
 // Start binds the HTTP listener and serves until Stop is called.
 func (s *Server) Start(ctx context.Context) error {
+	handler := s.buildHandler()
+
+	s.srv = &http.Server{
+		Addr:              s.cfg.Addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	s.log.Infof("api listening on %s", s.cfg.Addr)
+	go func() {
+		if err := s.srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			s.errCh <- fmt.Errorf("api listen: %w", err)
+		}
+		close(s.errCh)
+	}()
+
+	select {
+	case err := <-s.errCh:
+		return err
+	case <-ctx.Done():
+		return nil
+	}
+}
+
+func (s *Server) buildHandler() http.Handler {
 	auditWriter := audit.NewWriter(s.store.Pool(), s.log)
 
 	rlsInterceptor := middleware.NewRLSInterceptor(s.store.Pool())
@@ -207,33 +242,9 @@ func (s *Server) Start(ctx context.Context) error {
 		s.log.Warnf("frontend/dist not embedded: %v", err)
 	}
 
-	handler := middleware.SecurityHeaders(middleware.SecurityHeadersConfig{
+	return middleware.SecurityHeaders(middleware.SecurityHeadersConfig{
 		HSTS: s.cfg.TLS.CertFile != "" && s.cfg.TLS.KeyFile != "",
 	}, root)
-
-	s.srv = &http.Server{
-		Addr:              s.cfg.Addr,
-		Handler:           handler,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       60 * time.Second,
-	}
-
-	s.log.Infof("api listening on %s", s.cfg.Addr)
-	go func() {
-		if err := s.srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			s.errCh <- fmt.Errorf("api listen: %w", err)
-		}
-		close(s.errCh)
-	}()
-
-	select {
-	case err := <-s.errCh:
-		return err
-	case <-ctx.Done():
-		return nil
-	}
 }
 
 // Stop gracefully shuts down the HTTP server.

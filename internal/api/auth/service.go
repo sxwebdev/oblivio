@@ -464,6 +464,9 @@ func (s *Service) CompleteMFA(ctx context.Context, req *connect.Request[pb.Compl
 			return s.st.UserWebAuthn(repos.WithTx(tx)).TouchWebAuthnCredential(ctx, repo_user_webauthn_credentials.TouchWebAuthnCredentialParams{
 				ID:        matched.ID,
 				SignCount: int64(credential.Authenticator.SignCount),
+				// BackupState (BS) is allowed to flip; persist whatever
+				// flags the authenticator reported this round.
+				Flags: int16(credential.Flags.ProtocolValue()), //nolint:gosec
 			})
 		})
 	}
