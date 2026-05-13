@@ -85,6 +85,12 @@ message WebAuthnCredential {
   // at WebAuthn get() time. Populated only when unlock_enabled=true so
   // it can be loaded by the unlock page in a single round trip.
   bytes prf_salt = 7;
+  // raw_credential_id is the authenticator's actual credential id (the
+  // bytes returned by navigator.credentials.create()). Needed by the
+  // unlock page to build the WebAuthn PRF `evalByCredential` map: the
+  // browser keys that map by raw credential id, not by our server-side
+  // row UUID. Server populates it on every list response.
+  bytes raw_credential_id = 8;
 }
 
 message RemoveCredentialRequest {
@@ -143,4 +149,10 @@ message UnlockWithPasskeyRequest {
 message UnlockWithPasskeyResponse {
   bytes wrapped_vault_key = 1;
   bytes prf_salt = 2;
+  // credential_id is the server-side row UUID of whichever credential
+  // signed the assertion. The client uses it to rebuild the
+  // wrap-time AAD = user_id || credential_id and decrypt the blob.
+  // Without it, multi-passkey users would have no way to recover the
+  // exact id that EnablePasskeyUnlock recorded.
+  string credential_id = 3;
 }

@@ -178,10 +178,11 @@ func (s *Service) ListCredentials(ctx context.Context, _ *connect.Request[pb.Lis
 	out := make([]*pb.WebAuthnCredential, 0, len(creds))
 	for _, c := range creds {
 		item := &pb.WebAuthnCredential{
-			Id:            c.ID.String(),
-			Name:          c.Name,
-			Transports:    c.Transports,
-			UnlockEnabled: len(c.UnlockWrappedVaultKey) > 0 && len(c.PrfSalt) > 0,
+			Id:              c.ID.String(),
+			Name:            c.Name,
+			Transports:      c.Transports,
+			UnlockEnabled:   len(c.UnlockWrappedVaultKey) > 0 && len(c.PrfSalt) > 0,
+			RawCredentialId: c.CredentialID,
 		}
 		if item.UnlockEnabled {
 			// Echo the salt so the unlock page can pass it to
@@ -380,6 +381,7 @@ func (s *Service) UnlockWithPasskey(ctx context.Context, req *connect.Request[pb
 	return connect.NewResponse(&pb.UnlockWithPasskeyResponse{
 		WrappedVaultKey: matched.UnlockWrappedVaultKey,
 		PrfSalt:         matched.PrfSalt,
+		CredentialId:    matched.ID.String(),
 	}), nil
 }
 

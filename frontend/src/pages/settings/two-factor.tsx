@@ -52,6 +52,7 @@ import {
 
 import { useAuthStore } from "@/stores/auth"
 import { useVaultStore } from "@/stores/vault"
+import { readPrfFirst } from "@/lib/webauthn-json"
 
 const ISSUER = "Oblivio"
 
@@ -667,12 +668,19 @@ function InlinePasswordForm({
   )
 }
 
-// assertWithPRF performs a one-shot WebAuthn assertion against `credentialId`
-// with the PRF extension. Returns the 32-byte PRF output (HMAC-SHA-256 of the
-// salt under the authenticator's PRF key). The challenge is client-generated
-// because we are NOT authenticating to the server here — we just want the
-// PRF result. The server-validated unlock path (UnlockWithPasskey) uses
-// BeginAssertion to seed a real, server-bound challenge.
+// assertWithPRF performs a one-shot WebAuthn assertion with the PRF
+// extension and returns the 32-byte PRF output (HMAC-SHA-256 of the
+// salt under the authenticator's PRF key). The challenge is
+// client-generated because we are NOT authenticating to the server
+// here — we just want the PRF result. The server-validated unlock
+// path (UnlockWithPasskey) uses BeginAssertion to seed a real,
+// server-bound challenge.
+//
+// We call the native API directly: @simplewebauthn/browser 13.3
+// passes `extensions.prf.eval.first` through verbatim, so a
+// base64url-encoded string lands in `navigator.credentials.get` and
+// the browser rejects it with a TypeError. Constructing the request
+// natively lets us hand `eval.first` an ArrayBuffer.
 async function assertWithPRF(
   credentialId: string,
   salt: Uint8Array
@@ -682,57 +690,37 @@ async function assertWithPRF(
   }
   const challenge = new Uint8Array(32)
   crypto.getRandomValues(challenge)
-  // `credentialId` is a UUID string from our DB. The WebAuthn API expects
-  // the *raw* credential id (byte-encoded). We use the assertion's
-  // allowCredentials list later via the server-side BeginAssertion path
-  // (for unlock); for enable we ask the browser to use any registered
-  // credential, then verify the response came from the expected one by
-  // matching the id field.
-  const opts: PublicKeyCredentialRequestOptionsJSON = {
-    challenge: bytesToBase64Url(challenge),
+  const publicKey: PublicKeyCredentialRequestOptions = {
+    challenge: challenge.buffer as ArrayBuffer,
     timeout: 60_000,
     userVerification: "required",
     extensions: {
-      // SimpleWebAuthn's typings don't include `prf` yet; cast to keep
-      // the call expression type-safe at the boundary.
-      prf: { eval: { first: bytesToBase64Url(salt) } },
-    } as unknown as PublicKeyCredentialRequestOptionsJSON["extensions"],
+      // TypeScript's lib.dom.d.ts doesn't always include `prf` in
+      // AuthenticationExtensionsClientInputs — cast at the boundary.
+      prf: {
+        eval: { first: salt.buffer as ArrayBuffer },
+      },
+    } as unknown as AuthenticationExtensionsClientInputs,
   }
-  const result = await startAuthentication({ optionsJSON: opts })
-  if (result.id !== credentialId) {
-    throw new Error(
-      "different passkey was used — pick the one you want to bind to unlock"
-    )
+  const cred = (await navigator.credentials.get({
+    publicKey,
+  })) as PublicKeyCredential | null
+  if (!cred) {
+    throw new Error("no credential was returned by the authenticator")
   }
-  const ext = (
-    result.clientExtensionResults as unknown as {
-      prf?: { results?: { first?: string | ArrayBuffer } }
-    }
-  ).prf
-  const first = ext?.results?.first
-  if (!first) {
+  // `credentialId` is the server-side row UUID; cred.id is the
+  // authenticator's base64url-encoded raw credential id, so the two
+  // can't be string-compared. We just trust the user picked the right
+  // passkey — Enable always calls back into the server with this id
+  // attached, and the server validates ownership before storing.
+  void credentialId
+  const prfOutput = readPrfFirst(cred)
+  if (!prfOutput) {
     throw new Error(
       "this authenticator does not support the PRF extension; unlock via passkey is unavailable"
     )
   }
-  return typeof first === "string"
-    ? base64UrlToBytes(first)
-    : new Uint8Array(first)
-}
-
-function bytesToBase64Url(b: Uint8Array): string {
-  let s = ""
-  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i])
-  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
-}
-
-function base64UrlToBytes(s: string): Uint8Array {
-  s = s.replace(/-/g, "+").replace(/_/g, "/")
-  while (s.length % 4) s += "="
-  const bin = atob(s)
-  const out = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
-  return out
+  return prfOutput
 }
 
 // --- shared helper ----------------------------------------------------

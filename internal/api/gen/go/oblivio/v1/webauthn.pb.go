@@ -323,9 +323,15 @@ type WebAuthnCredential struct {
 	// prf_salt is the 32-byte salt the browser must pass to prf.eval.first
 	// at WebAuthn get() time. Populated only when unlock_enabled=true so
 	// it can be loaded by the unlock page in a single round trip.
-	PrfSalt       []byte `protobuf:"bytes,7,opt,name=prf_salt,json=prfSalt,proto3" json:"prf_salt,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	PrfSalt []byte `protobuf:"bytes,7,opt,name=prf_salt,json=prfSalt,proto3" json:"prf_salt,omitempty"`
+	// raw_credential_id is the authenticator's actual credential id (the
+	// bytes returned by navigator.credentials.create()). Needed by the
+	// unlock page to build the WebAuthn PRF `evalByCredential` map: the
+	// browser keys that map by raw credential id, not by our server-side
+	// row UUID. Server populates it on every list response.
+	RawCredentialId []byte `protobuf:"bytes,8,opt,name=raw_credential_id,json=rawCredentialId,proto3" json:"raw_credential_id,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *WebAuthnCredential) Reset() {
@@ -403,6 +409,13 @@ func (x *WebAuthnCredential) GetUnlockEnabled() bool {
 func (x *WebAuthnCredential) GetPrfSalt() []byte {
 	if x != nil {
 		return x.PrfSalt
+	}
+	return nil
+}
+
+func (x *WebAuthnCredential) GetRawCredentialId() []byte {
+	if x != nil {
+		return x.RawCredentialId
 	}
 	return nil
 }
@@ -854,8 +867,14 @@ type UnlockWithPasskeyResponse struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	WrappedVaultKey []byte                 `protobuf:"bytes,1,opt,name=wrapped_vault_key,json=wrappedVaultKey,proto3" json:"wrapped_vault_key,omitempty"`
 	PrfSalt         []byte                 `protobuf:"bytes,2,opt,name=prf_salt,json=prfSalt,proto3" json:"prf_salt,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// credential_id is the server-side row UUID of whichever credential
+	// signed the assertion. The client uses it to rebuild the
+	// wrap-time AAD = user_id || credential_id and decrypt the blob.
+	// Without it, multi-passkey users would have no way to recover the
+	// exact id that EnablePasskeyUnlock recorded.
+	CredentialId  string `protobuf:"bytes,3,opt,name=credential_id,json=credentialId,proto3" json:"credential_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UnlockWithPasskeyResponse) Reset() {
@@ -902,6 +921,13 @@ func (x *UnlockWithPasskeyResponse) GetPrfSalt() []byte {
 	return nil
 }
 
+func (x *UnlockWithPasskeyResponse) GetCredentialId() string {
+	if x != nil {
+		return x.CredentialId
+	}
+	return ""
+}
+
 var File_oblivio_v1_webauthn_proto protoreflect.FileDescriptor
 
 const file_oblivio_v1_webauthn_proto_rawDesc = "" +
@@ -923,7 +949,7 @@ const file_oblivio_v1_webauthn_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"\x18\n" +
 	"\x16ListCredentialsRequest\"[\n" +
 	"\x17ListCredentialsResponse\x12@\n" +
-	"\vcredentials\x18\x01 \x03(\v2\x1e.oblivio.v1.WebAuthnCredentialR\vcredentials\"\x93\x02\n" +
+	"\vcredentials\x18\x01 \x03(\v2\x1e.oblivio.v1.WebAuthnCredentialR\vcredentials\"\xbf\x02\n" +
 	"\x12WebAuthnCredential\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x129\n" +
@@ -935,7 +961,8 @@ const file_oblivio_v1_webauthn_proto_rawDesc = "" +
 	"transports\x18\x05 \x03(\tR\n" +
 	"transports\x12%\n" +
 	"\x0eunlock_enabled\x18\x06 \x01(\bR\runlockEnabled\x12\x19\n" +
-	"\bprf_salt\x18\a \x01(\fR\aprfSalt\"Y\n" +
+	"\bprf_salt\x18\a \x01(\fR\aprfSalt\x12*\n" +
+	"\x11raw_credential_id\x18\b \x01(\fR\x0frawCredentialId\"Y\n" +
 	"\x17RemoveCredentialRequest\x12#\n" +
 	"\rcredential_id\x18\x01 \x01(\tR\fcredentialId\x12\x19\n" +
 	"\bauth_key\x18\x02 \x01(\fR\aauthKey\"\x1a\n" +
@@ -957,10 +984,11 @@ const file_oblivio_v1_webauthn_proto_rawDesc = "" +
 	"\x1cDisablePasskeyUnlockResponse\"x\n" +
 	"\x18UnlockWithPasskeyRequest\x12$\n" +
 	"\x0emfa_session_id\x18\x01 \x01(\tR\fmfaSessionId\x126\n" +
-	"\x17webauthn_assertion_json\x18\x02 \x01(\fR\x15webauthnAssertionJson\"b\n" +
+	"\x17webauthn_assertion_json\x18\x02 \x01(\fR\x15webauthnAssertionJson\"\x87\x01\n" +
 	"\x19UnlockWithPasskeyResponse\x12*\n" +
 	"\x11wrapped_vault_key\x18\x01 \x01(\fR\x0fwrappedVaultKey\x12\x19\n" +
-	"\bprf_salt\x18\x02 \x01(\fR\aprfSalt2\x89\x06\n" +
+	"\bprf_salt\x18\x02 \x01(\fR\aprfSalt\x12#\n" +
+	"\rcredential_id\x18\x03 \x01(\tR\fcredentialId2\x89\x06\n" +
 	"\x0fWebAuthnService\x12T\n" +
 	"\rRegisterBegin\x12 .oblivio.v1.RegisterBeginRequest\x1a!.oblivio.v1.RegisterBeginResponse\x12W\n" +
 	"\x0eRegisterFinish\x12!.oblivio.v1.RegisterFinishRequest\x1a\".oblivio.v1.RegisterFinishResponse\x12Z\n" +

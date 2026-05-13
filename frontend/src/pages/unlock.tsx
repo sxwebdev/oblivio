@@ -11,7 +11,7 @@
 
 import { useEffect, useState } from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser"
+import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser"
 
 import { authClient, vaultClient, webauthnClient } from "@/api/client"
 import { Button } from "@/components/ui/button"
@@ -19,6 +19,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuthStore } from "@/stores/auth"
 import { useVaultStore } from "@/stores/vault"
+import {
+  assertionToJSON,
+  bytesToBase64Url,
+  readPrfFirst,
+  requestOptionsFromJSON,
+} from "@/lib/webauthn-json"
 import {
   checkVerifier,
   derivePasskeyUnlockKey,
@@ -111,76 +117,80 @@ export default function UnlockPage() {
     }
     setBusy(true)
     try {
-      // The server seeds a real WebAuthn challenge bound to this session
-      // and limits allowCredentials to the user's enrolled keys.
+      // The server seeds a real WebAuthn challenge bound to this
+      // session and limits allowCredentials to the user's keys.
       const begin = await webauthnClient.beginAssertion({})
       const decoded = JSON.parse(
         new TextDecoder().decode(begin.optionsJson)
       ) as { publicKey: PublicKeyCredentialRequestOptionsJSON }
-      const publicKey = decoded.publicKey
-      // Locate the prf_salt to use. ListCredentials includes it per row
-      // when unlock_enabled=true; we feed the salt of whichever key the
-      // user picks. WebAuthn lets the user choose, so we send salts for
-      // ALL eligible credentials and let the browser/authenticator pair
-      // it with the one that signs.
+
+      // Each enabled credential was registered with its own prf_salt.
+      // To make the authenticator return the right PRF output for
+      // whichever key the user picks, build evalByCredential keyed by
+      // the AUTHENTICATOR's raw credential id (base64url).
       const list = await webauthnClient.listCredentials({})
-      const eligible = list.credentials.filter((c) => c.unlockEnabled)
+      const eligible = list.credentials.filter(
+        (c) => c.unlockEnabled && c.rawCredentialId.length > 0
+      )
       if (eligible.length === 0) {
         throw new Error("no passkey enrolled for unlock")
       }
-      const evalByCredential: Record<string, { first: string }> = {}
+      const evalByCredential: Record<
+        string,
+        { first: Uint8Array }
+      > = {}
       for (const c of eligible) {
-        evalByCredential[bytesToBase64UrlFromBase64(c.id)] = {
-          first: bytesToBase64Url(c.prfSalt),
+        evalByCredential[bytesToBase64Url(c.rawCredentialId)] = {
+          first: c.prfSalt,
         }
       }
-      const optsWithPrf: PublicKeyCredentialRequestOptionsJSON = {
-        ...publicKey,
-        extensions: {
-          ...(publicKey.extensions ?? {}),
-          // SimpleWebAuthn typings lag the spec — cast at the boundary.
-          prf: {
-            eval: { first: bytesToBase64Url(eligible[0].prfSalt) },
-            evalByCredential,
-          },
-        } as unknown as PublicKeyCredentialRequestOptionsJSON["extensions"],
+
+      // Use native navigator.credentials.get — @simplewebauthn/browser
+      // 13.3 doesn't convert PRF eval inputs from base64url to
+      // ArrayBuffer, so calling it with prf in extensions throws
+      // "value is not of type '(ArrayBuffer or ArrayBufferView)'".
+      const publicKey = requestOptionsFromJSON(decoded.publicKey, {
+        eval: { first: eligible[0].prfSalt }, // fallback when ABC unsupported
+        evalByCredential,
+      })
+      const cred = (await navigator.credentials.get({
+        publicKey,
+      })) as PublicKeyCredential | null
+      if (!cred) {
+        throw new Error("no credential was returned by the authenticator")
       }
-      const result = await startAuthentication({ optionsJSON: optsWithPrf })
-      const ext = (
-        result.clientExtensionResults as unknown as {
-          prf?: { results?: { first?: string | ArrayBuffer } }
-        }
-      ).prf
-      const first = ext?.results?.first
-      if (!first) {
+      const prfOutput = readPrfFirst(cred)
+      if (!prfOutput) {
         throw new Error(
           "this authenticator did not return a PRF result — try the master password"
         )
       }
-      const prfOutput =
-        typeof first === "string" ? base64UrlToBytes(first) : new Uint8Array(first)
 
-      // Hand the assertion to the server for validation + blob retrieval.
-      const assertionBytes = new TextEncoder().encode(JSON.stringify(result))
+      // Hand the assertion to the server for validation + blob
+      // retrieval. The server uses the matched DB row's id to look up
+      // the wrapped_vault_key and echoes that id back so we can
+      // rebuild the wrap-time AAD.
+      const assertionBytes = new TextEncoder().encode(
+        JSON.stringify(assertionToJSON(cred))
+      )
       const unlockResp = await webauthnClient.unlockWithPasskey({
         mfaSessionId: begin.sessionId,
         webauthnAssertionJson: assertionBytes,
       })
+      if (!unlockResp.credentialId) {
+        throw new Error("server did not return the matched credential id")
+      }
 
       const unlockKey = await derivePasskeyUnlockKey(prfOutput)
       prfOutput.fill(0)
 
-      // user_id is required to rebuild the AAD. GetMe returns it
-      // unauthenticated-ish (we already have the access token).
       const me = await vaultClient.getMe({})
       const vaultKey = await unwrapVaultKeyWithPRF(
         unlockKey,
         unlockResp.wrappedVaultKey,
-        passkeyUnlockAAD(me.userId, result.id)
+        passkeyUnlockAAD(me.userId, unlockResp.credentialId)
       )
 
-      // Pull the blind-index pepper through getKDFParams (it's also
-      // anonymous; safe to call without the password).
       const kdf = await authClient.getKDFParams({ email })
       const keys = await authClient.getMyKeys({})
       setVaultKey(vaultKey, keys.vaultKeyVersion, kdf.blindPepper)
@@ -248,33 +258,3 @@ export default function UnlockPage() {
   )
 }
 
-function bytesToBase64Url(b: Uint8Array): string {
-  let s = ""
-  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i])
-  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
-}
-
-// `WebAuthnCredential.id` from the proto is a UUID string we minted on
-// the server. The browser's allowCredentials and PRF evalByCredential
-// maps key off the AUTHENTICATOR's credential id (the raw byte string the
-// authenticator returned at registration). The unlock path therefore
-// uses result.id (the authenticator's id) — not the row id. This helper
-// is here because the simple per-credential salt fallback still wants
-// a non-empty key; we route any extra entries by the row id (it's a
-// UUID, base64-url safe after stripping dashes).
-function bytesToBase64UrlFromBase64(uuid: string): string {
-  // Strip dashes and treat as a 32-hex string; for keying purposes the
-  // exact bytes don't matter — what matters is that the same key is used
-  // on both sides if we ever route by row id. For now, the authenticator
-  // chooses, so the first eligible salt above is what gets evaluated.
-  return uuid.replace(/-/g, "")
-}
-
-function base64UrlToBytes(s: string): Uint8Array {
-  s = s.replace(/-/g, "+").replace(/_/g, "/")
-  while (s.length % 4) s += "="
-  const bin = atob(s)
-  const out = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
-  return out
-}
