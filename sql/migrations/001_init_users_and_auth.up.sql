@@ -10,13 +10,22 @@ CREATE TABLE users (
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- user_kdf_params holds the per-user Argon2id parameters AND the
+-- per-user `blind_pepper`. The pepper is mixed into the blind-index
+-- HKDF derivation (plan §4.4 / §6.4) so a leaked K_blind cannot be
+-- attacked with a popular-domain dictionary — the attacker would also
+-- need the per-user pepper. The pepper is generated client-side at
+-- registration and stored alongside salt_user; it is non-secret (the
+-- server holds it) but is required (together with vault_key) to
+-- materialise K_blind.
 CREATE TABLE user_kdf_params (
     user_id             UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     salt_user           BYTEA NOT NULL,
     argon2_t            INT  NOT NULL,
     argon2_m_kib        INT  NOT NULL,
     argon2_p            INT  NOT NULL,
-    algo                TEXT NOT NULL DEFAULT 'argon2id'
+    algo                TEXT NOT NULL DEFAULT 'argon2id',
+    blind_pepper        BYTEA NOT NULL
 );
 
 CREATE TABLE user_auth (

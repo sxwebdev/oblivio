@@ -10,28 +10,29 @@ import (
 type AuditAction string
 
 const (
-	AuditActionRegister         AuditAction = "register"
-	AuditActionLogin            AuditAction = "login"
-	AuditActionLogout           AuditAction = "logout"
-	AuditActionRefresh          AuditAction = "refresh"
-	AuditActionPasswordChange   AuditAction = "password_change"
-	AuditActionRecoveryStart    AuditAction = "recovery_start"
-	AuditActionRecoveryComplete AuditAction = "recovery_complete"
-	AuditActionWebauthnRegister AuditAction = "webauthn_register"
-	AuditActionWebauthnRemove   AuditAction = "webauthn_remove"
-	AuditActionTotpEnable       AuditAction = "totp_enable"
-	AuditActionTotpDisable      AuditAction = "totp_disable"
-	AuditActionProjectCreate    AuditAction = "project_create"
-	AuditActionProjectUpdate    AuditAction = "project_update"
-	AuditActionProjectDelete    AuditAction = "project_delete"
-	AuditActionEntryCreate      AuditAction = "entry_create"
-	AuditActionEntryUpdate      AuditAction = "entry_update"
-	AuditActionEntryView        AuditAction = "entry_view"
-	AuditActionEntryDelete      AuditAction = "entry_delete"
-	AuditActionSessionTerminate AuditAction = "session_terminate"
-	AuditActionAccountDelete    AuditAction = "account_delete"
-	AuditActionEmailVerify      AuditAction = "email_verify"
-	AuditActionEmailResend      AuditAction = "email_resend"
+	AuditActionRegister                   AuditAction = "register"
+	AuditActionLogin                      AuditAction = "login"
+	AuditActionLogout                     AuditAction = "logout"
+	AuditActionRefresh                    AuditAction = "refresh"
+	AuditActionPasswordChange             AuditAction = "password_change"
+	AuditActionRecoveryStart              AuditAction = "recovery_start"
+	AuditActionRecoveryComplete           AuditAction = "recovery_complete"
+	AuditActionWebauthnRegister           AuditAction = "webauthn_register"
+	AuditActionWebauthnRemove             AuditAction = "webauthn_remove"
+	AuditActionTotpEnable                 AuditAction = "totp_enable"
+	AuditActionTotpDisable                AuditAction = "totp_disable"
+	AuditActionProjectCreate              AuditAction = "project_create"
+	AuditActionProjectUpdate              AuditAction = "project_update"
+	AuditActionProjectDelete              AuditAction = "project_delete"
+	AuditActionEntryCreate                AuditAction = "entry_create"
+	AuditActionEntryUpdate                AuditAction = "entry_update"
+	AuditActionEntryView                  AuditAction = "entry_view"
+	AuditActionEntryDelete                AuditAction = "entry_delete"
+	AuditActionSessionTerminate           AuditAction = "session_terminate"
+	AuditActionAccountDelete              AuditAction = "account_delete"
+	AuditActionAccountDeleteAttemptFailed AuditAction = "account_delete_attempt_failed"
+	AuditActionEmailVerify                AuditAction = "email_verify"
+	AuditActionEmailResend                AuditAction = "email_resend"
 )
 
 func (e AuditAction) Valid() bool {
@@ -56,6 +57,7 @@ func (e AuditAction) Valid() bool {
 		AuditActionEntryDelete,
 		AuditActionSessionTerminate,
 		AuditActionAccountDelete,
+		AuditActionAccountDeleteAttemptFailed,
 		AuditActionEmailVerify,
 		AuditActionEmailResend:
 		return true
