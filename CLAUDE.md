@@ -1,70 +1,115 @@
 # CLAUDE.md
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+## What this is
 
-## 1. Think Before Coding
+Oblivio is a self-hosted, multi-user, **zero-knowledge** password manager: a Go
+server + embedded React WebUI shipped as a single binary. All sensitive material
+is encrypted on the client; the server stores only ciphertext plus metadata and
+never sees plaintext secrets, master passwords, vault keys, or item keys. Read
+`README.md` and `SECURITY.md` for the full threat model — they are the source of
+truth for the crypto design and its honest trade-offs.
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+## Commands
 
-Before implementing:
+Backend (Makefile targets):
 
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+- `make start` — run the server (`go run ./cmd/oblivio start -c config.yaml`).
+- `make infra-up` / `make infra-stop` / `make infra-down` — Postgres via docker compose (`dev/deploy/docker-compose.yml`). Needed for `start`, integration tests, and migrations.
+- `make migrateup` / `make migratedown` — apply/rollback app migrations. `make migratecreate <name>` scaffolds a new pair in `sql/migrations/`. Note: the server also auto-runs migrations on `start`.
+- `make fmt` (gofumpt) and `make lint` (golangci-lint) — run before finishing Go changes.
+- `make test` — unit tests only, no Docker/Postgres. The fast inner loop.
+- `make test-integration` — adds tests behind the `integration` build tag; requires Docker (testcontainers). Skips cleanly without Docker.
+- `make test-coverage` — integration profile + `cmd/covgate` enforcing per-package thresholds from `testdata/coverage.yaml`. Required by CI.
+- `make fuzz` (optionally `FUZZ_TIME=2m`) — fuzzes the critical parsers/wrappers (`FuzzParsePHC`, `FuzzAESGCMOpen/Seal`, `FuzzCanonicalJSON`).
+- Run one test: `go test ./internal/auth/ -run TestName`. One integration test: `go test -tags=integration -run TestName ./internal/store/`.
 
-## 2. Simplicity First
+Frontend (in `frontend/`, pnpm workspace — `pnpm install` first):
 
-**Minimum code that solves the problem. Nothing speculative.**
+- `pnpm dev` / `pnpm build` (`tsc -b && vite build`) / `pnpm lint` / `pnpm typecheck`.
+- `make test-frontend` — vitest for `@oblivio/crypto` (`frontend/packages/crypto`).
 
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
+Code generation (commit the output):
 
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+- `make genproto` — regenerate ConnectRPC/protobuf stubs from `proto/schema/` into `internal/api/gen/` (Go) and `frontend/src/api/gen/` (TS). Runs `buf lint && buf generate`.
+- `make gensql` — regenerate SQL repos and models via **pgxgen** (`sql/pgxgen.yaml`) from `sql/queries/` + `sql/migrations/` into `internal/store/repos/` and `internal/models/models_gen.go`.
+- `make genvectors` — regenerate `testdata/crypto-vectors.json`, the shared Go↔TS crypto round-trip vectors. Run after touching anything in `cmd/genvectors`; both test suites consume it.
+- `make genenvs` (→ `ENVS.md`) and `make genreadme` — regenerate docs. Env vars are documented in `ENVS.md`.
 
-## 3. Surgical Changes
+## Architecture
 
-**Touch only what you must. Clean up only your own mess.**
+Request lifecycle (server): `cmd/oblivio/start.go` wires everything and hands
+services to the `tkcrm/mx` launcher (startup priority: pingpong → jobs → api).
+`internal/api/server.go` builds the HTTP handler; **middleware order matters**
+and is documented inline: `SecurityHeaders → rate-limit → auth → idempotency →
+rpcMux(interceptors → handler)`. Everything is served on one port under `/api/`,
+with the embedded SPA (`//go:embed frontend/dist`) at `/`.
 
-When editing existing code:
+**Row-Level Security is the tenant boundary, not app code.** Authenticated
+ConnectRPC procedures run inside a per-request transaction opened by
+`middleware.NewRLSInterceptor`, which sets the `app.current_user_id` Postgres
+GUC (migration `005`). Handlers are stateless and pull the tx from context:
 
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-## 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-
-```text
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
+```go
+uc := middleware.MustFromContext(ctx)     // UserContext (UserID, etc.)
+tx := middleware.MustTxFromContext(ctx)   // RLS-scoped pgx.Tx — MUST use this
+rows, err := repo_projects.New(tx).ListProjects(ctx, uc.UserID)
 ```
 
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+A repo query that runs on the raw pool instead of this tx bypasses the GUC and
+returns **zero rows**, not cross-tenant data — a fail-closed design. Trusted
+backend paths (auth handlers, jobs, recovery) that must touch RLS tables outside
+a per-user request use `store.SystemDo`, which sets `app.bypass_rls = on`;
+bypass disables RLS but does **not** widen authorization, so those callers must
+filter by `user_id` themselves.
 
----
+**Auth is Bearer-only** (`Authorization: Bearer <token>`) — no cookies, no CSRF.
+Every procedure is authenticated by default; the exemptions live in
+`middleware.AnonymousProcedures` (`internal/api/middleware/auth.go`) and a test
+enforces that list. When adding a public endpoint, update that map or the server
+will reject it as unauthenticated.
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+Store layer: `internal/store` aggregates per-table repos generated by pgxgen
+under `internal/store/repos/repo_*`. **Do not hand-edit generated `*.sql.go`
+files or `models_gen.go`** — change the `.sql` queries in `sql/queries/<table>/`
+or a migration, then `make gensql`. `pkg/postgres` wraps the pgxpool lifecycle.
+
+Real-time: `internal/api/subscriptions` server-streams change hints over Postgres
+`LISTEN/NOTIFY` (SSE-style); it deliberately skips the RLS interceptor and scopes
+by `uc.UserID` because the payload carries no row data.
+
+Background jobs: `internal/jobs` (River-backed) runs the audit-chain verifier and
+anchor signer plus GC for sessions, tokens, idempotency keys, MFA challenges,
+recovery sessions, and rate-limit buckets. River has its own migrations, run
+alongside the app migrations at startup.
+
+Crypto & audit: `internal/crypto` (AES-256-GCM envelope) and `internal/auth`
+(Argon2id, TOTP, WebAuthn, sessions, token store, MFA KEK, recovery) mirror the
+TS primitives in `frontend/packages/crypto/src` — the shared vectors keep them in
+lockstep. `internal/audit` maintains the append-only SHA-256 hash-chained audit
+log with an optional Ed25519 external anchor; JWT/vault key material is held in
+`memguard.LockedBuffer` to resist coredump leakage.
+
+Config: `internal/config` loaded via `xconfig` (env-first, optional file, optional
+HashiCorp Vault for server secrets). `AuthConfig` includes Argon2 server cost,
+token TTLs, and rate limits.
+
+## Conventions & gotchas
+
+- **Migrations are append-only and numbered**; there is an intentional gap
+  (`008` → `013`). Add the next number with a matching `.up.sql`/`.down.sql`
+  pair, then regenerate SQL. Uncommitted `013_security_hardening.*` is WIP.
+- After codegen (`genproto`/`gensql`/`genvectors`), commit the generated output —
+  Go and TS tests depend on it.
+- The server produces no build artifacts in the tree — use `go run` / `make start`,
+  never `go build` into the working directory. Verify `git status` is clean of
+  binaries before signalling done.
+- `.air.toml` is a stale template (references `donejournal`); use `make start`
+  for local runs rather than `make air`.
+- Security-header strings are pinned by snapshot tests
+  (`internal/api/middleware/security_headers_test.go`) — any change to CSP/HSTS/COOP
+  etc. shows up as an explicit diff. Update the snapshot deliberately, not to
+  silence a failure.
+- End-to-end tests mount the real middleware chain via `Server.Handler()` under
+  `httptest` without opening a socket (see `internal/api/*_e2e_test.go`).

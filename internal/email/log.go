@@ -16,13 +16,20 @@ func NewLogSender(log logger.ExtendedLogger) *LogSender { return &LogSender{log:
 
 // Send writes a structured INFO line. Returns nil — by definition the
 // stub never fails.
+//
+// The full text body is intentionally NOT logged (M-11). Verification
+// and recovery emails contain raw single-use tokens; if an operator
+// accidentally leaves provider="log" in production or staging, anyone
+// who can read the log stream could verify any address that signs up
+// or hijack a recovery flow. We log only the envelope metadata; for
+// debugging in dev, prefer the SMTP provider pointed at mailhog.
 func (s *LogSender) Send(_ context.Context, msg Message) error {
-	s.log.Infow("email send (log-sender stub)",
+	s.log.Infow(
+		"email send (log-sender stub)",
 		"to", msg.To,
 		"subject", msg.Subject,
 		"text_len", len(msg.TextBody),
 		"html_len", len(msg.HTMLBody),
-		"text", msg.TextBody,
 	)
 	return nil
 }

@@ -20,5 +20,13 @@ DELETE FROM mfa_challenges
 WHERE id = $1
 RETURNING *;
 
+-- name: IncrementMFAFailedAttempts :one
+-- Bumps failed_attempts. Returns the new count. The Go caller decides
+-- whether to burn the row (DeleteMFAChallenge) when the threshold is hit.
+UPDATE mfa_challenges
+SET failed_attempts = failed_attempts + 1
+WHERE id = $1
+RETURNING failed_attempts;
+
 -- name: DeleteExpiredMFAChallenges :execrows
 DELETE FROM mfa_challenges WHERE expires_at <= now();

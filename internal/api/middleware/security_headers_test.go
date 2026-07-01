@@ -36,44 +36,64 @@ var expectedHeaders = map[string]string{
 }
 
 func TestSecurityHeaders_Snapshot200(t *testing.T) {
-	assertHeaders(t, http.StatusOK, false)
+	assertHeaders(t, http.StatusOK, "/")
 }
 
 func TestSecurityHeaders_SnapshotErrorResponse(t *testing.T) {
-	assertHeaders(t, http.StatusInternalServerError, false)
+	assertHeaders(t, http.StatusInternalServerError, "/")
 }
 
-func TestSecurityHeaders_HSTSEmittedWhenEnabled(t *testing.T) {
-	assertHeaders(t, http.StatusOK, true)
-}
-
-func TestSecurityHeaders_HSTSAbsentByDefault(t *testing.T) {
-	rec := callHandler(http.StatusOK, false)
+// HSTS is intentionally NOT emitted by the application (M-1). The reverse
+// proxy that terminates TLS is responsible for it; emitting it from the
+// app would either be wrong in dev (plain HTTP) or duplicate the proxy's
+// header in prod.
+func TestSecurityHeaders_HSTSAbsent(t *testing.T) {
+	rec := callHandler(http.StatusOK, "/")
 	if rec.Header().Get("Strict-Transport-Security") != "" {
-		t.Fatal("HSTS must NOT be emitted when HSTS=false")
+		t.Fatal("Strict-Transport-Security must NOT be set by the app; the reverse proxy owns it")
 	}
 }
 
-func assertHeaders(t *testing.T, status int, hsts bool) {
+// Responses under /api/ MUST carry no-store so a downstream proxy or
+// service-worker mistake cannot persist a token-bearing or
+// ciphertext-bearing response (M-12).
+func TestSecurityHeaders_APICacheControl(t *testing.T) {
+	rec := callHandler(http.StatusOK, "/api/oblivio.v1.AuthService/Authorize")
+	if got, want := rec.Header().Get("Cache-Control"), "no-store, no-cache, must-revalidate"; got != want {
+		t.Fatalf("Cache-Control on /api:\n  got  %q\n  want %q", got, want)
+	}
+	if got, want := rec.Header().Get("Pragma"), "no-cache"; got != want {
+		t.Fatalf("Pragma on /api:\n  got  %q\n  want %q", got, want)
+	}
+	if got, want := rec.Header().Get("Vary"), "Authorization"; got != want {
+		t.Fatalf("Vary on /api:\n  got  %q\n  want %q", got, want)
+	}
+}
+
+// Static-asset paths (everything outside /api/) must NOT force no-store;
+// the SPA bundle must be cacheable by the browser.
+func TestSecurityHeaders_StaticAssetsCacheable(t *testing.T) {
+	rec := callHandler(http.StatusOK, "/assets/index.js")
+	if got := rec.Header().Get("Cache-Control"); got != "" {
+		t.Fatalf("Cache-Control on static asset must be empty so the response is cacheable; got %q", got)
+	}
+}
+
+func assertHeaders(t *testing.T, status int, path string) {
 	t.Helper()
-	rec := callHandler(status, hsts)
+	rec := callHandler(status, path)
 	for k, want := range expectedHeaders {
 		got := rec.Header().Get(k)
 		if got != want {
 			t.Fatalf("header %s:\n  got  %q\n  want %q", k, got, want)
 		}
 	}
-	if hsts {
-		if got, want := rec.Header().Get("Strict-Transport-Security"), "max-age=63072000; includeSubDomains; preload"; got != want {
-			t.Fatalf("HSTS:\n  got  %q\n  want %q", got, want)
-		}
-	}
 }
 
-func callHandler(status int, hsts bool) *httptest.ResponseRecorder {
+func callHandler(status int, path string) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	h := SecurityHeaders(SecurityHeadersConfig{HSTS: hsts}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	h := SecurityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte("body"))
 	}))

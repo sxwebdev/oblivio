@@ -157,10 +157,22 @@ func (s *PGTokenStore) Exists(ctx context.Context, key []byte) (bool, error) {
 // DeleteBySession removes every token bound to the given session. Used by
 // Logout and TerminateSession so the access+refresh pair dies together.
 func (s *PGTokenStore) DeleteBySession(ctx context.Context, sessionID uuid.UUID) error {
+	return s.deleteBySessionWith(ctx, s.repo(), sessionID)
+}
+
+// DeleteBySessionTx is the in-transaction variant. Used by ChangeMasterPassword
+// / RecoveryComplete which need the token revoke and the auth_sessions revoke
+// to commit or roll back together (H-3): if either half fails, the wire-level
+// auth state must not be partially advanced.
+func (s *PGTokenStore) DeleteBySessionTx(ctx context.Context, tx pgx.Tx, sessionID uuid.UUID) error {
+	return s.deleteBySessionWith(ctx, repo_auth_tokens.New(tx), sessionID)
+}
+
+func (s *PGTokenStore) deleteBySessionWith(ctx context.Context, q *repo_auth_tokens.Queries, sessionID uuid.UUID) error {
 	if sessionID == uuid.Nil {
 		return nil
 	}
-	_, err := s.repo().DeleteAuthTokensBySession(ctx, nullUUID(sessionID))
+	_, err := q.DeleteAuthTokensBySession(ctx, nullUUID(sessionID))
 	return err
 }
 
@@ -168,11 +180,20 @@ func (s *PGTokenStore) DeleteBySession(ctx context.Context, sessionID uuid.UUID)
 // is non-nil that session's tokens are preserved (used by ChangeMasterPassword
 // to keep the active browser logged in).
 func (s *PGTokenStore) DeleteByUser(ctx context.Context, userID uuid.UUID, exceptSessionID *uuid.UUID) error {
+	return s.deleteByUserWith(ctx, s.repo(), userID, exceptSessionID)
+}
+
+// DeleteByUserTx is the in-transaction variant. See DeleteBySessionTx (H-3).
+func (s *PGTokenStore) DeleteByUserTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, exceptSessionID *uuid.UUID) error {
+	return s.deleteByUserWith(ctx, repo_auth_tokens.New(tx), userID, exceptSessionID)
+}
+
+func (s *PGTokenStore) deleteByUserWith(ctx context.Context, q *repo_auth_tokens.Queries, userID uuid.UUID, exceptSessionID *uuid.UUID) error {
 	var except uuid.NullUUID
 	if exceptSessionID != nil && *exceptSessionID != uuid.Nil {
 		except = uuid.NullUUID{UUID: *exceptSessionID, Valid: true}
 	}
-	_, err := s.repo().DeleteAuthTokensByUser(ctx, repo_auth_tokens.DeleteAuthTokensByUserParams{
+	_, err := q.DeleteAuthTokensByUser(ctx, repo_auth_tokens.DeleteAuthTokensByUserParams{
 		UserID:          uuid.NullUUID{UUID: userID, Valid: true},
 		ExceptSessionID: except,
 	})

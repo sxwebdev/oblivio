@@ -38,7 +38,7 @@ func (q *Queries) DeleteMFAChallenge(ctx context.Context, id uuid.UUID) (int64, 
 }
 
 const getMFAChallenge = `-- name: GetMFAChallenge :one
-SELECT id, user_id, email, auth_key_ct, device_id, device_type, device_name, totp_required, webauthn_state, expires_at FROM mfa_challenges WHERE id = $1
+SELECT id, user_id, email, auth_key_ct, device_id, device_type, device_name, totp_required, webauthn_state, expires_at, failed_attempts FROM mfa_challenges WHERE id = $1
 `
 
 func (q *Queries) GetMFAChallenge(ctx context.Context, id uuid.UUID) (*models.MfaChallenge, error) {
@@ -55,8 +55,25 @@ func (q *Queries) GetMFAChallenge(ctx context.Context, id uuid.UUID) (*models.Mf
 		&i.TotpRequired,
 		&i.WebauthnState,
 		&i.ExpiresAt,
+		&i.FailedAttempts,
 	)
 	return &i, err
+}
+
+const incrementMFAFailedAttempts = `-- name: IncrementMFAFailedAttempts :one
+UPDATE mfa_challenges
+SET failed_attempts = failed_attempts + 1
+WHERE id = $1
+RETURNING failed_attempts
+`
+
+// Bumps failed_attempts. Returns the new count. The Go caller decides
+// whether to burn the row (DeleteMFAChallenge) when the threshold is hit.
+func (q *Queries) IncrementMFAFailedAttempts(ctx context.Context, id uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, incrementMFAFailedAttempts, id)
+	var failed_attempts int32
+	err := row.Scan(&failed_attempts)
+	return failed_attempts, err
 }
 
 const insertMFAChallenge = `-- name: InsertMFAChallenge :one
@@ -102,7 +119,7 @@ func (q *Queries) InsertMFAChallenge(ctx context.Context, arg InsertMFAChallenge
 const takeMFAChallenge = `-- name: TakeMFAChallenge :one
 DELETE FROM mfa_challenges
 WHERE id = $1
-RETURNING id, user_id, email, auth_key_ct, device_id, device_type, device_name, totp_required, webauthn_state, expires_at
+RETURNING id, user_id, email, auth_key_ct, device_id, device_type, device_name, totp_required, webauthn_state, expires_at, failed_attempts
 `
 
 // Atomic SELECT-and-delete so two concurrent CompleteMFA calls cannot both
@@ -122,6 +139,7 @@ func (q *Queries) TakeMFAChallenge(ctx context.Context, id uuid.UUID) (*models.M
 		&i.TotpRequired,
 		&i.WebauthnState,
 		&i.ExpiresAt,
+		&i.FailedAttempts,
 	)
 	return &i, err
 }

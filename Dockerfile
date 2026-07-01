@@ -12,7 +12,7 @@ COPY frontend/ .
 RUN pnpm run build
 
 # Backend build stage
-FROM golang:1.26.3-alpine AS backend-builder
+FROM golang:1.26.4-alpine AS backend-builder
 
 # Define build arguments for version, commit, and date.
 ARG VERSION="unknown"

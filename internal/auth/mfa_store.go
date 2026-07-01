@@ -123,6 +123,32 @@ func (s *MFAStore) Put(ctx context.Context, c MFAChallenge) (uuid.UUID, error) {
 	return c.ID, nil
 }
 
+// MaxMFAFailedAttempts is the per-challenge ceiling. After this many
+// failed TOTP/WebAuthn validations the challenge is burned and the
+// caller must start a new sign-in flow.
+const MaxMFAFailedAttempts = 5
+
+// RecordFailedAttempt bumps the per-challenge counter and, if the
+// threshold is hit, deletes the row and returns ErrChallengeBurned.
+// Callers should treat ErrChallengeBurned and ErrChallengeNotFound as
+// equivalent at the wire — both mean "this challenge is unusable now".
+func (s *MFAStore) RecordFailedAttempt(ctx context.Context, id uuid.UUID) error {
+	count, err := s.repo.IncrementMFAFailedAttempts(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrChallengeNotFound
+		}
+		return fmt.Errorf("mfa store: increment failed attempts: %w", err)
+	}
+	if count >= MaxMFAFailedAttempts {
+		// Burn the challenge. Best-effort: a concurrent Take may have
+		// already removed the row, in which case the delete is a no-op.
+		_, _ = s.repo.DeleteMFAChallenge(ctx, id)
+		return ErrChallengeBurned
+	}
+	return nil
+}
+
 // Take atomically deletes and returns the challenge. Expired rows return
 // ErrChallengeExpired (after the row has already been removed — expired
 // challenges are not retried). Concurrent Take calls are race-safe: only
@@ -214,4 +240,7 @@ func kekAAD(id uuid.UUID) []byte {
 var (
 	ErrChallengeNotFound = errors.New("mfa: challenge not found")
 	ErrChallengeExpired  = errors.New("mfa: challenge expired")
+	// ErrChallengeBurned signals that the per-challenge failed-attempt
+	// counter exceeded MaxMFAFailedAttempts and the row was deleted.
+	ErrChallengeBurned = errors.New("mfa: challenge burned after too many failed attempts")
 )

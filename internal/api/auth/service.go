@@ -60,6 +60,12 @@ type Service struct {
 	emailer           email.Sender
 	publicURL         string
 	appName           string
+
+	// dummyAuthHash cache: lazily built on first failed login so the
+	// process boot is fast, and re-derives against the configured server
+	// params (L-1) so the anti-enumeration timing follows real Argon2.
+	dummyAuthHashOnce sync.Once
+	dummyAuthHashVal  string
 }
 
 // Deps bundles the dependencies required to build the AuthService handler.
@@ -235,7 +241,7 @@ func (s *Service) GetKDFParams(ctx context.Context, req *connect.Request[pb.GetK
 		if errors.Is(err, pgx.ErrNoRows) {
 			return connect.NewResponse(&pb.GetKDFParamsResponse{
 				SaltUser:    pseudoSalt(email),
-				KdfParams:   defaultKDFParams(),
+				KdfParams:   pseudoKDFParams(email),
 				BlindPepper: pseudoBlindPepper(email),
 			}), nil
 		}
@@ -275,7 +281,7 @@ func (s *Service) Authorize(ctx context.Context, req *connect.Request[pb.Authori
 			// dummy hash so the wall-clock cost matches a real verify.
 			// Without this an attacker can distinguish "user exists" from
 			// "user doesn't" by timing.
-			_, _ = auth.VerifyAuthKey(r.AuthKey, dummyAuthHash())
+			_, _ = auth.VerifyAuthKey(r.AuthKey, s.dummyAuthHash())
 			metrics.LoginAttemptsTotal.WithLabelValues("failure").Inc()
 			return nil, unauthenticated()
 		}
@@ -298,8 +304,12 @@ func (s *Service) Authorize(ctx context.Context, req *connect.Request[pb.Authori
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	if !ok {
-		// RecordFailedLogin increments and locks at the threshold (5 → 15min).
+		// RecordFailedLogin increments and (re-)locks at the threshold
+		// (>=5 → 15min), re-arming after each window lapses.
 		_, _ = s.st.UserAuth().RecordFailedLogin(ctx, u.ID)
+		// Forensic event so slow brute-force surfaces in the audit chain,
+		// not only successful logins.
+		s.logAudit(ctx, u.ID, models.AuditActionLoginFailed, req, nil)
 		metrics.LoginAttemptsTotal.WithLabelValues("failure").Inc()
 		return nil, unauthenticated()
 	}
@@ -420,7 +430,7 @@ func (s *Service) CompleteMFA(ctx context.Context, req *connect.Request[pb.Compl
 		defer secretBuf.Destroy()
 		if err := auth.ValidateTOTPCodeBytes(secretBuf.Bytes(), []byte(r.TotpCode)); err != nil {
 			metrics.MFAAttemptsTotal.WithLabelValues("totp", "failure").Inc()
-			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid totp code"))
+			return nil, s.handleMFAFailure(ctx, id, ch.UserID, "totp", "invalid totp code")
 		}
 		metrics.MFAAttemptsTotal.WithLabelValues("totp", "success").Inc()
 	case hasWA:
@@ -452,7 +462,7 @@ func (s *Service) CompleteMFA(ctx context.Context, req *connect.Request[pb.Compl
 		credential, err := s.wa.ValidateLogin(wuser, *ch.WebAuthnState, parsed)
 		if err != nil {
 			metrics.MFAAttemptsTotal.WithLabelValues("webauthn", "failure").Inc()
-			return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("webauthn validate: %w", err))
+			return nil, s.handleMFAFailure(ctx, id, ch.UserID, "webauthn", "webauthn assertion failed")
 		}
 		metrics.MFAAttemptsTotal.WithLabelValues("webauthn", "success").Inc()
 		// Update sign_count for the touched credential.
@@ -501,6 +511,42 @@ func (s *Service) CompleteMFA(ctx context.Context, req *connect.Request[pb.Compl
 		return nil, err
 	}
 	return connect.NewResponse(&pb.CompleteMFAResponse{AuthPayload: resp.Msg.AuthPayload}), nil
+}
+
+// handleMFAFailure records the forensic mfa_failed event, increments the
+// per-challenge failed-attempt counter, and returns the wire-level error.
+// When the counter hits MaxMFAFailedAttempts the challenge row is deleted;
+// we report this as CodeFailedPrecondition with the same "mfa challenge
+// expired" message used for genuinely expired or unknown ids, so the wire
+// response does not distinguish "burned" from "expired". A counter storage
+// error does not change the per-request wire code — we still return
+// Unauthenticated so the client's retry loop behaves the same as before.
+func (s *Service) handleMFAFailure(ctx context.Context, challengeID, userID uuid.UUID, factor, msg string) error {
+	// Emit the forensic event on every failed attempt (the brute-force
+	// signal), attributed to the challenge's user so an operator can tell
+	// which account is under attack.
+	if s.auditWriter != nil {
+		ev := audit.Event{
+			Action:   models.AuditActionMfaFailed,
+			Metadata: map[string]any{"factor": factor, "challenge_id": challengeID.String()},
+		}
+		if userID != uuid.Nil {
+			ev.UserID = uuid.NullUUID{UUID: userID, Valid: true}
+			ev.TargetID = uuid.NullUUID{UUID: userID, Valid: true}
+		}
+		s.auditWriter.AppendOrLog(ctx, ev)
+	}
+
+	switch err := s.mfa.RecordFailedAttempt(ctx, challengeID); {
+	case errors.Is(err, auth.ErrChallengeBurned),
+		errors.Is(err, auth.ErrChallengeNotFound):
+		return connect.NewError(connect.CodeFailedPrecondition, errors.New("mfa challenge expired"))
+	default:
+		// err == nil (normal failed attempt) or a transient counter write
+		// error (DB blip): either way the client sees Unauthenticated for
+		// the bad code. On a counter error the next attempt re-increments.
+		return connect.NewError(connect.CodeUnauthenticated, errors.New(msg))
+	}
 }
 
 // issueAuthorized loads vault artefacts, mints tokens and writes the login
@@ -746,26 +792,23 @@ func (s *Service) ChangeMasterPassword(ctx context.Context, req *connect.Request
 		// compromise can flip this to true to revoke the passkey-unlock
 		// pathway in one shot.
 		if r.RevokePasskeyUnlocks {
-			return s.st.UserWebAuthn(repos.WithTx(tx)).ClearAllWebAuthnUnlockBundles(ctx, uc.UserID)
+			if err := s.st.UserWebAuthn(repos.WithTx(tx)).ClearAllWebAuthnUnlockBundles(ctx, uc.UserID); err != nil {
+				return err
+			}
 		}
-		return nil
-	}); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
 
-	// Revoke other sessions both at the DB level (auth_sessions row) and
-	// the token level (auth_tokens). The current session survives so the
-	// user keeps the tab they just typed the new password in.
-	if err := s.st.SystemDo(ctx, func(tx pgx.Tx) error {
-		_, err := s.st.AuthSessions(repos.WithTx(tx)).RevokeAllUserSessionsExcept(ctx, repo_auth_sessions.RevokeAllUserSessionsExceptParams{
+		// Revoke other sessions AND their tokens inside the same tx so a
+		// transient DB failure cannot leave the password rotated while the
+		// old tokens still authenticate (H-3). The caller's session
+		// survives so the active tab stays logged in.
+		if _, err := s.st.AuthSessions(repos.WithTx(tx)).RevokeAllUserSessionsExcept(ctx, repo_auth_sessions.RevokeAllUserSessionsExceptParams{
 			UserID: uc.UserID,
 			ID:     uc.SessionID,
-		})
-		return err
+		}); err != nil {
+			return err
+		}
+		return s.am.RevokeUserTokensExceptSessionTx(ctx, tx, uc.UserID, uc.SessionID)
 	}); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if err := s.am.RevokeUserTokensExceptSession(ctx, uc.UserID, uc.SessionID); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -836,7 +879,7 @@ func (s *Service) GetRecoveryParams(ctx context.Context, req *connect.Request[pb
 			// will compute a proof and RecoveryStart will fail uniformly.
 			return connect.NewResponse(&pb.GetRecoveryParamsResponse{
 				RecoverySalt: pseudoSalt(email),
-				KdfParams:    defaultKDFParams(),
+				KdfParams:    pseudoKDFParams(email),
 			}), nil
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -872,11 +915,23 @@ func (s *Service) RecoveryStart(ctx context.Context, req *connect.Request[pb.Rec
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Anti-enumeration: pad timing with a dummy verify so the
 			// "no such email" branch matches the real path.
-			_, _ = auth.VerifyAuthKey(req.Msg.RecoveryProof, dummyAuthHash())
+			_, _ = auth.VerifyAuthKey(req.Msg.RecoveryProof, s.dummyAuthHash())
 			return nil, unauthenticated()
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	// Recovery lockout (M-9): bound brute-force of the recovery proof
+	// independently of the login counter. Mirrors the login lockout in
+	// Authorize — refuse before the expensive Argon2 verify.
+	ua, err := s.st.UserAuth().GetUserAuth(ctx, u.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if ua.RecoveryLockedUntil.Valid && ua.RecoveryLockedUntil.Time.After(time.Now()) {
+		return nil, connect.NewError(connect.CodeResourceExhausted, errors.New("recovery temporarily locked, try again later"))
+	}
+
 	uv, err := s.st.UserVault().GetUserVault(ctx, u.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -886,8 +941,14 @@ func (s *Service) RecoveryStart(ctx context.Context, req *connect.Request[pb.Rec
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	if !ok {
+		// RecordFailedRecovery increments and (re-)locks at the threshold
+		// (>=5 → 1h). Forensic event surfaces the attempt in the audit chain.
+		_, _ = s.st.UserAuth().RecordFailedRecovery(ctx, u.ID)
+		s.logAudit(ctx, u.ID, models.AuditActionRecoveryFailed, req, nil)
 		return nil, unauthenticated()
 	}
+	// Clean proof — clear the recovery failure counter.
+	_ = s.st.UserAuth().ResetFailedRecovery(ctx, u.ID)
 	sid, err := s.recovery.Put(ctx, auth.RecoverySession{
 		UserID: u.ID,
 		Email:  u.Email,
@@ -965,22 +1026,16 @@ func (s *Service) RecoveryComplete(ctx context.Context, req *connect.Request[pb.
 		if err := rotateLoginTOTPInTx(ctx, s.st, tx, sess.UserID, r.LoginTotpEncryptedSecret, r.LoginTotpNonce); err != nil {
 			return err
 		}
-		return s.st.AuthSessions(repos.WithTx(tx)).RevokeAllUserSessions(ctx, sess.UserID)
+		// Revoke sessions AND auth_tokens inside the same tx so the wire
+		// state cannot drift if Postgres returns mid-rotation (H-3). After
+		// commit, every previously-issued token is gone and every session
+		// row carries revoked_at.
+		if err := s.st.AuthSessions(repos.WithTx(tx)).RevokeAllUserSessions(ctx, sess.UserID); err != nil {
+			return err
+		}
+		return s.am.RevokeAllUserTokensTx(ctx, tx, sess.UserID)
 	}); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Burn every JWT we ever signed for this user from the in-memory
-	// tokenmanager store. Without this an access token snapped at recovery
-	// time would stay valid for its full 20 min TTL — defeating the point
-	// of password rotation.
-	if err := s.am.RevokeAllUserTokens(ctx, sess.UserID); err != nil {
-		// Non-fatal: DB-side revocation already happened. Still log so the
-		// audit chain captures the partial state.
-		s.logAudit(ctx, sess.UserID, models.AuditActionRecoveryComplete, req, map[string]any{
-			"warning": "in-memory token revocation failed: " + err.Error(),
-		})
-		return connect.NewResponse(&pb.RecoveryCompleteResponse{}), nil
 	}
 
 	s.logAudit(ctx, sess.UserID, models.AuditActionRecoveryComplete, req, nil)
@@ -1121,9 +1176,11 @@ func isUniqueViolation(err error) bool {
 var pseudoSaltSecret = func() []byte {
 	b := make([]byte, 32)
 	if _, err := readRandom(b); err != nil {
-		// Falls back to all-zeros — the worst case is predictable salts,
-		// not a crash. Logged in start.go via memguard CatchInterrupt.
-		return b
+		// crypto/rand failing at startup is "this box is broken"; refusing
+		// to boot is strictly safer than silently seeding the anti-
+		// enumeration HMAC with all-zeros (L-2). If this ever fires in
+		// production the operator sees a hard panic with the cause.
+		panic("oblivio: crypto/rand failed at startup: " + err.Error())
 	}
 	return b
 }()
@@ -1153,31 +1210,22 @@ func pseudoBlindPepper(email string) []byte {
 //
 // Computed lazily via sync.Once because hashing is expensive (~50ms with
 // the server params) and we don't want to slow down process startup when
-// nobody is logging in yet.
-var (
-	dummyAuthHashOnce sync.Once
-	dummyAuthHashVal  string
-)
-
-func dummyAuthHash() string {
-	dummyAuthHashOnce.Do(func() {
+// nobody is logging in yet. The params mirror the server's configured
+// argon2 set so the timing tracks the real-verify path (L-1).
+func (s *Service) dummyAuthHash() string {
+	s.dummyAuthHashOnce.Do(func() {
 		seed := make([]byte, 32)
 		_, _ = readRandom(seed)
-		// Use a fixed-but-conservative server-side Argon2 parameter set so
-		// the timing matches real authentication. The exact params don't
-		// have to mirror per-user state — VerifyAuthKey reads them from the
-		// PHC string we hand it.
-		h, err := auth.HashAuthKey(seed, auth.Argon2Params{T: 3, MKiB: 65536, P: 1})
+		h, err := auth.HashAuthKey(seed, s.argon2)
 		if err != nil {
-			// Fall back to a known-bad string; VerifyAuthKey will return
-			// false quickly. The anti-enumeration property degrades but
-			// nothing breaks.
-			dummyAuthHashVal = "$argon2id$v=19$m=65536,t=3,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+			// Fall back to a known-bad string; VerifyAuthKey returns false
+			// quickly. Anti-enumeration timing degrades but nothing breaks.
+			s.dummyAuthHashVal = "$argon2id$v=19$m=65536,t=3,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 			return
 		}
-		dummyAuthHashVal = h
+		s.dummyAuthHashVal = h
 	})
-	return dummyAuthHashVal
+	return s.dummyAuthHashVal
 }
 
 // readRandom is a small wrapper so tests can stub the source if needed.
@@ -1185,6 +1233,26 @@ func readRandom(b []byte) (int, error) {
 	return cryptoRand.Read(b)
 }
 
-func defaultKDFParams() *pb.Argon2Params {
-	return &pb.Argon2Params{T: 3, MKib: 131072, P: 4, Algo: "argon2id"}
+// realKDFProfiles mirrors the parameter sets that frontend/packages/crypto
+// generates at Register time (frontend/packages/crypto/src/kdf.ts). The
+// unknown-user branch of GetKDFParams must return one of these so the
+// response shape is indistinguishable from a real account — otherwise the
+// `p` (parallelism) field becomes an account-existence oracle (H-2).
+//
+// Keep this slice in sync with frontend/packages/crypto/src/kdf.ts.
+var realKDFProfiles = []*pb.Argon2Params{
+	{T: 3, MKib: 131072, P: 1, Algo: "argon2id"}, // desktop default
+	{T: 8, MKib: 32768, P: 1, Algo: "argon2id"},  // low-memory devices
+}
+
+// pseudoKDFParams deterministically picks one of the real client profiles
+// for an unknown email. The choice is HMAC-driven so two queries for the
+// same email return the same shape, and an attacker cannot infer
+// non-existence from a "wrong" profile.
+func pseudoKDFParams(email string) *pb.Argon2Params {
+	mac := hmac.New(sha256.New, pseudoSaltSecret)
+	mac.Write([]byte("kdf-profile:" + strings.ToLower(strings.TrimSpace(email))))
+	h := mac.Sum(nil)
+	// h[0] is uniform in [0,255]; modulo into the small profile slice.
+	return realKDFProfiles[int(h[0])%len(realKDFProfiles)]
 }
