@@ -118,9 +118,69 @@ func (v *Verifier) Run(ctx context.Context) (VerifyResult, error) {
 	}, nil
 }
 
+// AnchorInHistory reports whether `anchored` was a legitimate head of the
+// chain at some past height — i.e. it matches the recomputed self_hash of
+// some row. This is the correct way to validate a periodic external anchor:
+// unlike comparing the anchor against the *live* head, it stays true as the
+// chain grows, so a healthy-but-active chain never reports a false anchor
+// mismatch (the H-5 head-equality check regressed exactly this).
+//
+// The self_hash is recomputed from each row's canonical payload, so a DB-only
+// tamper of a historic row changes every recomputed hash from that row onward.
+// The old signed head then no longer appears in the recomputed history and
+// this returns false — precisely the "rewrote rows AND head consistently"
+// attack the external Ed25519 signature exists to expose.
+func (v *Verifier) AnchorInHistory(ctx context.Context, anchored []byte) (bool, error) {
+	if len(anchored) == 0 {
+		return false, nil
+	}
+	// An anchor signed over an empty chain commits to the genesis head, which
+	// has no backing row. That is a legitimate historical head, so accept it
+	// without walking (otherwise a fresh system anchored before its first
+	// event would false-positive).
+	if hashesEqual(anchored, genesisHash()) {
+		return true, nil
+	}
+	tx, err := v.pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return false, fmt.Errorf("anchor history: begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, "SET LOCAL app.bypass_rls = 'true'"); err != nil {
+		return false, fmt.Errorf("anchor history: set bypass: %w", err)
+	}
+
+	prev := genesisHash()
+	var lastID int64
+	for {
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		default:
+		}
+
+		rows, err := v.fetchBatchTx(ctx, tx, lastID)
+		if err != nil {
+			return false, err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		for _, row := range rows {
+			if hashesEqual(computeSelfHash(prev, row), anchored) {
+				return true, nil
+			}
+			prev = row.SelfHash
+			lastID = row.ID
+		}
+	}
+	return false, nil
+}
+
 func (v *Verifier) loadHeadTx(ctx context.Context, tx pgx.Tx) ([]byte, error) {
 	var raw []byte
-	if err := tx.QueryRow(ctx,
+	if err := tx.QueryRow(
+		ctx,
 		`SELECT value FROM system_state WHERE key = $1`,
 		systemKeyChainHead,
 	).Scan(&raw); err != nil {
@@ -132,7 +192,8 @@ func (v *Verifier) loadHeadTx(ctx context.Context, tx pgx.Tx) ([]byte, error) {
 // fetchBatchTx pulls a window of rows by id with a hard ORDER BY id ASC.
 // Runs inside the verify transaction so the system bypass GUC applies.
 func (v *Verifier) fetchBatchTx(ctx context.Context, tx pgx.Tx, fromID int64) ([]*models.AuditLog, error) {
-	rows, err := tx.Query(ctx,
+	rows, err := tx.Query(
+		ctx,
 		`SELECT id, user_id, action, target_id, ip, user_agent, metadata, prev_hash, self_hash, created_at
          FROM audit_log
          WHERE id > $1

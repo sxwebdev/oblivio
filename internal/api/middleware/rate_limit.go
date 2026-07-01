@@ -193,6 +193,10 @@ var proceduresWithRateLimit = map[string]procedureRule{
 		ipPerMin: func(c config.RateLimits) uint32 { return c.RegisterPerIPPerHour / 60 }, // amortised
 		emailPer: nil,
 	},
+	"/oblivio.v1.AuthService/CompleteMFA": {
+		kindIP:   "mfa_complete_ip",
+		ipPerMin: func(c config.RateLimits) uint32 { return c.CompleteMFAPerIPPerMin },
+	},
 }
 
 // clientIP extracts the best-guess remote address. We trust X-Forwarded-For

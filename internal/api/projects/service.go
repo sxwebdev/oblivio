@@ -170,9 +170,17 @@ func (s *Service) DeleteProject(ctx context.Context, req *connect.Request[pb.Del
 	return connect.NewResponse(&pb.DeleteProjectResponse{}), nil
 }
 
+// maxReorderBatch caps how many project ids one ReorderProjects call can
+// touch (H-7). Without this an attacker can submit millions of ids and
+// pin row locks for the user for the duration of the request.
+const maxReorderBatch = 500
+
 // ReorderProjects re-numbers sort_order for a batch of ids in O(n) writes.
 func (s *Service) ReorderProjects(ctx context.Context, req *connect.Request[pb.ReorderProjectsRequest]) (*connect.Response[pb.ReorderProjectsResponse], error) {
 	uc := middleware.MustFromContext(ctx)
+	if len(req.Msg.OrderedIds) > maxReorderBatch {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("too many ordered_ids"))
+	}
 	tx := middleware.MustTxFromContext(ctx)
 	q := repo_projects.New(tx)
 	for i, raw := range req.Msg.OrderedIds {

@@ -96,6 +96,11 @@ type RateLimits struct {
 	AuthLoginPerIPPerMin    uint32 `yaml:"auth_login_per_ip_per_min" default:"20"`
 	KDFParamsPerIPPerMin    uint32 `yaml:"kdf_params_per_ip_per_min" default:"30"`
 	RegisterPerIPPerHour    uint32 `yaml:"register_per_ip_per_hour" default:"5"`
+	// CompleteMFAPerIPPerMin caps brute-force of TOTP/WebAuthn codes per
+	// IP. The per-challenge counter (`mfa_challenges.failed_attempts`) is
+	// the primary defence; this is the second layer that limits IP-level
+	// throughput across many short-lived challenges.
+	CompleteMFAPerIPPerMin uint32 `yaml:"complete_mfa_per_ip_per_min" default:"10"`
 }
 
 // WebAuthnConfig configures the relying party for FIDO2/WebAuthn.

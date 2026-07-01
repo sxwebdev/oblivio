@@ -47,6 +47,7 @@ var allProcedures = []string{
 	"/oblivio.v1.SessionsService/ListSessions",
 	"/oblivio.v1.SessionsService/TerminateAllExceptCurrent",
 	"/oblivio.v1.SessionsService/TerminateSession",
+	"/oblivio.v1.SubscriptionsService/Subscribe",
 	"/oblivio.v1.VaultService/DeleteMe",
 	"/oblivio.v1.VaultService/GetMe",
 	"/oblivio.v1.WebAuthnService/BeginAssertion",

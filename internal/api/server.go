@@ -151,6 +151,16 @@ func (s *Server) buildHandler() http.Handler {
 
 	rlsInterceptor := middleware.NewRLSInterceptor(s.store.Pool())
 	auditInterceptor := middleware.NewAuditInterceptor(auditWriter, middleware.DefaultAuditProcedures)
+	// Global ConnectRPC payload cap. 4 MiB is comfortably more than any
+	// expected ciphertext blob (encrypted_blob, wrapped_item_key, etc.)
+	// while bounding the unmarshal step against an attacker who sends a
+	// multi-GiB body to OOM the unmarshal allocator (H-6). Per-field
+	// caps in handlers stay as the inner ring.
+	const maxRPCRead = 4 * 1024 * 1024
+	limits := []connect.HandlerOption{
+		connect.WithReadMaxBytes(maxRPCRead),
+		connect.WithSendMaxBytes(maxRPCRead),
+	}
 	interceptors := connect.WithInterceptors(rlsInterceptor, auditInterceptor)
 
 	// Email-side rate limiter for AuthService — runs after deserialisation
@@ -173,16 +183,19 @@ func (s *Server) buildHandler() http.Handler {
 		PublicURL:     s.publicURL,
 		AppName:       s.appName,
 	})
-	rpcMux.Handle(obliviov1connect.NewAuthServiceHandler(authSvc, authInterceptors))
+	authOpts := append([]connect.HandlerOption{authInterceptors}, limits...)
+	rpcMux.Handle(obliviov1connect.NewAuthServiceHandler(authSvc, authOpts...))
+
+	commonOpts := append([]connect.HandlerOption{interceptors}, limits...)
 
 	projectsSvc := apiprojects.NewService()
-	rpcMux.Handle(obliviov1connect.NewProjectsServiceHandler(projectsSvc, interceptors))
+	rpcMux.Handle(obliviov1connect.NewProjectsServiceHandler(projectsSvc, commonOpts...))
 
 	entriesSvc := apientries.NewService()
-	rpcMux.Handle(obliviov1connect.NewEntriesServiceHandler(entriesSvc, interceptors))
+	rpcMux.Handle(obliviov1connect.NewEntriesServiceHandler(entriesSvc, commonOpts...))
 
 	auditSvc := apiaudit.NewService()
-	rpcMux.Handle(obliviov1connect.NewAuditServiceHandler(auditSvc, interceptors))
+	rpcMux.Handle(obliviov1connect.NewAuditServiceHandler(auditSvc, commonOpts...))
 
 	vaultSvc := apivault.NewService(apivault.Deps{
 		AuthManager: s.am,
@@ -190,23 +203,23 @@ func (s *Server) buildHandler() http.Handler {
 		WebAuthn:    s.wa,
 		MFAStore:    s.mfaStore,
 	})
-	rpcMux.Handle(obliviov1connect.NewVaultServiceHandler(vaultSvc, interceptors))
+	rpcMux.Handle(obliviov1connect.NewVaultServiceHandler(vaultSvc, commonOpts...))
 
 	sessionsSvc := apisessions.NewService(auditWriter, s.am)
-	rpcMux.Handle(obliviov1connect.NewSessionsServiceHandler(sessionsSvc, interceptors))
+	rpcMux.Handle(obliviov1connect.NewSessionsServiceHandler(sessionsSvc, commonOpts...))
 
 	// Subscriptions: server-streaming push of "your entries/projects changed"
 	// hints via Postgres LISTEN/NOTIFY. Skips the RLS interceptor — the
 	// handler scopes by uc.UserID and the payload carries no row data.
 	subsSvc := apisubs.NewService(s.store.Pool())
-	rpcMux.Handle(obliviov1connect.NewSubscriptionsServiceHandler(subsSvc))
+	rpcMux.Handle(obliviov1connect.NewSubscriptionsServiceHandler(subsSvc, limits...))
 
 	loginTOTPSvc := apilogintotp.NewService(s.wa, s.mfaStore)
-	rpcMux.Handle(obliviov1connect.NewLoginTOTPServiceHandler(loginTOTPSvc, interceptors))
+	rpcMux.Handle(obliviov1connect.NewLoginTOTPServiceHandler(loginTOTPSvc, commonOpts...))
 
 	if s.wa != nil {
 		webauthnSvc := apiwebauthn.NewService(s.wa, s.mfaStore, auditWriter)
-		rpcMux.Handle(obliviov1connect.NewWebAuthnServiceHandler(webauthnSvc, interceptors))
+		rpcMux.Handle(obliviov1connect.NewWebAuthnServiceHandler(webauthnSvc, commonOpts...))
 	} else {
 		s.log.Warnf("webauthn relying party not configured; passkeys disabled")
 	}
@@ -245,9 +258,7 @@ func (s *Server) buildHandler() http.Handler {
 		s.log.Warnf("frontend/dist not embedded: %v", err)
 	}
 
-	return middleware.SecurityHeaders(middleware.SecurityHeadersConfig{
-		HSTS: s.cfg.TLS.CertFile != "" && s.cfg.TLS.KeyFile != "",
-	}, root)
+	return middleware.SecurityHeaders(root)
 }
 
 // Stop gracefully shuts down the HTTP server.

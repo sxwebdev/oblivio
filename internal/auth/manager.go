@@ -1,8 +1,8 @@
 package auth
 
 import (
-	"bytes"
 	"context"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"strings"
@@ -197,11 +197,18 @@ func (m *Manager) Refresh(ctx context.Context, refreshToken, deviceType, deviceN
 	}); err != nil {
 		return IssuedTokens{}, fmt.Errorf("read current refresh key: %w", err)
 	}
-	if !bytes.Equal(currentKey, presentedKey) {
+	// subtle.ConstantTimeCompare avoids a per-byte timing leak when an
+	// attacker probes the reuse-detection branch — comparing two refresh-
+	// key candidates byte-by-byte would let them learn the prefix of the
+	// stored "current" key from the response latency (crypto LOW-2).
+	if subtle.ConstantTimeCompare(currentKey, presentedKey) != 1 {
 		// The presented refresh is not the latest one issued for this
-		// session → token theft. Burn everything.
-		_ = m.tokens.DeleteByUser(ctx, userID, nil)
+		// session → token theft. Burn everything in one transaction so a
+		// transient DB error cannot leave half the revoke applied (H-3).
 		_ = m.st.SystemDo(ctx, func(tx pgx.Tx) error {
+			if err := m.tokens.DeleteByUserTx(ctx, tx, userID, nil); err != nil {
+				return err
+			}
 			return m.st.AuthSessions(repos.WithTx(tx)).RevokeAllUserSessions(ctx, userID)
 		})
 		metrics.RefreshAttemptsTotal.WithLabelValues("reuse").Inc()
@@ -226,11 +233,23 @@ func (m *Manager) RevokeAllUserTokens(ctx context.Context, userID uuid.UUID) err
 	return m.tokens.DeleteByUser(ctx, userID, nil)
 }
 
+// RevokeAllUserTokensTx is the in-transaction variant: pair it with a
+// session-side revoke inside the same SystemDo so the two halves commit
+// atomically (H-3).
+func (m *Manager) RevokeAllUserTokensTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID) error {
+	return m.tokens.DeleteByUserTx(ctx, tx, userID, nil)
+}
+
 // RevokeUserTokensExceptSession deletes every token row for the user except
 // those bound to exceptSessionID. Used by ChangeMasterPassword to keep the
 // caller logged in while burning the rest.
 func (m *Manager) RevokeUserTokensExceptSession(ctx context.Context, userID, exceptSessionID uuid.UUID) error {
 	return m.tokens.DeleteByUser(ctx, userID, &exceptSessionID)
+}
+
+// RevokeUserTokensExceptSessionTx is the in-transaction variant (H-3).
+func (m *Manager) RevokeUserTokensExceptSessionTx(ctx context.Context, tx pgx.Tx, userID, exceptSessionID uuid.UUID) error {
+	return m.tokens.DeleteByUserTx(ctx, tx, userID, &exceptSessionID)
 }
 
 // Logout revokes both tokens of the active session and marks the

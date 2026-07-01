@@ -11,7 +11,6 @@
 package jobs
 
 import (
-	"bytes"
 	"context"
 	"crypto/ed25519"
 	"errors"
@@ -59,6 +58,11 @@ func NewAuditChainVerifyWorker(pool *pgxpool.Pool, st *store.Store, signer audit
 // fine for transient DB errors but pointless for genuine chain mismatch,
 // which we therefore report as success-with-alarm (counter + log) rather
 // than an error.
+//
+// H-5: verifyAnchor MUST run on every pass, not only on chain mismatch.
+// An attacker with DB write can rewrite both audit_log rows AND the
+// stored head consistently — the in-DB chain will then verify OK and
+// only the external Ed25519 anchor exposes the tampering.
 func (w *AuditChainVerifyWorker) Work(ctx context.Context, _ *river.Job[AuditChainVerifyArgs]) error {
 	res, err := audit.NewVerifier(w.pool).Run(ctx)
 	if err != nil {
@@ -67,34 +71,53 @@ func (w *AuditChainVerifyWorker) Work(ctx context.Context, _ *river.Job[AuditCha
 		return fmt.Errorf("audit verify: %w", err)
 	}
 	metrics.AuditChainHeight.Set(float64(res.Height))
+
+	// Anchor check runs every pass so a "rewrote rows + head consistently"
+	// attack is caught even when the in-DB chain self-recomputes cleanly.
+	anchorErr := w.verifyAnchor(ctx)
+	if anchorErr != nil {
+		metrics.AuditChainVerifyRunsTotal.WithLabelValues("anchor_fail").Inc()
+		w.log.Errorw(
+			"audit anchor verification FAILED", "error", anchorErr,
+			"height", res.Height,
+			"stored_head", audit.HexHead(res.Head),
+		)
+	}
+
 	if res.OK() {
-		metrics.AuditChainVerifyRunsTotal.WithLabelValues("ok").Inc()
-		w.log.Infow("audit chain verify ok", "height", res.Height, "head", audit.HexHead(res.Head))
+		if anchorErr == nil {
+			metrics.AuditChainVerifyRunsTotal.WithLabelValues("ok").Inc()
+			w.log.Infow("audit chain verify ok", "height", res.Height, "head", audit.HexHead(res.Head))
+		}
 		return nil
 	}
 	metrics.AuditChainVerifyRunsTotal.WithLabelValues("mismatch").Inc()
-	w.log.Errorw("audit chain MISMATCH — investigate",
+	w.log.Errorw(
+		"audit chain MISMATCH — investigate",
 		"height", res.Height,
 		"stored_head", audit.HexHead(res.Head),
 		"computed_head", audit.HexHead(res.Computed),
 		"first_bad_id", res.FirstBadID,
 	)
-	if err := w.verifyAnchor(ctx, res.Head); err != nil {
-		w.log.Errorw("audit anchor verification FAILED", "error", err)
-	}
 	return nil
 }
 
 // verifyAnchor pulls the most recent signed anchor and confirms (a) its
 // signature is valid under the worker's known public key, and (b) the
-// signed head matches the head we just observed in system_state. A
+// signed head is a legitimate *historical* head of the current chain. A
 // signature mismatch means a DB-only attacker rewrote the rows AND the
-// head value coherently, but couldn't forge the signer's signature.
+// head value coherently, but couldn't forge the signer's signature; a
+// history miss means the recomputed chain no longer contains the head the
+// signer vouched for — the same tampering, caught via the chain payloads.
+//
+// The anchor commits to a PAST head; on an active chain the live head has
+// advanced beyond it, so we deliberately do NOT require anchor==live-head
+// (that regressed to a false ERROR on every pass with any activity, H-5).
 //
 // Returns nil when the check passes OR the configuration disables it
 // (no signer, no anchor row yet). Returns a non-nil error only on hard
 // failures so the worker can log them at error severity.
-func (w *AuditChainVerifyWorker) verifyAnchor(ctx context.Context, currentHead []byte) error {
+func (w *AuditChainVerifyWorker) verifyAnchor(ctx context.Context) error {
 	if w.signer == nil || w.st == nil {
 		return nil
 	}
@@ -114,8 +137,12 @@ func (w *AuditChainVerifyWorker) verifyAnchor(ctx context.Context, currentHead [
 	if !ed25519.Verify(ed25519.PublicKey(pub), row.Head, row.Signature) {
 		return fmt.Errorf("anchor signature invalid (signer_id=%s)", row.SignerID)
 	}
-	if !bytes.Equal(row.Head, currentHead) {
-		return fmt.Errorf("anchor head %x does not match current head %x", row.Head, currentHead)
+	inHistory, err := audit.NewVerifier(w.pool).AnchorInHistory(ctx, row.Head)
+	if err != nil {
+		return fmt.Errorf("anchor history walk: %w", err)
+	}
+	if !inHistory {
+		return fmt.Errorf("anchored head %s not found in chain history (signer_id=%s)", audit.HexHead(row.Head), row.SignerID)
 	}
 	return nil
 }

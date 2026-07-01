@@ -60,9 +60,12 @@ func (q *Queries) GetSessionByID(ctx context.Context, id uuid.UUID) (*models.Aut
 }
 
 const getSessionCurrentRefreshKey = `-- name: GetSessionCurrentRefreshKey :one
-SELECT current_refresh_key FROM auth_sessions WHERE id = $1
+SELECT current_refresh_key FROM auth_sessions WHERE id = $1 AND revoked_at IS NULL
 `
 
+// revoked_at IS NULL — a refresh against a revoked session must surface as
+// ErrRefreshReuse (no row), not silently swap a new token pair onto a
+// session that was supposed to be dead (M-7 / H-3).
 func (q *Queries) GetSessionCurrentRefreshKey(ctx context.Context, id uuid.UUID) ([]byte, error) {
 	row := q.db.QueryRow(ctx, getSessionCurrentRefreshKey, id)
 	var current_refresh_key []byte

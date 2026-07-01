@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="screenshots/promo.webp" alt="Oblivio is a self-hosted, multi-user, zero-knowledge password manager" width="100%">
+</p>
+
 # OBLIVIO
 
 Oblivio is a self-hosted, multi-user, **zero-knowledge** password manager

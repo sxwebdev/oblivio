@@ -315,6 +315,11 @@ func toEntry(r *models.Entry) *pb.Entry {
 	return e
 }
 
+// maxRepeatedField bounds the size of repeated bytes / id collections in
+// list-style RPCs so a 1M-entry array cannot stall Postgres on `= ANY(...)`
+// (H-7). 500 mirrors maxListLimit so a single page-worth fits in one call.
+const maxRepeatedField = 500
+
 func buildListParams(userID uuid.UUID, msg *pb.ListEntriesRequest) (repo_entries.ListEntriesParams, error) {
 	limit := int32(msg.Limit)
 	if limit <= 0 {
@@ -327,6 +332,12 @@ func buildListParams(userID uuid.UUID, msg *pb.ListEntriesRequest) (repo_entries
 	params := repo_entries.ListEntriesParams{
 		UserID:    userID,
 		PageLimit: limit,
+	}
+	if len(msg.TitleHashes) > maxRepeatedField {
+		return params, errors.New("too many title_hashes")
+	}
+	if len(msg.DomainHashes) > maxRepeatedField {
+		return params, errors.New("too many domain_hashes")
 	}
 	if msg.ProjectId != nil {
 		pid, err := uuid.Parse(*msg.ProjectId)
@@ -421,12 +432,28 @@ func optionalUUID(s *string) (uuid.NullUUID, error) {
 	return uuid.NullUUID{UUID: id, Valid: true}, nil
 }
 
+// Blob ceilings. Server-side AES-GCM ciphertext is "few KB" in practice;
+// 1 MiB per field is generous and stops an authenticated client from
+// filling the disk with multi-MB ciphertexts under their own account
+// (H-7). Combined with the global connect.WithReadMaxBytes cap (H-6) it
+// gives both an outer (request frame) and an inner (per-field) limit.
+const (
+	maxEncryptedBlobBytes  = 1 << 20
+	maxWrappedItemKeyBytes = 256
+)
+
 func validateBlob(blob, wrappedKey, titleHash []byte) error {
 	if len(blob) < 29 {
 		return errors.New("encrypted_blob too short")
 	}
+	if len(blob) > maxEncryptedBlobBytes {
+		return errors.New("encrypted_blob too large")
+	}
 	if len(wrappedKey) < 29 {
 		return errors.New("wrapped_item_key too short")
+	}
+	if len(wrappedKey) > maxWrappedItemKeyBytes {
+		return errors.New("wrapped_item_key too large")
 	}
 	if len(titleHash) != 32 {
 		return errors.New("title_hash must be SHA-256 (32 bytes)")

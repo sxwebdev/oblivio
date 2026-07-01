@@ -17,7 +17,10 @@ SET current_refresh_key = $2,
 WHERE id = $1;
 
 -- name: GetSessionCurrentRefreshKey :one
-SELECT current_refresh_key FROM auth_sessions WHERE id = $1;
+-- revoked_at IS NULL — a refresh against a revoked session must surface as
+-- ErrRefreshReuse (no row), not silently swap a new token pair onto a
+-- session that was supposed to be dead (M-7 / H-3).
+SELECT current_refresh_key FROM auth_sessions WHERE id = $1 AND revoked_at IS NULL;
 
 -- name: UpsertSession :one
 -- access_token_hash / refresh_token_hash are nullable since the source of

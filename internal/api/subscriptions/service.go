@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -34,20 +35,70 @@ import (
 // heartbeat keeps both sides aware of the link.
 const heartbeatInterval = 25 * time.Second
 
+// streamSlot is a per-stream token used as map value identity (function
+// values cannot be compared reliably in Go). Each Subscribe allocates a
+// new slot; release only clears the map entry if the slot still owns
+// it.
+type streamSlot struct {
+	cancel context.CancelFunc
+}
+
+// streamRegistry tracks the currently-active SSE stream per user so a
+// second Subscribe from the same user supersedes the first (H-4).
+// Without this cap a single authenticated client can pin one pgxpool
+// connection per concurrent tab and exhaust the pool — denying service
+// to every other request including audit-chain writes.
+type streamRegistry struct {
+	mu     sync.Mutex
+	active map[uuid.UUID]*streamSlot
+}
+
+func newStreamRegistry() *streamRegistry {
+	return &streamRegistry{active: make(map[uuid.UUID]*streamSlot)}
+}
+
+// take installs slot as the active stream for userID, cancelling any
+// previous stream registered under the same id. Returns the same slot
+// for the caller to pass to release on stream exit.
+func (r *streamRegistry) take(userID uuid.UUID, slot *streamSlot) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if prev, ok := r.active[userID]; ok && prev != slot {
+		prev.cancel()
+	}
+	r.active[userID] = slot
+}
+
+// release clears the registry entry only if the calling slot still owns
+// it. If a newer Subscribe already took the slot, release is a no-op so
+// the old stream's defer cannot evict the new one.
+func (r *streamRegistry) release(userID uuid.UUID, slot *streamSlot) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if cur, ok := r.active[userID]; ok && cur == slot {
+		delete(r.active, userID)
+	}
+}
+
 // Service implements SubscriptionsService.
 type Service struct {
 	obliviov1connect.UnimplementedSubscriptionsServiceHandler
-	pool *pgxpool.Pool
+	pool     *pgxpool.Pool
+	registry *streamRegistry
 }
 
 // NewService constructs a handler. The pool is used to dedicate one
 // connection per active stream (LISTEN binds to a session).
 func NewService(pool *pgxpool.Pool) *Service {
-	return &Service{pool: pool}
+	return &Service{pool: pool, registry: newStreamRegistry()}
 }
 
 // Subscribe opens a server stream and pushes notifications until the
 // client cancels the context or the LISTEN connection drops.
+//
+// At most one Subscribe stream is allowed per user (H-4). A second
+// concurrent Subscribe cancels the first; the first returns Aborted so
+// the client can distinguish "we were evicted" from a network drop.
 func (s *Service) Subscribe(
 	ctx context.Context,
 	_ *connect.Request[pb.SubscribeRequest],
@@ -55,6 +106,18 @@ func (s *Service) Subscribe(
 ) error {
 	uc := middleware.MustFromContext(ctx)
 	channel := ChannelName(uc.UserID)
+
+	// Wrap the request context so we can be cancelled from the registry
+	// when a newer Subscribe arrives. parentCtx (the original request
+	// context) is retained so we can distinguish "client disconnected"
+	// from "evicted by newer subscription".
+	parentCtx := ctx
+	streamCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	slot := &streamSlot{cancel: cancel}
+	s.registry.take(uc.UserID, slot)
+	defer s.registry.release(uc.UserID, slot)
+	ctx = streamCtx
 
 	// One LISTEN connection per stream. Acquire returns a connection
 	// pinned to a single backend session — exactly what LISTEN requires.
@@ -87,6 +150,13 @@ func (s *Service) Subscribe(
 				continue
 			}
 			if errors.Is(err, context.Canceled) {
+				// Distinguish a client disconnect (parent ctx done) from
+				// being evicted by a newer Subscribe (only streamCtx done).
+				// The latter is a deliberate server-side action so the
+				// client can show "subscription replaced by a newer tab".
+				if parentCtx.Err() == nil {
+					return connect.NewError(connect.CodeAborted, errors.New("subscription superseded"))
+				}
 				return nil
 			}
 			return connect.NewError(connect.CodeInternal, fmt.Errorf("WaitForNotification: %w", err))

@@ -33,6 +33,9 @@ const (
 	AuditActionAccountDeleteAttemptFailed AuditAction = "account_delete_attempt_failed"
 	AuditActionEmailVerify                AuditAction = "email_verify"
 	AuditActionEmailResend                AuditAction = "email_resend"
+	AuditActionLoginFailed                AuditAction = "login_failed"
+	AuditActionMfaFailed                  AuditAction = "mfa_failed"
+	AuditActionRecoveryFailed             AuditAction = "recovery_failed"
 )
 
 func (e AuditAction) Valid() bool {
@@ -59,7 +62,10 @@ func (e AuditAction) Valid() bool {
 		AuditActionAccountDelete,
 		AuditActionAccountDeleteAttemptFailed,
 		AuditActionEmailVerify,
-		AuditActionEmailResend:
+		AuditActionEmailResend,
+		AuditActionLoginFailed,
+		AuditActionMfaFailed,
+		AuditActionRecoveryFailed:
 		return true
 	}
 	return false
@@ -174,16 +180,17 @@ type IdempotencyKey struct {
 }
 
 type MfaChallenge struct {
-	ID            uuid.UUID          `db:"id" json:"id"`
-	UserID        uuid.UUID          `db:"user_id" json:"user_id"`
-	Email         string             `db:"email" json:"email"`
-	AuthKeyCt     []byte             `db:"auth_key_ct" json:"auth_key_ct"`
-	DeviceID      string             `db:"device_id" json:"device_id"`
-	DeviceType    string             `db:"device_type" json:"device_type"`
-	DeviceName    string             `db:"device_name" json:"device_name"`
-	TotpRequired  bool               `db:"totp_required" json:"totp_required"`
-	WebauthnState []byte             `db:"webauthn_state" json:"webauthn_state"`
-	ExpiresAt     pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
+	ID             uuid.UUID          `db:"id" json:"id"`
+	UserID         uuid.UUID          `db:"user_id" json:"user_id"`
+	Email          string             `db:"email" json:"email"`
+	AuthKeyCt      []byte             `db:"auth_key_ct" json:"auth_key_ct"`
+	DeviceID       string             `db:"device_id" json:"device_id"`
+	DeviceType     string             `db:"device_type" json:"device_type"`
+	DeviceName     string             `db:"device_name" json:"device_name"`
+	TotpRequired   bool               `db:"totp_required" json:"totp_required"`
+	WebauthnState  []byte             `db:"webauthn_state" json:"webauthn_state"`
+	ExpiresAt      pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
+	FailedAttempts int32              `db:"failed_attempts" json:"failed_attempts"`
 }
 
 type Project struct {
@@ -228,10 +235,12 @@ type User struct {
 }
 
 type UserAuth struct {
-	UserID         uuid.UUID          `db:"user_id" json:"user_id"`
-	AuthKeyHash    string             `db:"auth_key_hash" json:"auth_key_hash"`
-	FailedAttempts int32              `db:"failed_attempts" json:"failed_attempts"`
-	LockedUntil    pgtype.Timestamptz `db:"locked_until" json:"locked_until"`
+	UserID                 uuid.UUID          `db:"user_id" json:"user_id"`
+	AuthKeyHash            string             `db:"auth_key_hash" json:"auth_key_hash"`
+	FailedAttempts         int32              `db:"failed_attempts" json:"failed_attempts"`
+	LockedUntil            pgtype.Timestamptz `db:"locked_until" json:"locked_until"`
+	RecoveryFailedAttempts int32              `db:"recovery_failed_attempts" json:"recovery_failed_attempts"`
+	RecoveryLockedUntil    pgtype.Timestamptz `db:"recovery_locked_until" json:"recovery_locked_until"`
 }
 
 type UserKdfParam struct {

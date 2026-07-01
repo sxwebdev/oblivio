@@ -147,6 +147,48 @@ func TestMFAStorePeekDoesNotConsume(t *testing.T) {
 	}
 }
 
+// TestMFAStoreFailedAttemptsBurnsChallenge documents the C-1 fix:
+// RecordFailedAttempt increments the per-challenge counter and burns
+// the row once it hits MaxMFAFailedAttempts so an attacker who has
+// the user's password cannot brute-force TOTP/WebAuthn codes within
+// the 5-minute challenge window.
+func TestMFAStoreFailedAttemptsBurnsChallenge(t *testing.T) {
+	s, _, uid := newTestMFAStore(t, time.Minute)
+	ctx := context.Background()
+
+	id, err := s.Put(ctx, MFAChallenge{
+		UserID:       uid,
+		Email:        "mfa-test@example.com",
+		AuthKey:      randomAuthKey(t),
+		TOTPRequired: true,
+	})
+	if err != nil {
+		t.Fatalf("put: %v", err)
+	}
+
+	// First MaxMFAFailedAttempts-1 attempts increment without burning.
+	for i := 1; i < MaxMFAFailedAttempts; i++ {
+		if err := s.RecordFailedAttempt(ctx, id); err != nil {
+			t.Fatalf("attempt %d: %v", i, err)
+		}
+	}
+
+	// The threshold attempt burns the row.
+	if err := s.RecordFailedAttempt(ctx, id); !errors.Is(err, ErrChallengeBurned) {
+		t.Fatalf("threshold attempt: %v, want ErrChallengeBurned", err)
+	}
+
+	// After burning, Peek/Take must report NotFound.
+	if _, err := s.Peek(ctx, id); !errors.Is(err, ErrChallengeNotFound) {
+		t.Errorf("peek after burn: %v, want ErrChallengeNotFound", err)
+	}
+
+	// Further increments on a burned row also surface NotFound.
+	if err := s.RecordFailedAttempt(ctx, id); !errors.Is(err, ErrChallengeNotFound) {
+		t.Errorf("increment after burn: %v, want ErrChallengeNotFound", err)
+	}
+}
+
 func TestMFAStoreExpiry(t *testing.T) {
 	s, _, uid := newTestMFAStore(t, 50*time.Millisecond)
 	ctx := context.Background()
